@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>パーティ入力ページ</title>
+        <link rel="stylesheet" href="./css/InputPokemonPage.css"/>
+        <link rel="shortcut icon" href="favicon.ico" type="image/vnd.microsoft.icon">
+    </head>
+    <body>
+        <h1>パーティ入力ページdesu</h1>
+        <div class = "tab-panel">
+            <ul class = "tab-group">
+                <li class = "tab tab-A is-active">+</li>
+                <li class = "tab tab-B">+</li>
+                <li class = "tab tab-C">+</li>
+                <li class = "tab tab-D ">+</li>
+                <li class = "tab tab-E">+</li>
+                <li class = "tab tab-F">+</li>
+            </ul>
+            <div class = "panel-group">
+                <form>
+                    <div class = "panel tab-A is-show input_pokemon">ポケモン1 : </div>
+                    <div class = "panel tab-B input_pokemon">ポケモン2 : </div>
+                    <div class = "panel tab-C input_pokemon">ポケモン3 : </div>
+                    <div class = "panel tab-D input_pokemon">ポケモン4 : </div>
+                    <div class = "panel tab-E input_pokemon">ポケモン5 : </div>
+                    <div class = "panel tab-F input_pokemon">ポケモン6 : </div>
+                    <ul class="fortxt">
+                    </ul>
+                </form>
+                
+            </div>
+        </div>
+        <form action="" onsubmit="sendMessage(event)"></form>
+            <input type="text" class="messageText" autocomplete="off"/>
+            <input type="text" class="messageText" autocomplete="off"/>
+            <button>Send</button>
+        </form>
+        <ul id='messages'>
+        </ul>
+        <script>
+            var panel_input_pokemon = document.getElementsByClassName("input_pokemon")
+            Array.from(panel_input_pokemon).forEach(element => {
+                element.insertAdjacentHTML(
+                    "beforeend",
+                    '<input type="text" calss="messageText" autocomplete="off"/>'
+                    )
+            });
+
+            var elem = document.getElementsByClassName("fortxt")[0];
+            for(let i = 0; i < 5; i++) {
+                console.log("ugoiteru"+i);
+                elem.insertAdjacentHTML("beforeend", '<b>bar</b>');
+            }
+        </script>
+        <script src="./js/InputPokemonPage.js"></script>
+    </body>
+</html>

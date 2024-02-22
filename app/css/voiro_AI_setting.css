@@ -1,0 +1,106 @@
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+.body_setting{
+    /*flex-grow: 1;*/
+    overflow:auto;
+    height:100vh;
+    color:rgb(223, 234, 244);              /*文字色*/
+    background-color: rgb(223, 234, 244);
+}
+.body_setting::-webkit-scrollbar {
+    display: none;
+}
+
+.combination_name{
+    background-color:rgb(211, 154, 49);
+}
+
+.accordion_tab{
+    /*flex-grow: 1;*/
+    padding:5px;
+    list-style:none;
+    /*border:solid 1px #8622ff;*/
+    text-align:center;
+    cursor:pointer;
+}
+
+.accordion_item_name{
+    border-bottom-right-radius: 10px;
+    text-decoration: none;
+    background-color: #737373;
+}
+.accordion_item_name.has_on_content_button{
+    color: rgb(103, 189, 255);
+}
+.accordion_item_name:hover{
+    background-color: #242c36;
+}
+
+.accordion_contents{
+    background-color: rgb(223, 234, 244);
+}
+.accordion_content{
+    border-radius: 20px;
+    background-color: #aaa;
+}
+.accordion_content:hover{
+    background-color: #4e698e;
+}
+.non_vissible{
+    display: none;
+}
+.on_accordion_content{
+    background-color: rgb(0, 120, 212)
+}
+.on_accordion_content:hover{
+    background-color: rgb(0, 145, 255)
+}
+
+.combination_name{
+    background-color: rgb(118, 172, 73);
+}
+.combination_name:hover{
+    background-color: rgb(83, 169, 12);
+}
+
+.combination_candidate.non_vissible{
+    display: none;
+}
+
+.combination_name_button{
+    background-color: rgb(88, 124, 57);
+    border-top-left-radius: 4px;
+    border-bottom-right-radius: 10px;
+    color: rgb(223, 234, 244);
+    padding: 5px 10px;
+    margin-top: 3px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+}
+.combination_name_button:hover{
+    background-color: rgb(91, 177, 16);
+}
+
+li {
+    list-style-type: none;/*liタグの前に表示される「●」は、ブラウザが自動的に付与するリストマーカーです。このリストマーカーを消す*/
+}
+ul {
+    list-style-type: none;  /*ulタグの前に表示される「●」は、ブラウザが自動的に付与するリストマーカーです。このリストマーカーを消す*/
+    padding: 0;             /*ulタグが右にずれるので余白を消す*/
+    margin: 0;              /*ulタグが右にずれるので余白を消す*/
+}
+.gpt_mode.on {
+    background-color: #0394b896;
+}
+.gpt_mode.on:hover {
+    background-color: #0394b8;
+}
+.gpt_mode.off {
+    background-color: #15182553;
+}
+.gpt_mode.off:hover {
+    background-color: #151825;
+}
+  

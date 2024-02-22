@@ -1,0 +1,251 @@
+body{
+    margin: 0;   
+}
+.Party{
+    margin:0 0%;
+    flex-grow: 19;
+}
+.humans_space{
+    display: flex;
+    justify-content: center;
+    padding-inline-start: 0px;
+}
+.human_tab{
+    position: relative;
+    width: 50%;
+}
+.human_name_tab{
+    position: absolute;
+    width: 100%;
+    z-index: 999999;
+    display: flex;
+    align-items: flex-start;
+    overflow: visible;
+    padding:0px;
+    justify-content: center;
+}
+.tab{
+flex-grow: 1;
+padding:2px;
+list-style:none;
+/*border:solid 1px #67b5e6;*/
+/*text-align:center;*/
+cursor:pointer;
+color:#FFF;
+}
+.bar_button {
+    text-align: center;
+    border-radius: 45% 55% 27% 73% / 51% 75% 25% 49%;
+    /*background-color: #67598553;*/
+    /*background-color: #c0886653;*/
+    background-color: rgba(182, 223, 243, 0.64);
+
+}
+.delete_human_button{
+}
+.body_setting_button {
+}
+.gpt_setting{
+    flex-grow: 4;
+}
+.gpt_mode{
+    border-radius: 45% 55% 27% 73% / 51% 75% 25% 49%;
+}
+.npc{
+}
+.add_humann_button{
+}
+
+.init_tab{
+    display: none;
+}
+.tab.human_name{
+    flex-grow: 15;
+    list-style:none;
+    text-align:center;
+    cursor:pointer;
+}
+.tab.add_human_button{
+flex-grow: 1;
+padding:5px;
+list-style:none;
+border:solid 1px #CCC;
+text-align:center;
+cursor:pointer;
+}
+.human{
+overflow: hidden;
+border:solid 1px #CCC;
+border-top:none;
+background:#eee;
+height: 65vh;
+}
+.bg_image{
+    position: absolute;
+    z-index: 0;
+    height: 65vh;
+    width: auto;
+}
+.green_back{
+    background-color: #00ff00;
+}
+/*マゼンタ*/
+.maze_back{
+    background-color: #e4007f;
+}
+.blue_back{
+    background-color: #0000ff;
+}
+
+.human_image{
+    position: absolute;
+    /*left: 25%;*/
+    z-index: 0;
+    /*border-radius: 40px;*/
+    height: 65vh;
+    width: auto;
+}
+.panel{
+display:none;
+}
+.tab.is-active{
+background:rgb(211, 154, 49);
+}
+.panel.is-show{
+display:block;
+}
+
+/* start メッセージ入力ボックスのスタイル*/
+.input_area{
+    width: auto;
+    display: flex;
+    flex-direction: column;
+}
+.messageText {
+    resize: vertical;
+    text-align: left;
+    width: auto ;
+    height: 10vh;
+    border: none; /* ボーダーを削除 */
+    border-radius: 5px; /* 角を丸くする */
+    padding: 10px; /* パディングを追加 */
+    font-size: 16px; /* フォントサイズを大きく */
+    background-color: #333; /* 背景色をダークグレーに */
+    color: #fff; /* テキスト色を白に */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* ボックスシャドウを追加 */
+    font-family: 'Yu Gothic', 'Roboto', sans-serif;
+}
+
+.message{
+    white-space: pre-wrap;
+    word-break: break-all;
+    word-wrap: break-word;
+    width: 95%;
+    height: auto;
+    padding: 1vh;
+    margin: 1vh;
+    font-size: 2vh;
+    font-family: fantasy;
+    background-color: rgba(0, 255, 255, 0.565);
+    border-radius: 0.5vh;
+
+}
+
+.message_col.mode_separate{
+    display: none;
+}
+
+.message_col.mode_integrate{
+    
+}
+.message_integrate{
+    white-space: pre-wrap;
+    word-break: break-all;
+    word-wrap: break-word;
+    width: 95%;
+    height: auto;
+    padding: 1vh;
+    margin: 1vh;
+    font-size: 2vh;
+    font-family: fantasy;
+    background-color: rgba(0, 255, 255, 0.565);
+    border-radius: 0.5vh;
+}
+
+.send_button{
+    flex-grow: 1;
+}
+.delete_button{
+    flex-grow: 1;
+}
+
+.send_button, .delete_button {
+    border: none; /* ボーダーを削除 */
+    color: white; /* テキスト色を白に */
+    padding: 0.5vh 1vh; /* パディングを追加 */
+    text-align: center; /* テキストを中央揃えに */
+    text-decoration: none; /* テキスト装飾を削除 */
+    display: inline-block;
+    font-size: 1.3vh; /* フォントサイズを大きく */
+    margin: 0.5vh 1vh;
+    cursor: pointer; /* カーソルをポインタに */
+    border-radius: 0.5vh; /* 角を丸くする */
+    background-color: #333; /* 背景色をダークグレーに */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* ボックスシャドウを追加 */
+}
+
+.send_button:hover, .delete_button:hover {
+    background-color: #555; /* ホバー時の背景色を少し明るく */
+}
+
+/* end メッセージ入力ボックスのスタイル*/
+
+.link_image{
+    width: 5vh;
+    height: auto;
+}
+img {
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* IE10+/Edge */
+    user-select: none; /* Standard */
+}
+
+.drag-and-drop {
+    cursor: move;
+    position: absolute;
+    z-index: 1000;
+}
+
+.drag {
+    z-index: 1001;
+}
+
+/* メッセージ履歴ボックスのスタイル*/
+.message_col {
+    height: 17vh; /* 高さを300pxに設定 */
+    overflow-y: scroll; /* 縦方向にスクロールバーを表示 */
+    color: black;
+    width: 100%;
+}
+
+.message_col::-webkit-scrollbar {
+    width: 10px;
+}
+
+.message_col::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.message_col::-webkit-scrollbar-thumb {
+    background: #888; /* ミディアムグレー */
+}
+
+.message_col::-webkit-scrollbar-thumb:hover {
+    background: #555; /* ダークグレー */
+}
+
+.subtitle{
+    z-index: 1000;
+}
+

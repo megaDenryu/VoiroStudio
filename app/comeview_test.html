@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Chat</title>
+        
+    </head>
+    <body>
+        <h1>Test</h1>
+        <script>
+            /**
+             * ニコニコ生放送のコメントを取得するプログラムのメイン処理です。
+             */
+            class NikoNamaCommentReciever {
+                constructor() {
+                    this.ws = null;
+                }
+        
+                async main() {
+                    const roomId = 'lv343602022'; // ニコニコ生放送の部屋IDを指定します。
+                    const roomInfo = await this.getRoomInfo(roomId);
+                    this.ws = new WebSocket(roomInfo.messageServerUri);
+                    this.ws.onmessage = (event) => {
+                        const comment = JSON.parse(event.data);
+                        console.log(comment);
+                    };
+                }
+        
+                async getRoomInfo(roomId) {
+                    const url = `https://live2.nicovideo.jp/watch/${roomId}/programinfo`;
+        
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    console.log(data);
+                    const messageServerUri = `wss://a.live2.nicovideo.jp/wsapi/v1/watch/${roomId}/timeshift?audience_token=${data.program.audienceToken}`;
+        
+                    return { messageServerUri };
+                }
+            }
+
+            nikonama_come_reciever = new NikoNamaCommentReciever();
+            nikonama_come_reciever.main();
+        
+        </script>
+    </body>
+</html>

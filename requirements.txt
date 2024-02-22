@@ -1,0 +1,10 @@
+numpy
+janome
+Pillow
+requests
+beautifulsoup4
+lxml
+openai
+uvicorn[standard]
+fastapi
+pywin32
