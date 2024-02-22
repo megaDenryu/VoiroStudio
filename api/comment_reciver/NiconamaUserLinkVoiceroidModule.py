@@ -40,19 +40,18 @@ class NiconamaUserLinkVoiceroidModule:
         コメントから@の後ろのキャラ名を取得する
         """
         if "@" in comment:
-            name = comment.split("@")[1]
-            chara_name = Human.setCharName(name)
-            if chara_name != "":
-                return chara_name
-            return "名前が無効です" 
+            name = Human.checkCommentNameInNameList("@",comment)
         elif "＠" in comment:
-            name = comment.split("＠")[1]
-            chara_name = Human.setCharName(name)
-            if chara_name != "":
-                return chara_name
-            return "名前が無効です"
+            name = Human.checkCommentNameInNameList("＠",comment)
         else:
-            return "名前が無効です"      
+            return "名前が無効です"
+
+        if name != "名前が無効です":
+            chara_name = Human.setCharName(name)
+            return chara_name
+        
+        return "名前が無効です"
+             
     
     
     def saveNikonamaUserIdToCharaName(self,NikonamaUserId, chara_name):
