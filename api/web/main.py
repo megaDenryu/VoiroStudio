@@ -377,11 +377,13 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
         pprint(comment)
         if "user_id" in comment:
             user_id = comment["user_id"]
-            comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
-            
             if "@" in comment["comment"] or "＠" in comment["comment"]:
                 print("ユーザーIDとキャラ名を紐づけます")
                 char_name = nulvm.registerNikonamaUserIdToCharaName(comment["comment"],user_id)
+
+            comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
+            
+            
 
         
             

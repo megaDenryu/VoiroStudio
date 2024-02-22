@@ -7,11 +7,19 @@ import re
 from pprint import pprint
 sys.path.append('../..')
 from api.gptAI.gpt import ChatGPT
-from api.gptAI.voiceroid_api import cevio_human
-from api.gptAI.voiceroid_api import voicevox_human
-from api.gptAI.voiceroid_api import AIVoiceHuman
 from api.images.image_manager.HumanPart import HumanPart
 from starlette.websockets import WebSocket
+from api.gptAI.voiceroid_api import voicevox_human
+
+try:
+    from api.gptAI.voiceroid_api import cevio_human
+except ImportError:
+    print("cevio_human module could not be imported. Please ensure the required application is installed.")
+
+try:
+    from api.gptAI.voiceroid_api import AIVoiceHuman
+except ImportError:
+    print("AIVoiceHuman module could not be imported. Please ensure the required application is installed.")
 
 class Human:
     def __init__(self,front_name,voiceroid_dict, corresponding_websocket:WebSocket, prompt_setteing_num:str = "キャラ個別システム設定") -> None:
@@ -222,9 +230,9 @@ class Human:
                 print(e)
     
     @staticmethod
-    def setCharName(name):
+    def getNameList()->dict[str,str]:
         """
-        front_nameからchar_nameに変換する関数
+        キャラ名のリストを返す
         """
         name_list = {
             "おね":"ONE",
@@ -323,11 +331,33 @@ class Human:
 
 
         }
+        return name_list
+
+    @staticmethod
+    def setCharName(name):
+        """
+        front_nameからchar_nameに変換する関数
+        """
+        name_list = Human.getNameList()
+        
         try:
             return name_list[name]
         except Exception as e:
             print(f"{name}は対応するキャラがサーバーに登録されていません。")
             return name
+    
+    @staticmethod
+    def checkCommentNameInNameList(atmark_type,comment:str):
+        """
+        コメントに含まれる名前がキャラ名リストに含まれているか確認する
+        """
+        name_list = Human.getNameList()
+        for name in name_list:
+            target = f"{atmark_type}{name}"
+            if target in comment:
+                return name
+        return "名前が無効です"
+
     
     @staticmethod
     def convertDictKeyToCharName(dict:dict):
