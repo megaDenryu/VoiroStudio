@@ -10,6 +10,7 @@ api/images/psd_parser_python/*
 api/web/build/*
 api/web/dist/*
 api/web/main.spec
+api/web/user_data.json
 
 app/images/
 api/web/output_wav/*
