@@ -145,7 +145,11 @@ class VoiroAISetting{
     getAllNowImages(){
         var image_status_dict = {};
         for (const [key_name, accordion_item] of Object.entries(this.accordion_item_dict)){
-            image_status_dict[key_name] = this.chara_human_body_manager.getNowNameBodyPart(key_name);
+            let part_dict_on_off = {};
+            for (const [key, value] of Object.entries(accordion_item.accordion_content_handler_list)){
+                part_dict_on_off[key] = value.on_off;
+            }
+            image_status_dict[key_name] = part_dict_on_off;
         }
         return image_status_dict;    
     }
@@ -173,12 +177,13 @@ class AccordionItem{
      * 
      * @param {string} name_acordion           body_setting要素内のアコーディオンの名前は、対応する画像名と同じにする
      * @param {HTMLElement} Parent_ELM_body_setting  body_settingの要素
-     * @param {HumanBodyManager2} chara_human_body_manager: iHumanBodyManager
+     * @param {HumanBodyManager2} chara_human_body_manager
      * @property {string} statu_open_close
      * @property {HTMLElement} ELM_accordion_contents
      * @property {HTMLCollection} ELMs_accordion_content
      * @property {object} accordion_content_handler_list
      * @property {object} has_on_content_button
+     * @property {boolean} radio_mode
      */
     constructor(name_acordion, Parent_ELM_body_setting, chara_human_body_manager){
         //引数の登録
@@ -207,6 +212,8 @@ class AccordionItem{
         this.html_doc = parser.parseFromString(this.HTML_str_accordion_sample, "text/html");
         //名前を設定
         this.setAccordionItemName(name_acordion);
+        //このアコーディオンがラジオモードかどうか
+        this.radio_mode = false;
         //アコーディオンの中身を作成
         var [ELM_accordion_contents,accordion_content_handler_list] = this.createELMAccordionContents(name_acordion);
         this.ELM_accordion_contents = ELM_accordion_contents;
@@ -388,7 +395,7 @@ class ContentButtonEventobject{
      * @param {string} on_off 
      * @param {HTMLElement} ELM_accordion_content 
      * @param {AccordionItem} parent_accordion_item_instance
-     * @property {iHumanBodyManager} chara_human_body_manager
+     * @property {HumanBodyManager2} chara_human_body_manager
      */
     constructor(image_name, on_off, ELM_accordion_content,parent_accordion_item_instance){
         this.image_name = image_name;
@@ -422,12 +429,14 @@ class ContentButtonEventobject{
             this.chara_human_body_manager.changeBodyPart(accordion_name,this.image_name,"on");
             this.on_off = "on";
             //他のボタンでonになっているものをoffにする
-            for (const [key, value] of Object.entries(this.parent_accordion_item_instance.accordion_content_handler_list)){
-                console.log(key,value)
-                if (key != this.image_name){
-                    value.ELM_accordion_content.classList.remove("on_accordion_content");
-                    //value.parent_accordion_item_instance.chara_human_body_manager.changeBodyPart(accordion_name,key,"off");
-                    value.on_off = "off";
+            if (this.parent_accordion_item_instance.radio_mode == true) {
+                for (const [key, value] of Object.entries(this.parent_accordion_item_instance.accordion_content_handler_list)){
+                    console.log(key,value)
+                    if (key != this.image_name){
+                        value.ELM_accordion_content.classList.remove("on_accordion_content");
+                        value.parent_accordion_item_instance.chara_human_body_manager.changeBodyPart(accordion_name,key,"off");
+                        value.on_off = "off";
+                    }
                 }
             }
 
@@ -446,12 +455,14 @@ class ContentButtonEventobject{
             this.chara_human_body_manager.changeBodyPart(accordion_name,this.image_name,"on");
             this.on_off = "on";
             //他のボタンでonになっているものをoffにする
-            for (const [key, value] of Object.entries(this.parent_accordion_item_instance.accordion_content_handler_list)){
-                console.log(key,value)
-                if (key != this.image_name){
-                    value.ELM_accordion_content.classList.remove("on_accordion_content");
-                    //value.parent_accordion_item_instance.chara_human_body_manager.changeBodyPart(accordion_name,key,"off");
-                    value.on_off = "off";
+            if (this.parent_accordion_item_instance.radio_mode == true) {
+                for (const [key, value] of Object.entries(this.parent_accordion_item_instance.accordion_content_handler_list)){
+                    console.log(key,value)
+                    if (key != this.image_name){
+                        value.ELM_accordion_content.classList.remove("on_accordion_content");
+                        value.parent_accordion_item_instance.chara_human_body_manager.changeBodyPart(accordion_name,key,"off");
+                        value.on_off = "off";
+                    }
                 }
             }
         } else {
@@ -494,11 +505,11 @@ class BodyCombinationAccordionManager{
      * VoiroAISetting.ELM_combination_nameを押したらアコーディオンが開いて、human_body_manager.pose_patternsの組み合わせ名が全て表示される
      * キャラの組み合わせ名を選択するアコーディオンを管理するクラス
      * 
-     * @param {iHumanBodyManager} human_body_manager
+     * @param {HumanBodyManager2} human_body_manager
      * @param {HTMLElement} ELM_combination_box
      * @param {HTMLElement} ELM_now_combination_name
      * @param {VoiroAISetting} VoiroAISetting
-     * @property {iHumanBodyManager} human_body_manager
+     * @property {HumanBodyManager2} human_body_manager
      * @property {VoiroAISetting} VoiroAISetting
      * @property {HTMLElement} ELM_now_combination_name
      * @property {ExtendedMap} combination_box_status
@@ -570,7 +581,7 @@ class CombinationContent{
      * キャラの組み合わせ名を選択するアコーディオンの中身のパターンNのボタンなどを管理するクラス
      * @param {string} combination_name
      * @param {BodyCombinationAccordionManager} body_combination_accordion_manager
-     * @param {iHumanBodyManager} human_body_manager
+     * @param {HumanBodyManager2} human_body_manager
      * @property {HTMLElement} ELM_combination_name_button
      * @property {string} on_off
      * 
@@ -591,7 +602,8 @@ class CombinationContent{
      * @returns {object} combination_data
      */
     getCombinationData(){
-        return this.human_body_manager.getPosePattern(this.combination_name);
+        const pose_pattern = this.human_body_manager.getPosePattern(this.combination_name);
+        return pose_pattern;
     }
     
     /**
@@ -618,14 +630,19 @@ class CombinationContent{
             //VoiroAISettingの各アコーディオンのボタンをクリックするイベント発生させて以下を実現する。
             //human_body_managerのpose_patternを変更する
             //human_body_managerのbody_partを変更する
-            console.log("CombinationContentがクリックされたよ")
+            console.log("CombinationContentがクリックされたよ,ボタン名＝",this.combination_name,"現在の状態:",this.human_body_manager.pose_patterns)
             const combination_data = this.getCombinationData();
-            for (const [body_group, image_name] of Object.entries(combination_data)){
-                console.log(body_group," なのだ ",image_name)
-                this.body_combination_accordion_manager.VoiroAISetting.setGroupButtonOnOff(body_group, image_name, "on")
+            for (const [body_group, part_candidate_info] of combination_data.entries()){
+                //part_candidate_info = {10_体:"on"}のようなjson
+                console.log(body_group," なのだ ",part_candidate_info,"を適用する。現在の状態:",this.human_body_manager.pose_patterns)
+                //part_candidate_info = {10_体:"on"}のようなjsonのキーと値を取得する
+                for (const [image_name, on_off] of Object.entries(part_candidate_info)){
+                    console.log(image_name, on_off)
+                    this.body_combination_accordion_manager.VoiroAISetting.setGroupButtonOnOff(body_group, image_name, on_off);
+                }
             }
         }
-
+        console.log("コンビネーション適用完了！現在の状態:",this.human_body_manager.pose_patterns)
     }
 
     createELMCombinationNameButton(){

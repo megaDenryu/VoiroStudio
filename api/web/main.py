@@ -95,6 +95,9 @@ async def read_root(path_param: str):
     target = app_dir / path_param
     if path_param == "":
         target = app_dir / "index.html"
+    
+    if path_param == "newHuman":
+        target = app_dir / "index_Human2.html"
     print(f"{target=}")
 
     # ファイルが存在しない場合は404エラーを返す

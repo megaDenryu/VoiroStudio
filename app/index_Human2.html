@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Chat</title>
+        <link rel="stylesheet" href="./css/style.css">
+        <link rel="stylesheet" href="./css/voiro_AI_setting.css">
+        <link rel="shortcut icon" href="./favicon.ico" type="image/vnd.microsoft.icon">
+        
+    </head>
+    <body>
+        <div class = "main" style="display: flex;">
+            <div class = "body_setting_sample" style="display: none;">
+                <ul class = "accordion select_pose">
+                    <li class = "accordion_item close layer ">
+                        <div class = "accordion_item_name accordion_tab">
+                            ポーズ1
+                        </div>
+                    </li>
+                    <li class = "accordion_item close layer ">
+                        <div class = "accordion_item_name accordion_tab">
+                            ポーズ2
+                        </div>
+                    </li>
+                </ul>
+                <ul class="accordion_sample">
+                    <li class = "accordion_item close layer ">
+                        <div class = "accordion_item_name accordion_tab">
+                            頭
+                        </div>
+                        <ul class = "accordion_contents non_vissible">
+                            <li class = "accordion_content body_part_image_name accordion_tab">1.png</li>
+                        </ul>
+                    </li>
+                </ul>
+                <ul class = "accordion">
+                    <li class = "accordion_item close layer ">a
+                        <div class = "accordion_item_name accordion_tab">
+                            頭
+                        </div>
+                        <ul class = "accordion_contents non_vissible">
+                            <li class = "accordion_content body_part_image_name accordion_tab">1.png</li>
+                            <li class = "accordion_content body_part_image_name accordion_tab">2.png</li>
+                            <li class = "accordion_content body_part_image_name accordion_tab">3.png</li>
+                            <li class = "accordion_content body_part_image_name accordion_tab">4.png</li>
+                        </ul>
+                    </li>
+                    <li class = "accordion_item open layer ">b
+                        <div class = "accordion_item_name accordion_tab">
+                            頭
+                        </div>
+                        <ul class = "accordion_contents vissible">
+                            <li class = "accordion_content body_part_image_name accordion_tab">1.png</li>
+                            <li class = "accordion_content body_part_image_name accordion_tab">2.png</li>
+                            <li class = "accordion_content body_part_image_name accordion_tab">3.png</li>
+                            <li class = "accordion_content body_part_image_name accordion_tab">4.png</li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="assign_pose_name">
+                    
+                </div>
+            </div>
+            <div class = "body_setting">
+            </div>
+            <div class = "Party" >
+                <ul class = "humans_space">
+                    <li class="init_tab human_tab">
+                        <ul class="human_name_tab">
+                            <li class="tab bar_button delete_human_button">x</li>
+                            <li class="tab bar_button human_name">選択中................</li>
+                            <li class="tab bar_button body_setting_button">設定</li>
+                            <ul class="gpt_setting" tabindex="-1">
+                                <li class="bar_button gpt_mode_accordion_open_close_button close">gpt</li>
+                            </ul>
+                            <li class="tab bar_button npc">npc</li>
+                            <li class="tab bar_button add_humann_button">+</li>
+                        </ul>
+                        <div class = "human">
+                            <div class = "UI">
+                                    <div style="display: flex;flex-direction: column;">
+                                        <div class="human_window no_image_human" style="position: relative; ">
+                                            <div class = "bg_images">
+                                                <img class = "bg_image" src = "./images/その他画像/nc268704.jpg"/>
+                                            </div>
+                                            <div class = "human_images">
+                                                
+                                            </div>
+                                            <div class = "search_canvas"></div>
+                                            <div class = "subtitle"></div>
+                                        </div>
+                                    </div>
+                            </div>
+                        </div>
+                        <div class="input_area">
+                            <textarea type="text" cols="30" rows="20" class ="messageText" ></textarea>
+                            <div style="display: flex;">
+                                <button type="button" class="send_button">Send</button>
+                                <button type="button" class="delete_button" onclick="clearText(this)">Delete</button>
+                            </div>
+                        </div>
+                        <ul class ='message_col mode_separate'></ul>
+                    </li>
+                    <li class="tab human_tab is-active">
+                        <div class="human_name_tab">
+                            <div class="tab bar_button delete_human_button">x</div>
+                            <div class="tab bar_button human_name">あかね</div>
+                            <div class="tab bar_button body_setting_button">設定</div>
+                            <ul class="gpt_setting" tabindex="-1">
+                                <li class="bar_button gpt_mode_accordion_open_close_button close">gpt</li>
+                            </ul>
+                            <div class="tab bar_button npc">npc</div>
+                            <div class="tab bar_button add_humann_button">+</div>
+                        </div>
+                        
+                        <div class = "human" >
+                            <div class = "UI">
+                                    <div style="display: flex;flex-direction: column;">
+                                        <div class="human_window あかね" style="position: relative; ">
+                                            <div class = "bg_images">
+                                                <img class = "bg_image" src = "./images/その他画像/nc268704.jpg"/>
+                                            </div>
+                                            <div class = "human_images"></div>
+                                            <div class = "search_canvas"></div>
+                                            <div class = "subtitle"></div>
+                                        </div>
+                                    </div>
+                            </div>
+                        </div>
+                        <div class="input_area">
+                            <textarea type="text" cols="30" rows="20" class ="messageText" ></textarea>
+                            <div style="display: flex;">
+                                <!-- button type="button" onclick="sendMessage(event)">Send</button -->
+                                <button type="button" class="send_button">Send</button>
+                                <button type="button" class="delete_button" onclick="clearText(this)">Delete</button>
+                            </div>
+                        </div>
+                        <ul class ='message_col mode_separate'></ul>
+                    </li>
+                </ul>
+                <ul class = "message_col mode_integrate"></ul>
+                <div class = "audio_group">
+                    <!-- iosの自動再生制限対策-->
+                
+                    <!--audio controls id="audio" src=".\audio\aivoice_audio_琴葉 葵_こんにちわ.wav.mp3" preload="auto"></audio-->
+                    <audio id="audio_ws_onclose_event" src=".\audio\aivoice_audio_絆星あかり_wsが切断されました。再接続します。.wav" preload="auto"></audio>
+
+                </div>
+            </div>
+        </div>
+        <!-- <a  href="./InputPokemonPage.html"><img class = "link_image" src = ./images/その他画像/ポケモンパーティー入力用.png></a> -->
+        
+        
+        
+        <script src="js/VoiroAISetting2.js"></script>
+        <!-- script src="js/VoiroAISetting2.js"></script -->
+        <script src="js/index_Human2.js">
+            
+
+
+            
+
+            
+        </script>
+        
+        <script>
+            console.log("voiro_AI_setting.jsが読み込まれました");
+            
+        </script>
+        
+    </body>
+</html>
