@@ -20,3 +20,5 @@ audio.wav
 query.json
 my-electron-app/node_modules/*
 /app/audio/*
+
+node_modules/*

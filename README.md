@@ -1,3 +1,5 @@
+# このアプリでできること。
+
 # 準備するものの手順
 1. PowerShellをインストール
 2. vscodeをインストール
@@ -53,3 +55,7 @@ cevioとAIVOICEをdockerからだと触り方がわからなかったのでdocke
 3. api\gptAI\voiceroid_api.pyを開き、
    1. cevio、AIVOICEならsetCharNameのname_dictにブラウザで入力したい名前とキャラ本名の対を入力
 4. api\gptAI\Human.py
+
+# 対応機器
+自分のパソコンでサーバーを起動すると、ご家庭のwifi経由で他のパソコンやスマホのブラウザからもipアドレス経由でこのアプリを使えます。
+ただしipadやiphoneでは音がならせないです。
