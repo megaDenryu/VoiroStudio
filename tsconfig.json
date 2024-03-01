@@ -1,0 +1,11 @@
+{
+    "compilerOptions": {
+      "allowJs": true,  // JavaScriptのファイルをチェックする
+      "checkJs": true,  // JavaScriptのファイルに対して型チェックを行う
+      "noEmit": true,  // JavaScriptのファイルをTypeScriptのファイルに変換しない
+      "target": "ES2022",  // ECMAScriptのバージョン
+      "strict": true,  // 厳格な型チェックを行う
+      "strictPropertyInitialization": false, // プロパティの初期化を厳格にチェックしない
+    },
+    "include": ["./app/**/*"],  // チェックするファイルのパス
+}

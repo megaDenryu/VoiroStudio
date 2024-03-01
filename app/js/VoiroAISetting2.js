@@ -1,14 +1,12 @@
 ///@ts-check
 
 class VoiroAISetting{
-    /** @type {HTMLDivElement} */
-    ELM_combination_name;
-
-    /** @type {HTMLDivElement} */
-    ELM_body_setting
-
-    /** @type {HTMLInputElement} */
-    ELM_input_combination_name
+    /** @type {HTMLDivElement} */ ELM_combination_name;
+    /** @type {HTMLDivElement} */ ELM_body_setting;
+    /** @type {HTMLInputElement} */ ELM_input_combination_name;
+    /** @type {HTMLLIElement} */ ELM_combination_box;
+    /** @type {HTMLElement} */ ELM_accordion;
+    /** @type {Record<string, AccordionItem>} */ accordion_item_dict;
 
 
     /**
@@ -27,7 +25,7 @@ class VoiroAISetting{
 
     /**
      * 
-     * @returns {[HTMLElement,object]} ELM_accordion,accordion_item_dict 
+     * @returns {[HTMLElement,Record<string,AccordionItem>]} ELM_accordion,accordion_item_dict 
      */
     createAccordion(){
         var ELM_accordion = document.createElement("ul");
@@ -39,7 +37,10 @@ class VoiroAISetting{
         ELM_accordion.appendChild(this.ELM_combination_box)
 
         var map = this.chara_human_body_manager.body_parts_info;
+        
+        /** @type {Record<string,AccordionItem>} */
         var accordion_item_dict = {};
+
         for (const [key, value] of map){
             //keyは体のパーツの名前、valueはそのパーツの画像群の配列
             var accordion_item = new AccordionItem(key, this.ELM_body_setting, this.chara_human_body_manager);
@@ -62,6 +63,9 @@ class VoiroAISetting{
         return [ELM_accordion,accordion_item_dict];
     }
 
+    /**
+     * @returns {HTMLLIElement} ELM_combination_box
+     */
     createElmCombinatioBox(){
         //boxを作成
         this.ELM_combination_box = document.createElement("li");
@@ -76,7 +80,7 @@ class VoiroAISetting{
         this.ELM_combination_candidate.classList.add("combination_candidate");
         this.ELM_combination_box.appendChild(this.ELM_combination_candidate);
             //イベントハンドラーを追加
-        const bcanm = new BodyCombinationAccordionManager(this.chara_human_body_manager, this.ELM_combination_box, this.ELM_combination_name, this.ELM_combination_candidate, this);
+        const bcanm = new BodyCombinationAccordionManager(this.chara_human_body_manager, this, this.ELM_combination_box, this.ELM_combination_name, this.ELM_combination_candidate);
         this.ELM_combination_box.addEventListener("click",bcanm);
 
         return this.ELM_combination_box;
@@ -106,6 +110,11 @@ class VoiroAISetting{
         return ELM_input_combination_name;
     }
 
+    /**
+     * 
+     * @param {KeyboardEvent} event
+     * @returns {void}
+     */
     saveCombinationName(event){
         if (event.key == "Enter"){
             console.log("Enterが押されたよ")
@@ -115,9 +124,13 @@ class VoiroAISetting{
             //サーバーに組み合わせ名を送信する
             this.sendCombinationName(combination_name);
         }
-        
     }
 
+    /**
+     * 
+     * @param {string} combination_name
+     * @returns {void}
+     */
     sendCombinationName(combination_name){
         console.log("sendCombinationNameを呼び出したよ")
         const all_now_images = this.getAllNowImages()
@@ -145,18 +158,14 @@ class VoiroAISetting{
             ws_combi_img_sender.close();
         }
     }
-    getAllImageStatusDict(){
-        var image_status_dict = {};
-        for (const [key_name, accordion_item] of Object.entries(this.accordion_item_dict)){
-            image_status_dict[key_name] = accordion_item.getNamesOnContentButton();
-        }
-        return image_status_dict;    
-    }
 
     getAllNowImages(){
-        var image_status_dict = {};
+        var image_status_dict = /** @type {Record<string, Record<string, "on" | "off">>} */( {} );
         for (const [key_name, accordion_item] of Object.entries(this.accordion_item_dict)){
-            let part_dict_on_off = {};
+            
+            
+            let part_dict_on_off = /** @type {Record<string,"on"|"off">} */( {} );
+
             for (const [key, value] of Object.entries(accordion_item.accordion_content_handler_list)){
                 part_dict_on_off[key] = value.on_off;
             }
@@ -165,10 +174,22 @@ class VoiroAISetting{
         return image_status_dict;    
     }
 
+    /**
+     * 
+     * @param {string} body_part_name
+     * @param {string} image_name
+     * @returns {void}
+     * todo: 使用箇所探索不能
+     */
     setBodyPartImage(body_part_name,image_name) {
         this.accordion_item_dict[body_part_name].setBodyPartImage(image_name);
     }
 
+    /** 
+     * @param {string} group_name
+     * @param {string} content_name
+     * @param {"on"|"off"} on_off
+     */
     setGroupButtonOnOff(group_name, content_name, on_off){
         this.accordion_item_dict[group_name].setGroupButtonOnOff(content_name,on_off);
     }
@@ -201,7 +222,7 @@ class AccordionItem{
     /** @type {string} */
     statu_open_close;
 
-    /** @type {object} */
+    /** @type {Record<string, ContentButtonEventobject>} */
     accordion_content_handler_list;
 
     /**
@@ -211,8 +232,6 @@ class AccordionItem{
 
     /** @type {Record<string,"on"|"off">} */
     image_item_status
-
-
 
     /**
      * 
@@ -225,9 +244,9 @@ class AccordionItem{
         this.name_acordion = name_acordion;
         this.Parent_ELM_body_setting = Parent_ELM_body_setting;
         this.chara_human_body_manager = chara_human_body_manager;
-        console.log(this.chara_human_body_manager.body_parts_info.get(name_acordion).get("imgs"))
         //this.contents_name_list = [...this.chara_human_body_manager.body_parts_info.get(name_acordion).get("imgs").keys()]
-        this.contents_name_list = this.chara_human_body_manager.body_parts_info.get(name_acordion).get("imgs").comvert2keysArray();
+        const /** @type  {PartInfo}*/ part_info = this.chara_human_body_manager.body_parts_info.get(name_acordion)
+        this.contents_name_list = part_info.imgs.comvert2keysArray();
         
         console.log(this.contents_name_list)
         this.statu_open_close = "close";
@@ -257,6 +276,10 @@ class AccordionItem{
         this.checkHasOnContentButton();
     }
     
+    /**
+     * 
+     * @param {Event} event
+     */
     handleEvent(event){
         console.log("AccordionItemがクリックされたよ",this.ELM)
         //clickイベントの場合。アコーディオンの開閉を行う
@@ -310,6 +333,10 @@ class AccordionItem{
 
     // }
 
+    /**
+     * 
+     * @param {string} name_acordion 
+     */
     setAccordionItemName(name_acordion){
         //accordion_item_nameを変更
         // @ts-ignore
@@ -319,14 +346,14 @@ class AccordionItem{
     /**
      * 
      * @param {string} name_acordion 
-     * @returns {[HTMLUListElement,object]} ELM_accordion_contents,accordion_content_handler_list
-     * 
+     * @returns {[HTMLUListElement,Record<string, ContentButtonEventobject>]} ELM_accordion_contents,accordion_content_handler_list
      */
     createELMAccordionContents(name_acordion){
         //this.contents_name_listには画像の名前が入っている。ELM_accordion_contentを複製してELM_accordion_contentsに追加する。
         let ELM_accordion_contents = /** @type {HTMLUListElement} */(this.html_doc.querySelector(".accordion_contents"));
         const ELM_accordion_content = /** @type {HTMLLIElement} */(this.html_doc.querySelector(".accordion_content"));
-        var accordion_content_handler_list = {};
+
+        var accordion_content_handler_list = /** @type {Record<String,ContentButtonEventobject>}*/( {} );
         for (let i = 0; i < this.contents_name_list.length; i++) {
             //ELM_accordion_contentを複製
             /** @type {HTMLLIElement} */
@@ -354,7 +381,11 @@ class AccordionItem{
         return [ELM_accordion_contents,accordion_content_handler_list];
     }
 
+    /**
+     * @returns {Record<string,"on"|"off">}
+     */
     getContentStatusDict(){
+        /** @type {Record<string,"on"|"off">} */
         var item_status_dict = {};
         for (const [key, value] of Object.entries(this.accordion_content_handler_list)){
             item_status_dict[key] = value.on_off;
@@ -362,16 +393,10 @@ class AccordionItem{
         return item_status_dict;
     }
 
-    getNamesOnContentButton(){
-        var name_on_content_button = [];
-        for (const [key, value] of Object.entries(this.accordion_content_handler_list)){
-            if (value.on_off == "on"){
-                name_on_content_button.push(key);
-            }
-        }
-        return name_on_content_button;
-    }
-
+    /**
+     * @param {Record<string,"on"|"off">} image_item_status
+     * @returns {number}
+     */
     countOnContentButton(image_item_status){
         var count = 0;
         for (const [key, value] of Object.entries(image_item_status)){
@@ -381,14 +406,19 @@ class AccordionItem{
         }
         return count;
     }
+
+    /**
+     * ONになっているボタンがあるかどうかをチェックし、アコーディオンのcssクラスを変える
+     * @returns {void}
+     */
     checkHasOnContentButton(){
-        console.log("checkHasOnContentButtonが動いた: " + new Date());
+        // console.log("checkHasOnContentButtonが動いた: " + new Date());
         const image_item_status = this.getContentStatusDict();
         const count_on_content_button = this.countOnContentButton(image_item_status);
         const ELM_accordion_item_name = this.ELM_accordion_item_name;
-        console.log(this.ELM_accordion_contents);
-        console.log(this.html_doc);
-        console.log(ELM_accordion_item_name);
+        // console.log(this.ELM_accordion_contents);
+        // console.log(this.html_doc);
+        // console.log(ELM_accordion_item_name);
         if (count_on_content_button > 0){
             if (ELM_accordion_item_name.classList.contains("has_on_content_button") == false){
                 ELM_accordion_item_name.classList.add("has_on_content_button");
@@ -399,13 +429,20 @@ class AccordionItem{
             }
         }
     }
-
+    /**
+     * @param {string} image_name 
+     */
     setBodyPartImage(image_name) {
         this.accordion_content_handler_list[image_name].clickEvent();
     }
 
+    /** 
+     * @param {string} content_name
+     * @param {"on"|"off"} on_off
+     */
     setGroupButtonOnOff(content_name, on_off){
         if (content_name != ""){
+            // debugger;
             const accordion_content_handler = this.accordion_content_handler_list[content_name];
             accordion_content_handler.setButtonOnOff(on_off);
         } else {
@@ -423,15 +460,21 @@ class AccordionItem{
 }
 
 class ContentButtonEventobject{
+
+    /** @type {string} */ image_name;
+    /** @type {"on"|"off"} */ on_off;
+    /** @type {HTMLElement} */ ELM_accordion_content;
+    /** @type {AccordionItem} */ parent_accordion_item_instance;
+    /** @type {HumanBodyManager2} */ chara_human_body_manager;
+
     /**
      * 各コンテンツのボタンのイベントハンドラーに追加するクラス
      * このクラスとコンテンツボタンはAccordionContent.createELMAccordionContents一対一で作成される。
      * 
      * @param {string} image_name 
-     * @param {string} on_off 
+     * @param {"on"|"off"} on_off 
      * @param {HTMLElement} ELM_accordion_content 
      * @param {AccordionItem} parent_accordion_item_instance
-     * @property {HumanBodyManager2} chara_human_body_manager
      */
     constructor(image_name, on_off, ELM_accordion_content,parent_accordion_item_instance){
         this.image_name = image_name;
@@ -443,23 +486,27 @@ class ContentButtonEventobject{
         //this.checkInitContentStatus();
         this.checkContentStatus();
     }
+
+    /**
+     * @param {Event} event
+     * @returns {void}
+     */
     handleEvent(event){
         //clickイベントの場合
-        console.log("ContentButtonEventobjectクリックしたよ")
+        // console.log("ContentButtonEventobjectクリックしたよ")
         if(event.type == "click"){
             this.clickEvent();
         }
         //hoverしたとき色を変える
         if(event.type == "mouseover"){
-            console.log("mouseover")
             this.ELM_accordion_content.classList.add("hover");
         }
     }
     clickEvent(){
-        console.log("ContentButtonEventobjectクリックしたよ")
+        // console.log("ContentButtonEventobjectクリックしたよ")
         const accordion_name = this.parent_accordion_item_instance.name_acordion;
         //ボタンの色を変え,プロパティのデータを変える
-        console.log(this.ELM_accordion_content);
+        // console.log(this.ELM_accordion_content);
         if(this.on_off == "off"){
             this.ELM_accordion_content.classList.add("on_accordion_content");
             this.chara_human_body_manager.changeBodyPart(accordion_name,this.image_name,"on");
@@ -467,7 +514,7 @@ class ContentButtonEventobject{
             //他のボタンでonになっているものをoffにする
             if (this.parent_accordion_item_instance.radio_mode == true) {
                 for (const [key, value] of Object.entries(this.parent_accordion_item_instance.accordion_content_handler_list)){
-                    console.log(key,value)
+                    // console.log(key,value)
                     if (key != this.image_name){
                         value.ELM_accordion_content.classList.remove("on_accordion_content");
                         value.parent_accordion_item_instance.chara_human_body_manager.changeBodyPart(accordion_name,key,"off");
@@ -484,6 +531,11 @@ class ContentButtonEventobject{
         this.parent_accordion_item_instance.checkHasOnContentButton();
     }
 
+    /**
+     * 
+     * @param {"on"|"off"} on_off
+     * @returns {void}
+     */
     setButtonOnOff(on_off){
         const accordion_name = this.parent_accordion_item_instance.name_acordion;
         if (on_off == "on"){
@@ -509,6 +561,9 @@ class ContentButtonEventobject{
         this.parent_accordion_item_instance.checkHasOnContentButton();
     }
 
+    /**
+     * @returns {void}
+     */
     checkContentStatus(){
         //HumanBodyManager2のプロパティのデータとアコーディオンの状態を比較して、アコーディオンの状態を変える
         const accordion_name = this.parent_accordion_item_instance.name_acordion;
@@ -524,33 +579,49 @@ class ContentButtonEventobject{
 }
 
 class BodyCombinationAccordionManager{
+
+    /** @type {HumanBodyManager2} */ human_body_manager;
+    /** @type {VoiroAISetting} */ VoiroAISetting
+    /** @type {HTMLElement} */ ELM_combination_box
+    /** @type {HTMLElement} */ ELM_combination_name
+    /** @type {HTMLElement} */ ELM_combination_candidate
+    /** @type {HTMLElement} */ ELM_now_combination_name
+    /** 
+     * 組み合わせ名のアコーディオンの開閉状態を管理するMap。番号でも状態を取得したいのでMapを使う。オンのパターンの名前だけだとそれができないので。
+     * todo: 未使用プロパティ
+     * @type {ExtendedMap<string,*>} 
+     */
+     combination_box_status
+    /** @type {ExtendedMap<string,CombinationContent>} */ conbination_contents
+
     
     /**
      * VoiroAISetting.ELM_combination_nameを押したらアコーディオンが開いて、human_body_manager.pose_patternsの組み合わせ名が全て表示される
      * キャラの組み合わせ名を選択するアコーディオンを管理するクラス
      * 
      * @param {HumanBodyManager2} human_body_manager
-     * @param {HTMLElement} ELM_combination_box
      * @param {VoiroAISetting} VoiroAISetting
-     * @property {HumanBodyManager2} human_body_manager
-     * @property {VoiroAISetting} VoiroAISetting
-     * @property {HTMLElement} ELM_now_combination_name
-     * @property {ExtendedMap} combination_box_status
-     * @property {ExtendedMap} conbination_contents
-     * 
+     * @param {HTMLElement} ELM_combination_box
+     * @param {HTMLElement} ELM_combination_name
+     * @param {HTMLElement} ELM_combination_candidate
      */
-    constructor(human_body_manager, ELM_combination_box, ELM_combination_name, ELM_combination_candidate,VoiroAISetting){
+    constructor(human_body_manager, VoiroAISetting, ELM_combination_box, ELM_combination_name, ELM_combination_candidate){
         this.human_body_manager = human_body_manager;
         this.VoiroAISetting = VoiroAISetting;
         this.ELM_combination_box = ELM_combination_box;
         console.log("bcamを作成した",this.ELM_combination_box)
         this.ELM_now_combination_name = ELM_combination_name;
         this.ELM_combination_candidate = ELM_combination_candidate;
-        this.combination_box_status = new ExtendedMap(); //組み合わせ名のアコーディオンの開閉状態を管理するMap。番号でも状態を取得したいのでMapを使う。オンのパターンの名前だけだとそれができないので。
+        this.combination_box_status = new ExtendedMap(); 
         this.conbination_contents = new ExtendedMap();
         console.log("setAllCombinationを呼び出す")
         this.setAllCombination()
     }
+
+    /**
+     * @param {Event} event
+     * @returns {void}
+     */
     handleEvent(event){
         if(event.type == "click"){
             console.log("BodyCombinationAccordionManagerがクリックされたよ")
@@ -566,9 +637,23 @@ class BodyCombinationAccordionManager{
             
         }
     }
+
+    /**
+     * 
+     * @param {string} combination_name 
+     * @param {*} status 
+     * @returns {void}
+     * todo: 未使用関数
+     */
     setCombinationBoxStatus(combination_name, status){
         this.combination_box_status.set(combination_name,status);
     }
+
+    /**
+     * @param {string} combination_name
+     * @returns {"on"|"off"}
+     * todo: 未使用関数
+     */
     getCombinationBoxStatus(combination_name){
         return this.combination_box_status.get(combination_name);
     }
@@ -581,6 +666,11 @@ class BodyCombinationAccordionManager{
             this.addCombination(combination_name);
         }
     }
+
+    /**
+     * @param {string} combination_name
+     * @returns {void}
+     */
     addCombination(combination_name){
         //human_body_manager.pose_patternsの組み合わせ名をアコーディオンに追加する
         var combination_content = new CombinationContent(combination_name, this, this.human_body_manager);
@@ -589,8 +679,13 @@ class BodyCombinationAccordionManager{
         this.ELM_combination_candidate.appendChild(ELM_combination_content);
         this.conbination_contents.set(combination_name,combination_content);
     }
-    setCombinationCandidateVisivility(on_off){
-        if (on_off == "open"){
+
+    /**
+     * @param {"open"|"close"} open_close
+     * @returns {void}
+     */
+    setCombinationCandidateVisivility(open_close){
+        if (open_close == "open"){
             this.ELM_combination_candidate.classList.remove("non_vissible");
         } else {
             this.ELM_combination_candidate.classList.add("non_vissible");
@@ -619,15 +714,6 @@ class CombinationContent{
         this.on_off = "off";
 
     }
-
-    /**
-     * 
-     * @returns {object} combination_data
-     */
-    getCombinationData(){
-        const pose_pattern = this.human_body_manager.getPosePattern(this.combination_name);
-        return pose_pattern;
-    }
     
     /**
      * クリックした時に
@@ -654,13 +740,14 @@ class CombinationContent{
             //human_body_managerのpose_patternを変更する
             //human_body_managerのbody_partを変更する
             console.log("CombinationContentがクリックされたよ,ボタン名＝",this.combination_name,"現在の状態:",this.human_body_manager.pose_patterns)
-            const combination_data = this.getCombinationData();
+            let combination_data = this.getCombinationData();
+            // debugger;
             for (const [body_group, part_candidate_info] of combination_data.entries()){
                 //part_candidate_info = {10_体:"on"}のようなjson
-                console.log(body_group," なのだ ",part_candidate_info,"を適用する。現在の状態:",this.human_body_manager.pose_patterns)
+                // console.log(body_group," なのだ ",part_candidate_info,"を適用する。現在の状態:",this.human_body_manager.pose_patterns)
                 //part_candidate_info = {10_体:"on"}のようなjsonのキーと値を取得する
                 for (const [image_name, on_off] of Object.entries(part_candidate_info)){
-                    console.log(image_name, on_off)
+                    // console.log(image_name, on_off)
                     this.body_combination_accordion_manager.VoiroAISetting.setGroupButtonOnOff(body_group, image_name, on_off);
                 }
             }
@@ -675,6 +762,15 @@ class CombinationContent{
         console.log(ELM_combination_name_button);
         return ELM_combination_name_button;
     }
+
+     /**
+     * 
+     * @returns 
+     */
+     getCombinationData(){
+        const pose_pattern = this.human_body_manager.getPosePattern(this.combination_name);
+        return pose_pattern;
+    }
 }
 
 /**
@@ -683,13 +779,6 @@ class CombinationContent{
  * gptのモードが列挙されたボタンがある。
  * 
  * 選択したモードは各キャラのMessageBoxとMessageBoxMabagerに送信され、すべてのキャラのGPTのモードが1元管理される。
- * 
- * @property {ExtendedMap} gpt_setting_status モード名：on_off
- * @property {ExtendedMap[DOM]} Map_ELM_gpt_setting_button モード名：ボタンのDOM
- * @property {MessageBox} message_box
- * @property {string} front_name 
- * @property {Array} gpt_mode_name_list
- * @property {HTMLElement} ELM_gpt_setting
  */
 class GPTSettingButtonManagerModel {
 
@@ -709,7 +798,7 @@ class GPTSettingButtonManagerModel {
     /** @type {string} */
     front_name ;
 
-    /** @type {Array} */
+    /** @type {string[]} */
     gpt_mode_name_list;
 
     /** @type {HTMLUListElement} */
@@ -723,7 +812,7 @@ class GPTSettingButtonManagerModel {
      * 
      * @param {string} front_name 
      * @param {MessageBox} message_box 
-     * @param {Array} gpt_mode_name_list 
+     * @param {string[]} gpt_mode_name_list 
      */
     constructor(front_name, message_box, gpt_mode_name_list) {
         this.front_name = front_name;
@@ -739,9 +828,9 @@ class GPTSettingButtonManagerModel {
         this.Map_ELM_gpt_setting_button.forEach((value, key, map) => {
             let ELM_gpt_setting_button = value;
             const mode_name = key;
-            ELM_gpt_setting_button.addEventListener("click", function (event) { 
+            ELM_gpt_setting_button.addEventListener("click", (/** @type {Event} */ event) => { 
                 this.clickEvent(event, mode_name);
-            }.bind(this));
+            });
         });
         this.gpt_mode_accordion_open_close_button = /** @type {HTMLElement} */ (this.ELM_gpt_setting.querySelector(".gpt_mode_accordion_open_close_button"));
         this.gpt_mode_accordion_open_close_button.addEventListener("click", this.open_closeAcordion.bind(this));
@@ -750,7 +839,12 @@ class GPTSettingButtonManagerModel {
         this.ELM_gpt_setting.addEventListener("focusout", this.closeAccordion.bind(this));
     }
 
+    /**
+     * @param {string[]} gpt_mode_name_list
+     * @returns {ExtendedMap<string,"on"|"off">}
+     */
     getGPTSettingStatus(gpt_mode_name_list) {
+        /** @type {ExtendedMap<string,"on"|"off">} */
         var gpt_setting_status = new ExtendedMap();
         for (let i = 0; i < gpt_mode_name_list.length; i++) {
             gpt_setting_status.set(gpt_mode_name_list[i], "off");
@@ -758,7 +852,12 @@ class GPTSettingButtonManagerModel {
         return gpt_setting_status;
     }
 
+    /**
+     * @param {string[]} gpt_mode_name_list
+     * @returns {ExtendedMap<string,HTMLElement>}
+     */
     getMapELMGPTSettingButton(gpt_mode_name_list) {
+        /** @type {ExtendedMap<string,HTMLElement>} */
         var Map_ELM_gpt_setting_button = new ExtendedMap();
         for (let i = 0; i < gpt_mode_name_list.length; i++) {
             var ELM_gpt_setting_button = this.createELMGPTSettingButton(gpt_mode_name_list[i]);
@@ -806,6 +905,12 @@ class GPTSettingButtonManagerModel {
         });
     }
 
+    /**
+     * 
+     * @param {Event} event
+     * @param {string} mode
+     * @returns {void}
+     */
     clickEvent(event, mode) {
         console.log("GPTSettingButtonManaerModelがクリックされたよ")
         console.log(event, mode)
@@ -815,6 +920,10 @@ class GPTSettingButtonManagerModel {
         this.sendGPTSettingStatus2Server(mode);
     }
 
+    /**
+     * @param {string} target_mode
+     * @returns {void}
+     */
     radioChangeGPTSettingStatus(target_mode) {
         this.gpt_mode_name_list.forEach(
             (mode) => {
@@ -827,6 +936,11 @@ class GPTSettingButtonManagerModel {
         )
     }
 
+    /**
+     * @param {string} mode
+     * @param {"on"|"off"} on_off
+     * @returns {void}
+     */
     setGPTSettingStatus(mode,on_off) {
         this.gpt_setting_status.set(mode, on_off);
         if (on_off == "on") {
@@ -834,6 +948,10 @@ class GPTSettingButtonManagerModel {
         }
     }
 
+    /**
+     * @param {string} mode
+     * @returns {void}
+     */
     radioChangeButtonView(mode) {
         this.gpt_mode_name_list.forEach(
             (mode) => {
@@ -847,6 +965,11 @@ class GPTSettingButtonManagerModel {
         )
     }
 
+    /**
+     * @param {string} mode
+     * @param {"on"|"off"} on_off
+     * @returns {void}
+     */
     setButtonView(mode, on_off) {
         const ELM_gpt_setting_button = this.Map_ELM_gpt_setting_button.get(mode);
         if (on_off == "off") {
@@ -858,19 +981,27 @@ class GPTSettingButtonManagerModel {
         }
     }
 
+    /**
+     * @param {string} mode
+     * @returns {void}
+     */
     sendGPTSettingStatus(mode) {
         this.message_box.gpt_mode = mode;
     }
 
+    /**
+     * @param {string} mode
+     * @returns {void}
+     */
     sendGPTSettingStatus2Server(mode) { 
         //websocketを作成
         var ws_gpt_mode_sender = new WebSocket(`ws://${localhost}:${port}/gpt_mode`)
-        ws_gpt_mode_sender.onopen = function (event) {
+        ws_gpt_mode_sender.onopen =  ( _ ) => {
             const data = {[this.front_name]: mode}
             console.log("gpt_modeが開かれた。このデータを送る。", mode)
             ws_gpt_mode_sender.send(JSON.stringify(data));
             ws_gpt_mode_sender.close();
-        }.bind(this)
+        }
         //websocketを閉じる
         ws_gpt_mode_sender.onclose = function (event) {
             console.log("gpt_modeが閉じられたよ")

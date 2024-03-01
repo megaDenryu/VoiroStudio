@@ -347,6 +347,17 @@ class Human:
             return name
     
     @staticmethod
+    def piskFrontName(filename:str):
+        """
+        char_nameからfront_nameに変換する関数
+        """
+        name_list = Human.getNameList()
+        for front_name_candidate in name_list.keys():
+            if front_name_candidate in filename:
+                return front_name_candidate
+        return "名前が無効です"
+    
+    @staticmethod
     def checkCommentNameInNameList(atmark_type,comment:str):
         """
         コメントに含まれる名前がキャラ名リストに含まれているか確認する

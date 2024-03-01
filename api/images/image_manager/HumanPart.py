@@ -26,71 +26,33 @@ class HumanPart:
             "恥ずかしい",
             "楽しい"
         ]
+        self.api_dir = Path(__file__).parent.parent.parent.parent / "api"
     
     def setCharFilePath(self,name,psd_num):
-        name_list = {
-            "ONE":[
-                "ONE_1202"
-            ],
-            "IA":[
-                "kulori_test2",
-                "kulori_IA_立ち絵_voiroid1"
-            ],
-            "フィーちゃん":[
-                "もちもちフィーちゃん_2",
-                "もちもちフィーちゃん_1"
-                      ],
-            "琴葉茜":[
-                "琴葉姉妹_sabakan_配布用1.2",
-                "あかねちゃんver1.31（標準）"
-            ],
-            "琴葉葵":["琴葉姉妹_sabakan_配布用1.2"],
-            "結月ゆかり":[
-                "ぺぺち式 結月ゆかり",
-                "結月ゆかり_sabakan_配布用"
-                ],
-            "弦巻マキ":[],
-            "紲星あかり":[
-                "紲星あかり_sabakan_配布用_ver1.1",
-                "あかり立ち絵服追加フリー素材1.1PSD",
-                "あかり立ち絵（作ふにちか）"
-            ],
-            "東北ずん子":[],
-            "東北きりたん":[],
-            "東北イタコ":[],
-            "ずんだもん":["しろまる式メスガキずんだもん"],
-            "四国めたん":[],
-            "春日部つむぎ":[],
-            "京町セイカ":[],
-            "小春六花":[],
-            "夏色花梨":[],
-            "花隈千冬":[],
-            "桜乃そら":[],
-            "鳴花ヒメ":[],
-            "鳴花ミコト":[],
-            "小夜":[],
-            "あいえるたん":[],
-            "桜花ミコ":[],
-            "T.Tちゃん":[],
-            "もち子さん":[],
-            "雨晴はう":[],
-            "すずきつづみ":[
-                "kulori すずきつづみ立ち絵",
-                "すずきつづみv3.02_AI_1_1AI衣装"],
-            "さとうささら":[],
-            "タカハシ":[],
-            "双葉湊音":["ふたば(はし＆たち)"],
-            
-        }
+        
+        char_file_path = str(self.api_dir / "CharSettingJson" / "CharFilePath.json")
+        with open(char_file_path, 'r', encoding='utf-8') as f:
+            name_list = json.load(f)
         file_path = f"{name}/{name_list[name][psd_num]}"
         print("file_path",file_path)
         return file_path
+    
+    def writeCharFilePath(self,name,file_name):
+        char_file_path = str(self.api_dir / "CharSettingJson" / "CharFilePath.json")
+        with open(char_file_path, 'r', encoding='utf-8') as f:
+            name_list = json.load(f)
+        name_list[name].insert(0, file_name.split(".psd")[0])
+        with open(char_file_path, 'w', encoding='utf-8') as f:
+            json.dump(name_list, f, ensure_ascii=False, indent=4)
 
     def getHumanAllParts(self, human_char_name:str, psd_num = 0):
         #入力名からキャラの正式名を取得
         char_file_path = self.setCharFilePath(human_char_name,psd_num)
         #キャラの正式名からキャラの体パーツフォルダの画像のpathを取得
         path_str = f"../images/ボイロキャラ素材/{char_file_path}"
+        return self.getHumanAllPartsFromPath(human_char_name,path_str)
+    
+    def getHumanAllPartsFromPath(self, human_char_name:str, path_str:str):
         #キャラの体パーツフォルダの画像を全て辞書形式で取得
         data_for_client = {}
         data_for_client["body_parts_iamges"],body_parts_pathes_for_gpt = self.recursive_file_check(f"{path_str}/parts")

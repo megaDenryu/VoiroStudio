@@ -7,12 +7,20 @@ from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
 from api.images.image_manager.HumanPart import HumanPart
+from api.images.psd_parser_python.parse_main import PsdParserMain
 
-from fastapi import FastAPI, HTTPException
+from enum import Enum
+
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.encoders import jsonable_encoder
 from starlette.websockets import WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
+
+
+from typing import Dict, List, Any
+
 import mimetypes
 
 from api.comment_reciver.comment_module import NicoNamaCommentReciever
@@ -490,6 +498,89 @@ async def human_pict(websocket: WebSocket, client_id: str):
         # 切れたセッションの削除
         notifier.remove(websocket)
 
+
+class Test(BaseModel):
+    test_param: str
+
+@app.post("/test")
+async def test(req_body: Test):
+    print(req_body.test_param)
+    return {"message": "testレスポンス"}
+
+class ResponseMode(str, Enum):
+    noFrontName_needBodyParts = "noFrontName_needBodyParts"
+    FrontName_needBodyParts = "FrontName_needBodyParts"
+    FrontName_noNeedBodyParts = "FrontName_noNeedBodyParts"
+    
+
+class PsdFile(BaseModel):
+    file: UploadFile
+    filename: str
+    response_mode: ResponseMode
+    front_name: str
+
+class ImageData(BaseModel):
+    body_parts_iamges: Any
+    init_image_info: Any
+    front_name: str
+    char_name: str
+
+
+@app.post("/parserPsdFile")
+async def parserPsdFile(
+    file: UploadFile = File(...), 
+    filename: str = Form(...), 
+    response_mode: ResponseMode = Form(...), 
+    front_name: str = Form(...)
+):
+    # file_contents = await req_body.file.read()
+    # filename = req_body.filename
+    # response_mode = req_body.response_mode
+    # front_name = req_body.front_name
+    file_contents = await file.read()
+    if response_mode == ResponseMode.noFrontName_needBodyParts:
+        front_name = Human.piskFrontName(filename)
+        #todo front_nameがない場合の処理
+        if front_name == "名前が無効です":
+            return {"message": "ファイル名が無効です。保存フォルダの推測に使うのでファイル名にキャラクター名を1つ含めてください"}
+    # psdファイルが送られてくるので取得
+    chara_name = Human.setCharName(front_name)
+    # ファイルの保存先を指定
+    api_dir = Path(__file__).parent.parent.parent / 'api'
+    print(str(api_dir))
+    folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{filename.split('.')[0]}"
+
+    # 保存先のフォルダが存在するか確認。存在する場合はフォルダ名を変更。ゆかり1,ゆかり2があればゆかり3を作成する感じ。
+    file_counter = 0
+    while os.path.exists(folder):
+        file_counter = file_counter + 1
+        folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{filename.split('.')[0]}_{file_counter}"
+    os.makedirs(folder)
+    psd_file = f"{folder}\\{filename}"
+    # ファイルの内容を保存
+    with open(psd_file, 'wb') as f:
+        f.write(file_contents)
+    
+    # psdファイルをパースして保存
+    parser = PsdParserMain(folder,psd_file)
+
+    if response_mode == ResponseMode.noFrontName_needBodyParts or response_mode == ResponseMode.FrontName_needBodyParts:
+        # パーツを取得
+        human_part = HumanPart(chara_name)
+        human_part_folder,body_parts_pathes_for_gpt = human_part.getHumanAllPartsFromPath(chara_name,folder)
+        image_data_for_client = ImageData(
+            body_parts_iamges = human_part_folder["body_parts_iamges"],
+            init_image_info = human_part_folder["init_image_info"],
+            front_name = front_name,
+            char_name = chara_name
+        )
+        return image_data_for_client
+    
+    elif response_mode == ResponseMode.FrontName_noNeedBodyParts:
+        return {"message": "psdファイルを保存しました。"}
+    
+    
+
 @app.websocket("/img_combi_save")
 async def ws_combi_img_reciver(websocket: WebSocket):
     # クライアントとのコネクション確立
@@ -547,6 +638,8 @@ async def ws_gpt_mode(websocket: WebSocket):
     # セッションが切れた場合
     except WebSocketDisconnect:
         print("wsを切断:ws_gpt_mode")
+
+
 
 # ブロードキャスト用のAPI
 @app.get("/push/{message}")
