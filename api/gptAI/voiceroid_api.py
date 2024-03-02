@@ -1,3 +1,4 @@
+from pathlib import Path
 import win32com.client
 import time
 import requests
@@ -107,53 +108,11 @@ class cevio_human:
             return ""
     @staticmethod
     def setCharName(name):
-        name_dict = {
-            "おね":"ONE",
-            "ONE":"ONE",
-            "OИE":"ONE",
-            "おねちゃん":"ONE",
-            "ONEちゃん":"ONE",
-            "OИEちゃん":"ONE",
-            "いあ":"IA",
-            "いあちゃん":"IA",
-            "IA":"IA",
-            "IAちゃん":"IA",
-            "ia":"IA",
-            "iaちゃん":"IA",
-            "つづみ":"すずきつづみ",
-            "つづみちゃん":"すずきつづみ",
-            "つづみさん":"すずきつづみ",
-            "すずきつづみ":"すずきつづみ",
-            "すずきつづみちゃん":"すずきつづみ",
-            "すずきつづみさん":"すずきつづみ",
-            "ふぃー":"フィーちゃん",
-            "フィー":"フィーちゃん",
-            "フィーちゃん":"フィーちゃん",
-            "ふぃーちゃん":"フィーちゃん",
-            "フィーさん":"フィーちゃん",
-            "みなと":"双葉湊音",
-            "ふたば":"双葉湊音",
-            "双葉湊音":"双葉湊音",
-            "双葉湊音ちゃん":"双葉湊音",
-            "双葉湊音さん":"双葉湊音",
-            "双葉":"双葉湊音",
-            "双葉ちゃん":"双葉湊音",
-            "双葉さん":"双葉湊音",
-            "ふたばちゃん":"双葉湊音",
-            "ふたばさん":"双葉湊音",
-            "ミナト":"双葉湊音",
-            "ミナトちゃん":"双葉湊音",
-            "ミナトさん":"双葉湊音",
-            "minato":"双葉湊音",
-            "minatoちゃん":"双葉湊音",
-            "minatoさん":"双葉湊音",
-            "minatochan":"双葉湊音",
-            "hutaba":"双葉湊音",
-            "hutabaちゃん":"双葉湊音",
-            "hutabaさん":"双葉湊音",
-            "hutabachan":"双葉湊音",
+        api_dir = Path(__file__).parent.parent
+        path = api_dir / "CharSettingJson" / "CevioNameForVoiceroidAPI.json"
+        with open(path, "r", encoding="utf-8") as f:
+            name_dict = json.load(f)
 
-        }
         #name_dictのキーにnameがあれば、その値を返す。なければ空文字を返す。
         if name in name_dict:
             return name_dict[name]
@@ -216,11 +175,11 @@ class voicevox_human:
         VOICEVOXとの通信で使う名前。
         front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
         """
-        name_list = {
-            "ずんだもん":1,
-            "めたん":2,
-            "春日部つむぎ":3
-        }
+
+        api_dir = Path(__file__).parent.parent
+        path = api_dir / "CharSettingJson" / "VoiceVoxNameForVoiceroidAPI.json"
+        with open(path, "r", encoding="utf-8") as f:
+            name_list = json.load(f)
         #name_listのキーにnameがあれば、その値を返す。なければ空文字を返す。
         if name in name_list:
             return name_list[name]
@@ -491,48 +450,11 @@ class AIVoiceHuman:
         AIVOICEとの通信で使う名前。
         front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
         """
-        name_list = ['琴葉 茜', '琴葉 茜（蕾）', '琴葉 葵', '琴葉 葵（蕾）', '結月 ゆかり', '結月 ゆかり（雫）', '結月 ゆかり（凪）', '紲星 あかり', '紲星 あかり（蕾）', '紲星 あかり（萌）']
-        name_dict = {
-            '琴葉茜':'琴葉 茜',
-            '茜':'琴葉 茜',
-            'あかね':'琴葉 茜',
-            '茜ちゃん':'琴葉 茜',
-            'あかねちゃん':'琴葉 茜',
-            'akane':'琴葉 茜',
-            'Akane':'琴葉 茜',
-            'akn':'琴葉 茜',
-            '琴葉茜ちゃん':'琴葉 茜',
-            'ロリあかね':'琴葉 茜（蕾）',
-            '琴葉葵':'琴葉 葵',
-            "あおい":'琴葉 葵',
-            "あおいちゃん":'琴葉 葵',
-            "aoi":'琴葉 葵',
-            '葵':'琴葉 葵',
-            '葵ちゃん':'琴葉 葵',
-            'aoiちゃん':'琴葉 葵',
-            'aoiさん':'琴葉 葵',
-            "ろりあおい":'琴葉 葵（蕾）',
-            '結月ゆかり':'結月 ゆかり',
-            'ゆかり':'結月 ゆかり',
-            'ゆかりちゃん':'結月 ゆかり',
-            'ゆかりさん':'結月 ゆかり',
-            'ゆかりさま':'結月 ゆかり',
-            'ゆかり様':'結月 ゆかり',
-            "ゆかりん":'結月 ゆかり',
-            "yukari":'結月 ゆかり',
-            '結月 ゆかり（雫）':'結月 ゆかり',
-            '結月 ゆかり（凪）':'結月 ゆかり',
-            '紲星あかり':'紲星 あかり',
-            'あかり':'紲星 あかり',
-            'あかりちゃん':'紲星 あかり',
-            'あかりさん':'紲星 あかり',
-            'あかりさま':'紲星 あかり',
-            'あかり様':'紲星 あかり',
-            'akari':'紲星 あかり',
-            'Akari':'紲星 あかり',
-            '紲星 あかり（蕾）':'紲星 あかり',
-            '紲星 あかり（萌）':'紲星 あかり'
-        }
+        api_dir = Path(__file__).parent.parent
+        path = api_dir / "CharSettingJson" / "AIVOICENameForVoiceroidAPI.json"
+        with open(path, "r", encoding="utf-8") as f:
+            name_dict = json.load(f)
+        
         #name_listのキーにnameがあれば、その値を返す。なければ空文字を返す。
         if name in name_dict:
             return name_dict[name]
