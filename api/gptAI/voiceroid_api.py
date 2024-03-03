@@ -15,11 +15,13 @@ import os
 import clr
 from typing import Dict, Any
 
+from api.Extend.ExtendFunc import ExtendFunc
+
 class cevio_human:
-    def __init__(self,name:str,started_cevio_num:int) -> None:
+    def __init__(self,char_name:str,started_cevio_num:int) -> None:
         
-        self.name = name 
-        self.cevio_name = self.setCharName(name)
+        self.name = char_name 
+        self.cevio_name = self.setCharName(char_name)
         #名前が設定されていない場合は起動しない
         if self.cevio_name != "":
             self.cevioStart(started_cevio_num)
@@ -111,11 +113,10 @@ class cevio_human:
         api_dir = Path(__file__).parent.parent
         path = api_dir / "CharSettingJson" / "CevioNameForVoiceroidAPI.json"
         with open(path, "r", encoding="utf-8") as f:
-            name_dict = json.load(f)
-
+            name_list:list[str] = json.load(f)
         #name_dictのキーにnameがあれば、その値を返す。なければ空文字を返す。
-        if name in name_dict:
-            return name_dict[name]
+        if name in name_list:
+            return name
         else:
             return ""
     def cevioStart(self,started_cevio_num:int):
@@ -132,7 +133,7 @@ class cevio_human:
         print("cevio起動完了")
         self.talker = win32com.client.Dispatch("CeVIO.Talk.RemoteService2.Talker2V40")
         print("talkerのインスタンス化完了")
-        self.talker.Cast = self.setCharName(self.name)
+        self.talker.Cast = self.cevio_name
         print("キャラクターの設定完了")
 
     def kill_cevio(self):
@@ -156,6 +157,23 @@ class cevio_human:
         self.talker.Cast = self.setCharName(self.name)
         #self.cevioStart()
         print("cevio再起動完了")
+    
+    def getAvailableCast(self):
+        """
+        利用可能なキャスト一覧を出力
+
+        Returns:
+            result (list): 利用可能なキャスト名
+
+        Raises :
+          CevioException : CeVIOが起動していない場合の例外
+        """
+
+        castlist = self.talker.AvailableCasts
+        result = []
+        for i in range(0,castlist.Length):
+            result.append(castlist.At(i))
+        return result
         
 class voicevox_human:
     def __init__(self,name:str,started_voicevox_num:int) -> None:
@@ -177,12 +195,12 @@ class voicevox_human:
         """
 
         api_dir = Path(__file__).parent.parent
-        path = api_dir / "CharSettingJson" / "VoiceVoxNameForVoiceroidAPI.json"
+        path = api_dir / "CharSettingJson" / "VoiceVoxNameToNumber.json"
         with open(path, "r", encoding="utf-8") as f:
-            name_list = json.load(f)
+            name_dict = json.load(f)
         #name_listのキーにnameがあれば、その値を返す。なければ空文字を返す。
-        if name in name_list:
-            return name_list[name]
+        if name in name_dict:
+            return name_dict[name]
         else:
             return ""
 
@@ -315,13 +333,50 @@ class voicevox_human:
                     "char_name":self.char_name,
                 }
                 self.output_wav_info_list.append(wav_info)
+    
+    @staticmethod
+    def createVoiceVoxNameToNumberDict():
+        """
+        まず
+        curl -X 'GET' \
+        'http://localhost:50021/speakers' \
+        -H 'accept: application/json'
+        を実行して、VOICEVOXのキャラクター名とキャラクター番号のjsonを取得する。
+        次にVOICEVOXのキャラクター名とキャラクター番号の対応表を作成する。
+        """
+        import requests
+
+        url = "http://localhost:50021/speakers"
+        headers = {'accept': 'application/json'}
+        response = requests.get(url, headers=headers)
+        speaker_dict = response.json()
+        save_dict = {}
+        for speaker in speaker_dict:
+            name = speaker["name"]
+            styles = speaker["styles"]
+            for style in styles:
+                style_name = style["name"]
+                style_num = style["id"]
+                save_name = name + ":" +style_name
+                save_dict[save_name] = style_num
+        pprint(save_dict)
+        api_dir = Path(__file__).parent.parent
+        path = api_dir / "CharSettingJson" / "VoiceVoxNameToNumber.json"
+        #pathにspeaker_dictを書き込む
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(save_dict,f,ensure_ascii=False, indent=4)
+
+
+
 
 
 class AIVoiceHuman:
-    def __init__(self,name:str,started_AIVoice_num:int) -> None:
-        self.name = name
-        self.aivoice_name = self.setCharName(name)
+    def __init__(self,char_name:str,started_AIVoice_num:int) -> None:
+        self.char_name = char_name
+        self.aivoice_name = self.setCharName(char_name)
         self.start()
+        print(self.updateCharName())
+        
     def start(self):
         _editor_dir = os.environ['ProgramW6432'] + '\\AI\\AIVoice\\AIVoiceEditor\\'
 
@@ -389,7 +444,7 @@ class AIVoiceHuman:
                     "wav_data":wav_data,
                     "phoneme_time":phoneme_time,
                     "phoneme_str":phoneme_str,
-                    "char_name":self.name,
+                    "char_name":self.char_name,
                     "aivoice_name":self.aivoice_name
                 }
                 #pprint(f"{wav_info=}")
@@ -428,15 +483,8 @@ class AIVoiceHuman:
         return phoneme_str,phoneme_time
     
     def setVoiceChara(self):
-        voiceNames = self.convertPythonList(self.tts_control.VoiceNames) #利用可能なキャラクター名一覧を取得
-        #[ '琴葉 茜', '琴葉 茜（蕾）', '琴葉 葵', '琴葉 葵（蕾）' ]
-
-        voicePresetNames = self.convertPythonList(self.tts_control.VoicePresetNames) #標準ボイス、ユーザーボイス名一覧を取得
-        # [ '琴葉 茜 - 新規', '琴葉 茜', '琴葉 茜（蕾）', '琴葉 葵', '琴葉 葵（蕾）' ]
-
-
         #ボイスを琴葉 葵に設定する
-        self.tts_control.CurrentVoicePresetName=self.setCharName(self.name)
+        self.tts_control.CurrentVoicePresetName=self.aivoice_name
     
     def convertPythonList(self,CsArr):
         list = []
@@ -445,22 +493,78 @@ class AIVoiceHuman:
         return list
     
     @staticmethod
-    def setCharName(name):
+    def setCharName(name:str)->str:
         """
         AIVOICEとの通信で使う名前。
         front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
         """
-        api_dir = Path(__file__).parent.parent
-        path = api_dir / "CharSettingJson" / "AIVOICENameForVoiceroidAPI.json"
-        with open(path, "r", encoding="utf-8") as f:
-            name_dict = json.load(f)
-        
+
+        path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__, "api/CharSettingJson/AIVOICENameForVoiceroidAPI.json")
+        name_dict:dict[str,str] = ExtendFunc.loadJsonToDict(path)
         #name_listのキーにnameがあれば、その値を返す。なければ空文字を返す。
         if name in name_dict:
             return name_dict[name]
         else:
-            print(f"{name}は空文字に変換されました")
             return ""
+    
+    def getAvailableVoicePresetNames(self)->tuple[list[str],list[str]]:
+        voiceNames = self.convertPythonList(self.tts_control.VoiceNames) #利用可能なキャラクター名一覧を取得
+        #[ '琴葉 茜', '琴葉 茜（蕾）', '琴葉 葵', '琴葉 葵（蕾）' ]
+
+        voicePresetNames = self.convertPythonList(self.tts_control.VoicePresetNames) #標準ボイス、ユーザーボイス名一覧を取得
+        # [ '琴葉 茜 - 新規', '琴葉 茜', '琴葉 茜（蕾）', '琴葉 葵', '琴葉 葵（蕾）' ]
+
+        return voiceNames,voicePresetNames
+    
+    def updateCharName(self):
+        """
+        1.何らかのAIVOICEのボイロを起動したときに呼び出して新しいキャラが要れば更新する
+        todo この関数を呼び出すタイミングを考える
+        2.KnownNames.jsonに自分が持っているキャラがいない人はいつ呼び出すか決まっていない。
+        """
+        # 同じapi_dirにアクセスするので効率化のために先に取得しておく
+        api_dir = ExtendFunc.getTargetDirFromParents(__file__, "api")
+        
+        # AIVOICEKnouwnNames.jsonを取得する
+        AIVOICEKnouwnNames_path = api_dir / "CharSettingJson/AIVOICEKnownNames.json"
+        knouwn_name_list:list[str] = ExtendFunc.loadJsonToList(AIVOICEKnouwnNames_path)
+        
+        # 利用可能なキャラクター名一覧を取得
+        (voiceNames,now_voicePresetNames) = self.getAvailableVoicePresetNames()
+        # 新しく追加されたボイスロイドの名前など、known_name_listにない名前をname_listに追加する
+        necessity_update_knouwn_name_list = False
+        for name in voiceNames:
+            if name not in knouwn_name_list:
+                knouwn_name_list.append(name)
+                necessity_update_knouwn_name_list = True
+        # AIVOICEKnouwnNames.jsonを更新する必要があれば更新する
+        if necessity_update_knouwn_name_list:
+            ExtendFunc.saveListToJson(AIVOICEKnouwnNames_path,knouwn_name_list)
+
+        # 既に知っている名前に自分で追加したプリセットの名前を追加して使用可能な名前一覧を更新する
+        new_name_list:list[str] = [] + knouwn_name_list
+        for name in now_voicePresetNames:
+            if name not in knouwn_name_list:
+                new_name_list.append(name)
+        # AIVOICENameForVoiceroidAPI.jsonを取得する
+        AIVOICENameForVoiceroidAPI_path = api_dir / "CharSettingJson/AIVOICENameForVoiceroidAPI.json"
+        old_name_list:list[str] = list(ExtendFunc.loadJsonToDict(AIVOICENameForVoiceroidAPI_path).values())
+        
+        #old_name_listとnew_name_listを比較して、違う名前があればchange_name_listに追加する
+        change_name_list = []
+        necessity_update_AIVOICEname_list = False
+        set_old_name_list = set(old_name_list)
+        set_new_name_list = set(new_name_list)
+        #２つのsetが同じかどうかを比較する
+        if set_old_name_list != set_new_name_list:
+            new_name_dict:dict[str,str] = {}
+            for name in new_name_list:
+                # AIVOICEの名前は半角スペースが入っているので、それを取り除いてキーにする
+                key_name = name.replace(" ","")
+                new_name_dict[key_name] = name
+            ExtendFunc.saveDictToJson(AIVOICENameForVoiceroidAPI_path,new_name_dict)
+        
+        return "update完了"
 
 
     def getVoiceQuery(self,text:str):
@@ -485,10 +589,14 @@ if __name__ == '__main__':
         ia.outputWaveFile("おねちゃんきょーもかみぼさぼさじゃーん")
         tudumi.outputWaveFile("ほんとね、といてあげるわ")
 
-    elif True:
+    elif False:
         tumugi = voicevox_human("春日部つむぎ",0)
         tumugi.speak("あーしはつむぎ,埼玉１のギャルの春日部つむぎだよ、よろしくねオタク君")
 
     elif False:
         aoi = AIVoiceHuman("琴葉葵",0)
         aoi.outputWaveFile("あーしは葵,埼玉１のギャルの琴葉葵だよ、よろしくねオタク君")
+    elif True:
+        print("開始")
+        voicevox_human.createVoiceVoxNameToNumberDict()
+        print("終了")

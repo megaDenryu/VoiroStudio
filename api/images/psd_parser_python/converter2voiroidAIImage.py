@@ -34,7 +34,7 @@ def normalizeFolder(source_dir):
             files.sort()
             for file in files:
                 #fileから拡張子を取り除いた名前のフォルダを作成する
-                file_name = os.path.splitext(file)[0]
+                file_name = "その他"#os.path.splitext(file)[0]
                 new_dir = os.path.join(root,file_name)
                 print("new_dir",new_dir)
                 if not os.path.exists(new_dir):

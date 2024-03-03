@@ -70,4 +70,4 @@ class NiconamaUserLinkVoiceroidModule:
 
         # データをjsonに保存する
         with open('user_data.json', 'w') as f:
-            json.dump(data, f, ensure_ascii=False)
+            json.dump(data, f, ensure_ascii=False, indent=4)

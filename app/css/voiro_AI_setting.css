@@ -29,6 +29,7 @@
     border-bottom-right-radius: 10px;
     text-decoration: none;
     background-color: #737373;
+    text-align: left;
 }
 .accordion_item_name.has_on_content_button{
     color: rgb(103, 189, 255);

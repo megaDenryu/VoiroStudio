@@ -7,7 +7,8 @@ import os
 import base64
 from pprint import pprint
 import re
-from collections import OrderedDict     
+from collections import OrderedDict
+from api.Extend.ExtendFunc import ExtendFunc
 
 if TYPE_CHECKING:
     from api.gptAI.Human import Human
@@ -26,24 +27,27 @@ class HumanPart:
             "恥ずかしい",
             "楽しい"
         ]
-        self.api_dir = Path(__file__).parent.parent.parent.parent / "api"
+        self.api_dir = ExtendFunc.getTargetDirFromParents(__file__,"api")
     
     def setCharFilePath(self,name,psd_num):
         
-        char_file_path = str(self.api_dir / "CharSettingJson" / "CharFilePath.json")
+        char_file_path = self.api_dir / "CharSettingJson" / "CharFilePath.json"
+        print("char_file_path",char_file_path)
         with open(char_file_path, 'r', encoding='utf-8') as f:
             name_list = json.load(f)
         file_path = f"{name}/{name_list[name][psd_num]}"
         print("file_path",file_path)
         return file_path
     
-    def writeCharFilePath(self,name,file_name):
-        char_file_path = str(self.api_dir / "CharSettingJson" / "CharFilePath.json")
-        with open(char_file_path, 'r', encoding='utf-8') as f:
-            name_list = json.load(f)
-        name_list[name].insert(0, file_name.split(".psd")[0])
-        with open(char_file_path, 'w', encoding='utf-8') as f:
-            json.dump(name_list, f, ensure_ascii=False, indent=4)
+    @staticmethod
+    def writeCharFilePathToNewPSDFileName(chara_name,folder_name):
+        CharFilePath_path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__, "api/CharSettingJson/CharFilePath.json")
+        CharFilePathDict:dict[str,list[str]] = ExtendFunc.loadJsonToDict(CharFilePath_path)
+        if chara_name in CharFilePathDict:
+            CharFilePathDict[chara_name].insert(0,folder_name)
+        else:
+            CharFilePathDict[chara_name] = [folder_name]
+        ExtendFunc.saveDictToJson(CharFilePath_path,CharFilePathDict)
 
     def getHumanAllParts(self, human_char_name:str, psd_num = 0):
         #入力名からキャラの正式名を取得
@@ -153,7 +157,7 @@ class HumanPart:
             for key in info_dict.keys():
                 part_image_dict = info_dict[key]
                 #part_image_dictのキー配列の最初の要素を取得。hoge.pngやhoge.jsonのhogeの部分を取得。
-                mode_human_part_manager = "iHumanPartManager"
+                mode_human_part_manager = "HumanPartManager2"
                 if mode_human_part_manager == "iHumanPartManager":
                     #iHumanPartManager用の処理
                     init_dict[key] = list(part_image_dict.keys())[0].split(".")[0]
