@@ -40,6 +40,15 @@ class Human:
         self.front_name = front_name
         #ボイスロイドの名前
         self.char_name = self.setCharName(front_name)
+        print(f"char_name:{self.char_name}")
+        if "" == self.char_name:
+            #登録していないが持っている名前が入力された時の処理
+            #AIVOICEから名前を取得する
+            test_aivoice = AIVoiceHuman("test",0)
+
+            # コンストラクタの処理はここで終わり
+            
+            return
         self.personal_id = 2
         # 体画像周りを準備する
         self.human_part = HumanPart(self.char_name)
@@ -244,7 +253,7 @@ class Human:
         return name_list
 
     @staticmethod
-    def setCharName(name):
+    def setCharName(name:str):
         """
         front_nameからchar_nameに変換する関数
         """
@@ -257,7 +266,7 @@ class Human:
             return name
     
     @staticmethod
-    def piskFrontName(filename:str):
+    def pickFrontName(filename:str):
         """
         char_nameからfront_nameに変換する関数
         """

@@ -8,6 +8,7 @@ from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
+from api.Extend.ExtendFunc import ExtendFunc
 
 from enum import Enum
 
@@ -474,6 +475,11 @@ async def human_pict(websocket: WebSocket, client_id: str):
             # クライアントからキャラクター名のメッセージの受け取り
             name_data = await websocket.receive_text()
             print("human:" + name_data)
+            
+            if Human.setCharName(name_data) == "":
+                print("キャラ名が無効です")
+                await websocket.send_json(json.dumps("キャラ名が無効です"))
+                continue
             #キャラ立ち絵のパーツを全部送信する。エラーがあったらエラーを返す
             try:
                 #name_dataに対応したHumanインスタンスを生成
@@ -539,7 +545,7 @@ async def parserPsdFile(
     # front_name = req_body.front_name
     file_contents = await file.read()
     if response_mode == ResponseMode.noFrontName_needBodyParts:
-        front_name = Human.piskFrontName(filename)
+        front_name = Human.pickFrontName(filename)
         #todo front_nameがない場合の処理
         if front_name == "名前が無効です":
             return {"message": "ファイル名が無効です。保存フォルダの推測に使うのでファイル名にキャラクター名を1つ含めてください"}
@@ -548,13 +554,15 @@ async def parserPsdFile(
     # ファイルの保存先を指定
     api_dir = Path(__file__).parent.parent.parent / 'api'
     print(str(api_dir))
-    folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{filename.split('.')[0]}"
+    folder_name = f"{filename.split('.')[0]}"
+    folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{folder_name}"
 
     # 保存先のフォルダが存在するか確認。存在する場合はフォルダ名を変更。ゆかり1,ゆかり2があればゆかり3を作成する感じ。
     file_counter = 0
     while os.path.exists(folder):
         file_counter = file_counter + 1
-        folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{filename.split('.')[0]}_{file_counter}"
+        folder_name = f"{filename.split('.')[0]}_{file_counter}"
+        folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{folder_name}"
     os.makedirs(folder)
     psd_file = f"{folder}\\{filename}"
     # ファイルの内容を保存
@@ -563,7 +571,9 @@ async def parserPsdFile(
     
     # psdファイルをパースして保存
     parser = PsdParserMain(folder,psd_file)
-
+    # CharFilePath.jsonにファイル名を追加
+    HumanPart.writeCharFilePathToNewPSDFileName(chara_name,folder_name)
+    
     if response_mode == ResponseMode.noFrontName_needBodyParts or response_mode == ResponseMode.FrontName_needBodyParts:
         # パーツを取得
         human_part = HumanPart(chara_name)
