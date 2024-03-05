@@ -762,10 +762,10 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
                     console.error('Invalid lab_pos:', lab_data, "lab_pos="+lab_pos);
                     // ここで適切なエラーハンドリングを行います
                 }
-                //console.log("start_time,end_time="+[start_time,end_time]);
+                // console.log("start_time,end_time="+[start_time,end_time]);
 
                 if (start_time <= current_time && current_time <= end_time ) {
-                    //console.log(humans_list[obj[i]["char_name"]]);
+                    // console.log("通ってる",obj["char_name"],lab_data[lab_pos][0]);
                     try{
                         humans_list[obj["char_name"]].changeLipImage(obj["char_name"],lab_data[lab_pos][0]);
                     } catch (e) {
@@ -1194,7 +1194,25 @@ class HumanBodyManager2 {
     mouse_folder_name
 
     /**@type {ExtendedMap<string, string>} */
-    mouse_images
+    mouse_images = new ExtendedMap();
+
+    /**@type {string} */
+    patipati_folder_name
+
+    /**@type {ExtendedMap<string, string>} */
+    patipati_images = new ExtendedMap();
+
+    /**@type {string} */
+    pyokopyoko_folder_name
+
+    /**@type {ExtendedMap<string, string>} */
+    pyokopyoko_images = new ExtendedMap();
+
+    /**@type {Record<string,string>}*/
+    setting
+
+    /**@type {"口"|"パクパク"|"無し"} */
+    lip_sync_mode = "無し"
 
     /**@type {ExtendedMap<string, ExtendedMap<string, InitData>>} */
     pose_patterns;
@@ -1221,6 +1239,10 @@ class HumanBodyManager2 {
         try{
             if ("init_image_info" in body_parts){
                 this.pose_patterns = /** @type {ExtendedMap<string, ExtendedMap<string, InitData>>} */ this.setPosePatternFromInitImageInfo(body_parts["init_image_info"]);
+                if ("setting" in body_parts["init_image_info"]) {
+                    this.setting = /** @type {Record<string,Record<string,string>>} */ (body_parts["init_image_info"]["setting"]);
+                    this.initializeSetting();
+                }
                 if ("init" in body_parts["init_image_info"]){
                     this.init_image_info = /** @type {Record<string, Record<string, string>>} */ (body_parts["init_image_info"]["init"]);
                     console.log(this.init_image_info)
@@ -1239,22 +1261,61 @@ class HumanBodyManager2 {
         this.body_parts_info = new ExtendedMap();
         let z_index_counter_start = 0;
         let z_index_counter_end = -1;
+
+        //パクパクなどをまとめて格納するためのオブジェクトを初期化
+        /** @type {ExtendedMap<string,ExtendedMap<string,string[]>>} */
+        this.pakupaku_info = new ExtendedMap();
+        const pakupaku_list = ["口","パクパク","パチパチ","ぴょこぴょこ"]
+        this.pakupaku_folder_names = new ExtendedMap();
+        for (let pakupaku of pakupaku_list){
+            this.pakupaku_info.set(pakupaku,new ExtendedMap());            
+        }
+
+        //体パーツの画像の情報を格納したオブジェクトを作成
         for (let key_part_name of this.body_parts_images.keys()) {
             //key_part_nameの文字列に口が含まれていたら、それを特別なプロパティに格納。promiseで行う。
-            if (key_part_name.includes("口")) {
-                console.log("口が含まれている")
-                this.mouse_folder_name = key_part_name;
-                const mouse_info = /** @type {Record<string, ImageInfo>} */ (this.body_parts_images.get(this.mouse_folder_name));
-                //体パーツのjsonファイルがある場合、口の情報を取得する
-                for (let [mouse_img_name,mouse_img_info] of Object.entries(mouse_info))
-                {
-                    const mouse_json = mouse_img_info["json"];
-                    if ("口" in mouse_json){
-                        const phoneme = mouse_json["口"];
-                        this.mouse_images.set(phoneme,mouse_img_name);
+
+            const part_info = /** @type {Record<string, ImageInfo>} */ (this.body_parts_images.get(key_part_name));
+            
+            //体パーツのjsonファイルがある場合、口の情報を取得する
+            for (let [part_img_name,part_img_info] of Object.entries(part_info))
+            {
+                const part_json = part_img_info["json"];
+                // for (let pakupaku of pakupaku_list){
+                //     if (pakupaku in part_json){
+                //         this.pakupaku_folder_names.set(pakupaku,key_part_name);
+                //         const pakupaku_param = part_json[pakupaku];
+                //         this.pakupaku_info.get(pakupaku).set(pakupaku_param,part_img_name);
+                //     }
+                // }
+                for (let pakupaku of pakupaku_list){
+                    if (pakupaku in part_json){
+                        // this.pakupaku_folder_names.set(pakupaku,key_part_name);
+                        const pakupaku_param = part_json[pakupaku];
+                        this.pakupaku_info.get(pakupaku).set(pakupaku_param,[key_part_name,part_img_name]);
                     }
                 }
+
+
+                // if ("口" in part_json){
+                //     this.mouse_folder_name = key_part_name;
+                //     const phoneme = part_json["口"];
+                //     this.mouse_images.set(phoneme,part_img_name);
+                // }
+
+                // if ("パチパチ" in part_json){
+                //     this.patipati_folder_name = key_part_name;
+                //     const patipati_param = part_json["パチパチ"];
+                //     this.patipati_images.set(patipati_param, part_img_name);
+                // }
+
+                // if ("ぴょこぴょこ" in part_json){
+                //     this.pyokopyoko_folder_name = key_part_name;
+                //     const pyokopyoko_param = part_json["ぴょこぴょこ"];
+                //     this.pyokopyoko_images.set(pyokopyoko_param, part_img_name);
+                // }
             }
+            
             
             if (key_part_name == "front_name" || key_part_name == "char_name") {
                 continue;
@@ -1313,6 +1374,9 @@ class HumanBodyManager2 {
             //画像をドラッグで動かせるようにする
             addMoveImageEvent(this.human_images);
         })
+
+        this.PatiPatiProcess("パチパチ");
+        this.PyokoPyokoProcess("ぴょこぴょこ");
 
 
     }
@@ -1399,7 +1463,6 @@ class HumanBodyManager2 {
                 let image_info_entries = part_info["imgs"].entries();
 
                 for (let [part_name, iamge_info] of image_info_entries) {
-                    //part_group_nameは体のパーツの名前、part_infoはそのパーツの画像群の配列
                     //canvasを作成して、そのcanvasに画像を描画する
                     var body_img = self.createPartCanvas()
                     body_img.classList.add("human_image",`${part_group_name}_img`,`${part_name}_img`,`${self.front_name}_img`)
@@ -1429,6 +1492,33 @@ class HumanBodyManager2 {
             //画像を操作するためのcanvasを作成する
             self.createOperatorCanvas();
         })                   
+    }
+
+    /**
+     * 
+     * @param {string} part_group_name
+     * @param {PartInfo} part_info
+     * @param {string} part_name
+     * @param {ImageInfo} iamge_info
+     */
+    createLayerAndDrawImage(part_group_name,part_info,part_name,iamge_info){
+            //canvasを作成して、そのcanvasに画像を描画する
+            var body_img = this.createPartCanvas()
+            body_img.classList.add("human_image",`${part_group_name}_img`,`${part_name}_img`,`${this.front_name}_img`)
+            //初期配置の画像を描画する
+            const init_part_name = this.init_image_info[part_group_name];
+            this.drawPart(body_img, iamge_info);
+            
+            //body_imgのz-indexを設定する
+            body_img.style.zIndex = String(part_info["z_index"]);
+            this.human_images.appendChild(body_img);
+            //changeImage()でパーツを変更するときに使うので各パーツのelementをmap_body_parts_infoに格納する
+            this.setBodyImgElemnt(part_group_name,part_name,body_img)
+
+            //画像のオンオフの現在のステータスを反映する
+            const on_off = this.getImgStatus(part_group_name,part_name);
+            this.changeImgStatus(part_group_name,part_name,on_off);
+        
     }
 
     /**
@@ -1550,7 +1640,6 @@ class HumanBodyManager2 {
      **/
     changeBodyPart(image_group,image_name,on_off){
         this.changeImgStatus(image_group,image_name,on_off)
-        
     }
 
     /**
@@ -1574,6 +1663,18 @@ class HumanBodyManager2 {
     }
 
     /**
+     * 体の画像のグループ名から、オン(またはオフ)になっている画像の名前のリストを返す
+     * @param {string} image_group_name
+     * @param {"on"|"off"} on_off
+     * @returns {string[]}
+     */
+    getNowOnImgNameList(image_group_name,on_off){
+        const imgs_status = this.getNowImgGroupStatusFromPartGroupName(image_group_name);
+        const on_img_name_list = Object.keys(imgs_status).filter((key) => imgs_status[key] === on_off);
+        return on_img_name_list;
+    }
+
+    /**
      * 体の画像１枚がオンかオフかを返す
      * @param {string} image_group 
      * @param {string} image_name
@@ -1594,6 +1695,154 @@ class HumanBodyManager2 {
     setImgStatus(image_group,image_name,on_off){
         const img_group_status = this.getNowImgGroupStatusFromPartGroupName(image_group);
         img_group_status[image_name] = on_off;
+    }
+
+    /**
+     * image_group_nameの中でimage_nameだけをオンにして、それ以外をオフにする
+     * @param {string} image_group_name 
+     * @param {string} image_name 
+     * @param {"on"|"off"} on_off 
+     */
+    radioChangeImage(image_group_name,image_name,on_off){
+        if (on_off == "on"){
+            const now_on_img_names = this.getNowOnImgNameList(image_group_name,"on");
+            for (let i=0;i<now_on_img_names.length;i++){
+                const now_img_name = now_on_img_names[i];
+                this.changeBodyPart(image_group_name,now_img_name,"off");
+            }
+            this.changeBodyPart(image_group_name,image_name,"on");
+        } else {
+            this.changeBodyPart(image_group_name,image_name,"off");
+        }
+    }
+
+    /**
+     * 口パクの画像を変更する
+     * @param {string} char_name - キャラの名前
+     * @param {string} phoneme - 音素
+     */
+    changeLipImage(char_name,phoneme){
+        // if (this.mouse_images.size > 1) {
+        //     console.log("口を動かす。",phoneme);
+        //     if (this.mouse_images.has(phoneme)){
+        //         const next_img_name = this.mouse_images.get(phoneme);
+        //         this.radioChangeImage(this.mouse_folder_name, next_img_name, "on")
+        //     }
+        // }
+        switch(this.lip_sync_mode){
+            case "口":
+                this.changePakuPakuImage("口",phoneme,"on");
+                break;
+            case "パクパク":
+                if(this.prev_pakupaku == "close"){
+                    this.changePakuPakuImage("パクパク","open","on");
+                    this.prev_pakupaku = "open";
+                }else{
+                    this.changePakuPakuImage("パクパク","close","on");
+                    this.prev_pakupaku = "close";
+                }
+                break;
+            case "無し":
+                break;
+        }
+    }
+
+    /**
+     * 
+     * @param {string} pakupaku_mode - パクパクのモード。pakupaku_listの中から選べる。"口","パクパク","パチパチ","ぴょこぴょこ"など。
+     * @param {string} pakupaku - パクパクの名前。口ならば音素、ぱちぱちならば目の形の名前など。
+     * @param {"on"|"off"} on_off - オンかオフか
+     */
+    changePakuPakuImage(pakupaku_mode,pakupaku,on_off){
+        if (this.pakupaku_info.has(pakupaku_mode)) {
+            if (this.pakupaku_info.get(pakupaku_mode).has(pakupaku)){
+                const pakupaku_folder_name = this.pakupaku_info.get(pakupaku_mode).get(pakupaku)[0];
+                const next_img_name = this.pakupaku_info.get(pakupaku_mode).get(pakupaku)[1];
+                this.radioChangeImage(pakupaku_folder_name, next_img_name, on_off)
+            }
+        }
+    }
+
+    /**
+     * 
+     * @param {"open"|"close"} open_close 
+     */
+    changeEyeImage(open_close){
+        console.log("目を動かす。",open_close);
+        if (this.eye_images.size > 1) {
+            if (this.mouse_images.has(open_close)){
+                const next_img_name = this.mouse_images.get(open_close);
+                this.radioChangeImage(this.mouse_folder_name, next_img_name, "on")
+            }
+        }
+    }
+    
+    /**
+     * 
+     * @param {string} patipati_mode   - パクパクのモード。pakupaku_listの中から選べる。"口","パクパク","パチパチ","ぴょこぴょこ"など。
+     */
+    async PatiPatiProcess(patipati_mode){
+        console.log("パチパチプロセス開始");
+        //20秒ごとにパチパチをする
+        while (true){
+            console.log(patipati_mode);
+            await this.sleep(20000);
+            this.changePakuPakuImage(patipati_mode,"close","on");
+            this.changePakuPakuImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changePakuPakuImage(patipati_mode,"open","on");
+            this.changePakuPakuImage(patipati_mode,"close","off");
+        }
+    }
+
+    /**
+     * 
+     * @param {string} patipati_mode   - パクパクのモード。pakupaku_listの中から選べる。"口","パクパク","パチパチ","ぴょこぴょこ"など。
+     */
+    async PyokoPyokoProcess(patipati_mode){
+        console.log("ぴょこぴょこプロセス開始");
+        //20秒ごとにぴょこぴょこをする
+        while (true){
+            console.log(patipati_mode);
+            //5~20秒の間でランダムなタイミングでぴょこぴょこをする
+            const timing = Math.floor(Math.random() * (20000 - 5000) + 5000);
+            await this.sleep(timing);
+            this.changePakuPakuImage(patipati_mode,"close","on");
+            this.changePakuPakuImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changePakuPakuImage(patipati_mode,"open","on");
+            this.changePakuPakuImage(patipati_mode,"close","off");
+            await this.sleep(100);
+            this.changePakuPakuImage(patipati_mode,"close","on");
+            this.changePakuPakuImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changePakuPakuImage(patipati_mode,"open","on");
+            this.changePakuPakuImage(patipati_mode,"close","off");
+        }
+    }
+
+    /**
+     * 
+     * @param {*} ms 
+     * @returns 
+     */
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    initializeSetting(){
+        this.lip_sync_mode = "口";
+
+        if ("lip_sync" in this.setting){
+            const lip_sync_mode_list = ["口","パクパク","無し"];
+            if (lip_sync_mode_list.includes(this.setting["lip_sync"])){
+                this.lip_sync_mode = this.setting["lip_sync"];
+                if (this.lip_sync_mode == "パクパク"){
+                    this.prev_pakupaku = "close";
+                }
+            }
+        }
+        
     }
 }
 

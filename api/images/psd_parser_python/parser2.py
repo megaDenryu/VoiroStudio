@@ -54,7 +54,7 @@ class PSDParser:
     #layer情報保存関数
     def save_layer_info(self, layer_info, path):
         with open(path, 'w') as f:
-            json.dump(layer_info, f)
+            json.dump(layer_info, f, indent=4)
     
 
 # 以下メイン処理
