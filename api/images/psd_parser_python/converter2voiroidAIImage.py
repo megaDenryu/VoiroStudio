@@ -28,13 +28,27 @@ def copyDeepestFolder(source_dir,destination_dir):
 
 def normalizeFolder(source_dir):
     for root, dirs, files in os.walk(source_dir):
+        #現在のディレクトリの深さを取得する
+        current_depth = root[len(source_dir):].count(os.sep)
         if len(dirs) >= 1 and len(files) >= 1:
             #rootとfileの間にfileと同じ名前のフォルダを作成して、その中にファイルを移動する
             #filesから昇順にソートする
             files.sort()
             for file in files:
                 #fileから拡張子を取り除いた名前のフォルダを作成する
-                file_name = "その他"#os.path.splitext(file)[0]
+                def decideFileName():
+                    # current_depthが0の場合はレイヤーの順番が重要なのでまとめずにファイル名をそのまま使う
+                    if current_depth == 0:
+                        file_name = os.path.splitext(file)[0]
+                    else:
+                        # file_nameを以下のどれかからdirにないものを選んで統一する。
+                        file_name_candidate = ["その他","未分類","無題"]
+                        for candidate in file_name_candidate:
+                            if candidate not in dirs:
+                                file_name = candidate
+                                break
+                    return file_name
+                file_name = decideFileName()
                 new_dir = os.path.join(root,file_name)
                 print("new_dir",new_dir)
                 if not os.path.exists(new_dir):

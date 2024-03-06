@@ -341,10 +341,9 @@ class AccordionItem{
         //accordion_item_nameを変更
         // "1_10_葵_10_素体"などが入るので、最初の"1_10_"などを削除し、途中の数字も削除
         //数字（\d+）とそれに続くアンダースコア（_*）をすべて削除します。その後、アンダースコアをスペースに置換します。
-        name_acordion = name_acordion.replace(/\d+_*/g, '').replace(/_/g, ' ');
-
+        const new_name_acordion = name_acordion.replace( /\d+_+/g, '').replace(/_/g, ' ');
         // @ts-ignore
-        this.html_doc.querySelector(".accordion_item_name").innerText = name_acordion;
+        this.html_doc.querySelector(".accordion_item_name").innerText = new_name_acordion;
     }
 
     /**
