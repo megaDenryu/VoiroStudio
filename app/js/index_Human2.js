@@ -903,154 +903,165 @@ class PsdManager{
 }
 
 class DragDropObjectStatus{
-        constructor(human_images_elem){
-            //プロパティには各画像の状態などを格納する
-            this.human_images_elem = human_images_elem;
-            this.bg_image = human_images_elem.parentNode.getElementsByClassName("bg_image")[0]
-            this.human_image_elems = human_images_elem.getElementsByClassName("human_image");
-            this.search_canvas_elem = human_images_elem.parentNode.getElementsByClassName("search_canvas")[0];
-            this.mouse_down = false;
-            this.mouse_down_pos_x = 0;
-            this.mouse_down_pos_y = 0;
-            this.img_scale = 1;
+    /**
+     * 
+     * @param {*} human_images_elem 
+     * @param {HumanBodyManager2} humanBodyManager 
+     */
+    constructor(human_images_elem,humanBodyManager){
+        //プロパティには各画像の状態などを格納する
+        this.human_images_elem = human_images_elem;
+        this.humanBodyManager = humanBodyManager;
+        this.bg_image = human_images_elem.parentNode.getElementsByClassName("bg_image")[0]
+        this.human_image_elems = human_images_elem.getElementsByClassName("human_image");
+        this.search_canvas_elem = human_images_elem.parentNode.getElementsByClassName("search_canvas")[0];
+        this.mouse_down = false;
+        this.mouse_down_pos_x = 0;
+        this.mouse_down_pos_y = 0;
+        this.img_scale = 1;
 
-            var oprator_canvas = this.human_images_elem.getElementsByClassName("operator_canvas")[0];
-            oprator_canvas.dataset.scale = this.img_scale;
+        var oprator_canvas = this.human_images_elem.getElementsByClassName("operator_canvas")[0];
+        oprator_canvas.dataset.scale = this.img_scale;
+    }
+    handleEvent(event){
+        switch(event.type){
+            case "mousedown":
+                this.mouseDown(event);
+                break;
+            case "touchstart":
+                this.mouseDown(event);
+                break;
+            case "mouseup":
+                this.mouseUp(event);
+                break;
+            case "mousemove":
+                this.mouseMove(event);
+                break;
+            case "wheel":
+                this.mouseWheel(event);
+                break;
         }
-        handleEvent(event){
-            switch(event.type){
-                case "mousedown":
-                    this.mouseDown(event);
-                    break;
-                case "touchstart":
-                    this.mouseDown(event);
-                    break;
-                case "mouseup":
-                    this.mouseUp(event);
-                    break;
-                case "mousemove":
-                    this.mouseMove(event);
-                    break;
-                case "wheel":
-                    this.mouseWheel(event);
-                    break;
-            }
+    }
+    
+    mouseDown(e){
+        console.log("mouseDown")
+        //クラス名に .drag を追加
+        e.target.classList.add("drag");
+        //タッチデイベントとマウスのイベントの差異を吸収
+        if(e.type === "mousedown") {
+            var event = e;
+        } else {
+            var event = e;//.changedTouches[0];
+        }
+
+        //要素内でのマウスをクリックした場所の相対座標を取得。
+        this.mouse_down_pos_x = event.pageX;
+        this.mouse_down_pos_y = event.pageY;
+        this.canvas_offsetLeft = e.target.offsetLeft;
+        this.canvas_offsetTop = e.target.offsetTop;
+        //console.log("mouse_down_pos_x="+[this.mouse_down_pos_x,event.pageX,e.target.offsetLeft])
+        //console.log("mouse_down_pos_y="+[this.mouse_down_pos_y,event.pageY,e.target.offsetTop])
+
+        //右クリックなら点を描画
+        if (event.button == 2){
+            console.log("右クリック")
+            var oprator_canvas = e.target.parentNode.getElementsByClassName("operator_canvas")[0]
+            var canvas_rect = oprator_canvas.getBoundingClientRect()
+            var x_on_canvas = e.pageX - canvas_rect.left;
+            var y_on_canvas = e.pageY - canvas_rect.top;
+            console.log("canvas_rect.left,canvas_rect.top="+[canvas_rect.left,canvas_rect.top])
+            drawFillRectInOpratorCanvas(
+                x_on_canvas / this.img_scale,
+                y_on_canvas / this.img_scale,
+                10,10,"green"
+                )
         }
         
-        mouseDown(e){
-            console.log("mouseDown")
-            //クラス名に .drag を追加
-            e.target.classList.add("drag");
-            //タッチデイベントとマウスのイベントの差異を吸収
-            if(e.type === "mousedown") {
+    }
+
+    /**
+     * 
+     * @param {Event} e 
+     */
+    mouseMove(e) {
+        //ドラッグしている要素を取得
+        //e.targetのクラスネームにdragがあるかどうかで処理を分岐させる
+        if (e.target.classList.contains("drag")){
+            var drag = e.target;
+            //同様にマウスとタッチの差異を吸収
+            if(e.type === "mousemove") {
                 var event = e;
             } else {
-                var event = e;//.changedTouches[0];
+                var event = e.changedTouches[0];
             }
 
-            //要素内でのマウスをクリックした場所の相対座標を取得。
-            this.mouse_down_pos_x = event.pageX;
-            this.mouse_down_pos_y = event.pageY;
-            this.canvas_offsetLeft = e.target.offsetLeft;
-            this.canvas_offsetTop = e.target.offsetTop;
-            //console.log("mouse_down_pos_x="+[this.mouse_down_pos_x,event.pageX,e.target.offsetLeft])
-            //console.log("mouse_down_pos_y="+[this.mouse_down_pos_y,event.pageY,e.target.offsetTop])
-
-            //右クリックなら点を描画
-            if (event.button == 2){
-                console.log("右クリック")
-                var oprator_canvas = e.target.parentNode.getElementsByClassName("operator_canvas")[0]
-                var canvas_rect = oprator_canvas.getBoundingClientRect()
-                var x_on_canvas = e.pageX - canvas_rect.left;
-                var y_on_canvas = e.pageY - canvas_rect.top;
-                console.log("canvas_rect.left,canvas_rect.top="+[canvas_rect.left,canvas_rect.top])
-                drawFillRectInOpratorCanvas(
-                    x_on_canvas / this.img_scale,
-                    y_on_canvas / this.img_scale,
-                    10,10,"green"
-                    )
+            //フリックしたときに画面を動かさないようにデフォルト動作を抑制
+            e.preventDefault();
+            //マウスが動いた場所に要素を動かす
+            for (let i=0;i<this.human_image_elems.length;i++){
+                this.human_image_elems[i].style.left = addPixelValues(this.canvas_offsetLeft, event.pageX - this.mouse_down_pos_x + "px");
+                this.human_image_elems[i].style.top = addPixelValues(this.canvas_offsetTop, event.pageY - this.mouse_down_pos_y + "px");
             }
+        }
+    }
+
+    //マウスボタンが上がったら発火
+    mouseUp(e) {
+        console.log("mouseUp")
+        if (e.target.classList.contains("drag")){
+            var drag = e.target;
+
+            //クラス名 .drag も消す
+            drag.classList.remove("drag");
+        }
+    }
+    //ホイールイベント:画像の拡大縮小
+    mouseWheel(e){
+        if (e.target.classList.contains("drag")){
+            //ホイールの回転量を取得
+            var wheel = e.deltaY;
+            //ホイールの回転量に応じて画像の拡大縮小
+            var delta_ratio = 0;
+            if(wheel > 0){
+                delta_ratio = -0.1;
+            }else{
+                delta_ratio = 0.1;
+            }
+            this.img_scale = this.img_scale + delta_ratio
+            //opratpr_canvasのdata属性にscaleを保存
+            var oprator_canvas = this.human_images_elem.getElementsByClassName("operator_canvas")[0];
+            oprator_canvas.dataset.scale = this.img_scale;
+
+            //console.log("img_scale:"+this.img_scale);
+            //全ての画像のサイズは同じなので拡大縮小をする
+            var height = 65 * this.img_scale;
+            //console.log(`${height}vh`);
+            //console.log(this.human_image_elems[0].style.height);
+            //拡大縮小の中心を、クリックしたときの座標のbg_imageからの相対座標として、画像のtop,leftを変更する
+            var bg_image_rect = this.bg_image.getBoundingClientRect()
+            var P_x = parseFloat(e.pageX,10) - parseFloat(bg_image_rect.left,10)
+            var P_y = parseFloat(e.pageY,10) - parseFloat(bg_image_rect.top,10)
+            var t = this.img_scale / (this.img_scale - delta_ratio)
+            var old_top = parseFloat(this.human_image_elems[0].style.top,10)
+            var old_left = parseFloat(this.human_image_elems[0].style.left,10)
+            var new_left = P_x + t * (old_left - P_x) + "px";
+            var new_top = P_y + t * (old_top - P_y) + "px";
+            //console.log("new_left,new_top="+[new_left,new_top])
+            for (let i=0;i<this.human_image_elems.length;i++){
+                this.human_image_elems[i].style.height = `${height}vh`
+                this.human_image_elems[i].style.top = new_top;
+                this.human_image_elems[i].style.left = new_left;
+            }
+            this.search_canvas_elem.style.height = `${height}vh`
+
+            //mouseUpとmouseDownを発火させる
+            this.mouseUp(e);
+            this.mouseDown(e);
             
-        }
-
-        mouseMove(e) {
-            //ドラッグしている要素を取得
-            //e.targetのクラスネームにdragがあるかどうかで処理を分岐させる
-            if (e.target.classList.contains("drag")){
-                var drag = e.target;
-                //同様にマウスとタッチの差異を吸収
-                if(e.type === "mousemove") {
-                    var event = e;
-                } else {
-                    var event = e.changedTouches[0];
-                }
-
-                //フリックしたときに画面を動かさないようにデフォルト動作を抑制
-                e.preventDefault();
-                //マウスが動いた場所に要素を動かす
-                for (let i=0;i<this.human_image_elems.length;i++){
-                    this.human_image_elems[i].style.left = addPixelValues(this.canvas_offsetLeft, event.pageX - this.mouse_down_pos_x + "px");
-                    this.human_image_elems[i].style.top = addPixelValues(this.canvas_offsetTop, event.pageY - this.mouse_down_pos_y + "px");
-                }
-            }
-        }
-
-        //マウスボタンが上がったら発火
-        mouseUp(e) {
-            console.log("mouseUp")
-            if (e.target.classList.contains("drag")){
-                var drag = e.target;
-
-                //クラス名 .drag も消す
-                drag.classList.remove("drag");
-            }
-        }
-        //ホイールイベント:画像の拡大縮小
-        mouseWheel(e){
-            if (e.target.classList.contains("drag")){
-                //ホイールの回転量を取得
-                var wheel = e.deltaY;
-                //ホイールの回転量に応じて画像の拡大縮小
-                var delta_ratio = 0;
-                if(wheel > 0){
-                    delta_ratio = -0.1;
-                }else{
-                    delta_ratio = 0.1;
-                }
-                this.img_scale = this.img_scale + delta_ratio
-                //opratpr_canvasのdata属性にscaleを保存
-                var oprator_canvas = this.human_images_elem.getElementsByClassName("operator_canvas")[0];
-                oprator_canvas.dataset.scale = this.img_scale;
-
-                //console.log("img_scale:"+this.img_scale);
-                //全ての画像のサイズは同じなので拡大縮小をする
-                var height = 65 * this.img_scale;
-                //console.log(`${height}vh`);
-                //console.log(this.human_image_elems[0].style.height);
-                //拡大縮小の中心を、クリックしたときの座標のbg_imageからの相対座標として、画像のtop,leftを変更する
-                var bg_image_rect = this.bg_image.getBoundingClientRect()
-                var P_x = parseFloat(e.pageX,10) - parseFloat(bg_image_rect.left,10)
-                var P_y = parseFloat(e.pageY,10) - parseFloat(bg_image_rect.top,10)
-                var t = this.img_scale / (this.img_scale - delta_ratio)
-                var old_top = parseFloat(this.human_image_elems[0].style.top,10)
-                var old_left = parseFloat(this.human_image_elems[0].style.left,10)
-                var new_left = P_x + t * (old_left - P_x) + "px";
-                var new_top = P_y + t * (old_top - P_y) + "px";
-                //console.log("new_left,new_top="+[new_left,new_top])
-                for (let i=0;i<this.human_image_elems.length;i++){
-                    this.human_image_elems[i].style.height = `${height}vh`
-                    this.human_image_elems[i].style.top = new_top;
-                    this.human_image_elems[i].style.left = new_left;
-                    this.search_canvas_elem.style.height = `${height}vh`
-                }
-                //mouseUpとmouseDownを発火させる
-                this.mouseUp(e);
-                this.mouseDown(e);
-                
-
-            }
 
         }
+
+    }
 }
 
 function addPixelValues(px1, px2) {
@@ -1060,11 +1071,16 @@ function addPixelValues(px1, px2) {
     return sum + "px";
 }
 
-function addMoveImageEvent(human_images_elem){
+/**
+ * 
+ * @param {Element} human_images_elem 
+ * @param {HumanBodyManager2} humanBodyManager
+ */
+function addMoveImageEvent(human_images_elem,humanBodyManager){
     //1個のdrag_and_dropクラスを動かせるようにする
     console.log("dragオブジェクトを準備する",human_images_elem);
-    const drag_drop_object_status = new DragDropObjectStatus(human_images_elem);
-    oprator_canvas_elem = human_images_elem.getElementsByClassName("operator_canvas")[0]
+    const drag_drop_object_status = new DragDropObjectStatus(human_images_elem,humanBodyManager);
+    let oprator_canvas_elem = human_images_elem.getElementsByClassName("operator_canvas")[0]
     oprator_canvas_elem.addEventListener("mousedown",drag_drop_object_status);
     oprator_canvas_elem.addEventListener("touchstart",drag_drop_object_status);
     oprator_canvas_elem.addEventListener("mouseup",drag_drop_object_status);
@@ -1372,7 +1388,7 @@ class HumanBodyManager2 {
             this.human_window = document.getElementsByClassName(`${this.front_name}`)[0];
             this.human_images = this.human_window.getElementsByClassName("human_images")[0];
             //画像をドラッグで動かせるようにする
-            addMoveImageEvent(this.human_images);
+            addMoveImageEvent(this.human_images,this);
         })
 
         this.PatiPatiProcess("パチパチ");
@@ -1463,22 +1479,17 @@ class HumanBodyManager2 {
                 let image_info_entries = part_info["imgs"].entries();
 
                 for (let [part_name, iamge_info] of image_info_entries) {
-                    //canvasを作成して、そのcanvasに画像を描画する
-                    var body_img = self.createPartCanvas()
-                    body_img.classList.add("human_image",`${part_group_name}_img`,`${part_name}_img`,`${self.front_name}_img`)
-                    //初期配置の画像を描画する
-                    const init_part_name = self.init_image_info[part_group_name];
-                    self.drawPart(body_img, iamge_info);
-                    
-                    //body_imgのz-indexを設定する
-                    body_img.style.zIndex = String(part_info["z_index"]);
-                    self.human_images.appendChild(body_img);
-                    //changeImage()でパーツを変更するときに使うので各パーツのelementをmap_body_parts_infoに格納する
-                    self.setBodyImgElemnt(part_group_name,part_name,body_img)
+                    const on_off = self.getImgStatus(part_group_name, part_name);
+                    if (on_off == "off") {
+                        continue;
+                    } else {
 
-                    //画像のオンオフの現在のステータスを反映する
-                    const on_off = self.getImgStatus(part_group_name,part_name);
-                    self.changeImgStatus(part_group_name,part_name,on_off);
+                        let body_img = self.createBodyImageCanvasAndSetImgStatus(part_group_name,part_info,part_name,iamge_info,on_off);
+
+                        //changeImage()でパーツを変更するときに使うので各パーツのelementをmap_body_parts_infoに格納する
+                        self.setBodyImgElemnt(part_group_name, part_name, body_img)
+                    }
+
                 }
 
             }
@@ -1497,28 +1508,39 @@ class HumanBodyManager2 {
     /**
      * 
      * @param {string} part_group_name
-     * @param {PartInfo} part_info
+     * @param {PartInfo} part_info : const part_info = this.getPartInfoFromPartGroupName(part_group_name);
      * @param {string} part_name
-     * @param {ImageInfo} iamge_info
+     * @param {ImageInfo} iamge_info : const iamge_info = part_info["imgs"].get(part_name);
+     * @param {"off" | "on"} on_off : const on_off = this.getImgStatus(part_group_name,part_name);
+     * @return {HTMLCanvasElement} body_img
      */
-    createLayerAndDrawImage(part_group_name,part_info,part_name,iamge_info){
+    createBodyImageCanvasAndSetImgStatus(part_group_name,part_info,part_name,iamge_info,on_off){
             //canvasを作成して、そのcanvasに画像を描画する
-            var body_img = this.createPartCanvas()
-            body_img.classList.add("human_image",`${part_group_name}_img`,`${part_name}_img`,`${this.front_name}_img`)
-            //初期配置の画像を描画する
-            const init_part_name = this.init_image_info[part_group_name];
-            this.drawPart(body_img, iamge_info);
-            
-            //body_imgのz-indexを設定する
-            body_img.style.zIndex = String(part_info["z_index"]);
-            this.human_images.appendChild(body_img);
-            //changeImage()でパーツを変更するときに使うので各パーツのelementをmap_body_parts_infoに格納する
-            this.setBodyImgElemnt(part_group_name,part_name,body_img)
+            let body_img = this.createBodyImageCanvas(part_group_name,part_info,part_name,iamge_info)
 
             //画像のオンオフの現在のステータスを反映する
-            const on_off = this.getImgStatus(part_group_name,part_name);
-            this.changeImgStatus(part_group_name,part_name,on_off);
-        
+            this.changeImgStatus(part_group_name,part_name,on_off,body_img);
+
+            return body_img;
+    }
+
+    /**
+     * canvasを作成して、そのcanvasに画像を描画すし、z-indexを設定し、human_imagesの子エレメントに追加する
+     * @param {string} part_group_name
+     * @param {PartInfo} part_info : const part_info = this.getPartInfoFromPartGroupName(part_group_name);
+     * @param {string} part_name
+     * @param {ImageInfo} iamge_info : const iamge_info = part_info["imgs"].get(part_name);
+     * @return {HTMLCanvasElement} body_img
+     */
+    createBodyImageCanvas(part_group_name,part_info,part_name,iamge_info){
+        //canvasを作成して、そのcanvasに画像を描画する
+        var body_img = this.createPartCanvas()
+        body_img.classList.add("human_image",`${part_group_name}_img`,`${part_name}_img`,`${this.front_name}_img`)
+        this.drawPart(body_img, iamge_info);
+        //body_imgのz-indexを設定する
+        body_img.style.zIndex = String(part_info["z_index"]);
+        this.human_images.appendChild(body_img);
+        return body_img;
     }
 
     /**
@@ -1584,6 +1606,26 @@ class HumanBodyManager2 {
         //canvasをhuman_imagesクラスに追加
         var human_images_elem = this.human_window.getElementsByClassName("human_images")[0];
         human_images_elem.appendChild(oprator_canvas);
+        this.oprator_canvas = oprator_canvas;
+    }
+
+    /**
+     * @typedef {Object} HumanBodyCanvasCssStylePosAndSize
+     * @property {string} height - The height of the operator canvas.
+     * @property {string} top - The top position of the operator canvas.
+     * @property {string} left - The left position of the operator canvas.
+     */
+
+    /**
+     * 現在の体パーツのキャンバスの座標と大きさを取得する
+     * @return {HumanBodyCanvasCssStylePosAndSize}
+     */
+    getOperatorCanvasCssStyle(){
+        return {
+            "height": this.oprator_canvas.style.height,
+            "top": this.oprator_canvas.style.top,
+            "left": this.oprator_canvas.style.left,
+        }
     }
 
     /**
@@ -1602,11 +1644,15 @@ class HumanBodyManager2 {
      * 体のパーツの画像のhtmlエレメントを取得する
      * @param {string} part_group_name 
      * @param {string} part_name 
-     * @returns {HTMLCanvasElement}
+     * @returns {HTMLCanvasElement|null}
      */
     getBodyImgElemnt(part_group_name,part_name){
         const part_info = this.getPartInfoFromPartGroupName(part_group_name);
         const body_img_elemnt_map = part_info.body_img_elemnt_map
+        if (body_img_elemnt_map.has(part_name) == false){
+            //initでoffになっているパーツの場合、まだ作られてないのでnullを返し、これから作る。
+            return null;
+        }
         const body_img_elemnt = body_img_elemnt_map.get(part_name);
         return body_img_elemnt;
     }
@@ -1616,10 +1662,10 @@ class HumanBodyManager2 {
      * @param {string} image_group - 画像のグループ名
      * @param {string} image_name - 画像の名前
      * @param {"on"|"off"} on_off - 画像をonにするかoffにするか
+     * @param {HTMLCanvasElement} body_img - 体のパーツの画像のhtmlエレメント
      */
-    changeImgStatus(image_group,image_name,on_off){
+    changeImgStatus(image_group, image_name, on_off, body_img){
 
-        let body_img = this.getBodyImgElemnt(image_group,image_name);
         //body_imgをdisplay:noneにする
         if (on_off == "off") {
             body_img.style.display = "none";
@@ -1631,6 +1677,7 @@ class HumanBodyManager2 {
     }
 
     /**
+     * 体のパーツ画像が設定されてるか確認し、されてる場合はchangeImgStatusし、されてない場合はcreateBodyImageCanvasを実行する
      * アコーディオンのクリックイベントで呼ばれる、キャラのパーツを変更するメソッド。
      * 
      * @param {string} image_group - 画像のグループ名
@@ -1639,7 +1686,32 @@ class HumanBodyManager2 {
      * 
      **/
     changeBodyPart(image_group,image_name,on_off){
-        this.changeImgStatus(image_group,image_name,on_off)
+        let body_img = this.getBodyImgElemnt(image_group,image_name);
+        if (body_img == null){
+            //body_imgがnullの場合、まだ作られてないので作成する。
+            const part_info = this.getPartInfoFromPartGroupName(image_group);
+            const iamge_info = part_info.imgs.get(image_name);
+            // body_img = this.createBodyImageCanvas(image_group,part_info,image_name,iamge_info);
+            let body_img = this.createBodyImageCanvasAndSetImgStatus(image_group,part_info,image_name,iamge_info,on_off);
+            //最新の座標と大きさを設定
+            this.setNowHumanBodyCanvasCssStylePosAndSize(body_img)
+            //changeImage()でパーツを変更するときに使うので各パーツのelementをmap_body_parts_infoに格納する
+            this.setBodyImgElemnt(image_group, image_name, body_img)
+        } else {
+            this.changeImgStatus(image_group,image_name,on_off,body_img);
+        }
+        
+    }
+
+    /**
+     * 体のパーツの画像のステータスを変更する
+     * @param {HTMLCanvasElement} body_img - 体のパーツの画像のhtmlエレメント
+     */
+    setNowHumanBodyCanvasCssStylePosAndSize(body_img){
+        const style = this.getOperatorCanvasCssStyle();
+        body_img.style.height = style.height;
+        body_img.style.top = style.top;
+        body_img.style.left = style.left;
     }
 
     /**
@@ -2017,7 +2089,7 @@ class iHumanBodyManager{
             this.human_window = document.getElementsByClassName(`${this.front_name}`)[0];
             this.human_images = this.human_window.getElementsByClassName("human_images")[0];
             //画像をドラッグで動かせるようにする
-            addMoveImageEvent(this.human_images);
+            addMoveImageEvent(this.human_images,this);
         })
 
         
