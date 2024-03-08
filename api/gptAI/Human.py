@@ -5,19 +5,18 @@ import json
 import time
 import re
 from pprint import pprint
-sys.path.append('../..')
-from api.gptAI.gpt import ChatGPT
-from api.images.image_manager.HumanPart import HumanPart
+from .gpt import ChatGPT
+from .voiceroid_api import voicevox_human
+from ..images.image_manager.HumanPart import HumanPart
 from starlette.websockets import WebSocket
-from api.gptAI.voiceroid_api import voicevox_human
 
 try:
-    from api.gptAI.voiceroid_api import cevio_human
+    from .voiceroid_api import cevio_human
 except ImportError:
     print("cevio_human module could not be imported. Please ensure the required application is installed.")
 
 try:
-    from api.gptAI.voiceroid_api import AIVoiceHuman
+    from .voiceroid_api import AIVoiceHuman
 except ImportError:
     print("AIVoiceHuman module could not be imported. Please ensure the required application is installed.")
 

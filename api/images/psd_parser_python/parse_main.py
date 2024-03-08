@@ -1,9 +1,8 @@
 import sys
 from pathlib import Path
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from parser2 import PSDParser
-import converter2voiroidAIImage
+from .parser2 import PSDParser
+from .converter2voiroidAIImage import converter2voiroidAIImage
 from psd_tools import PSDImage
 import os
 

@@ -2,58 +2,64 @@ import os
 import shutil
 import re
 
-def atoi(text):
-    return int(text) if text.isdigit() else text
+class converter2voiroidAIImage:
 
-def natural_keys(text):
-    return [atoi(c) for c in re.split(r'(\d+)', text)]
-
-# 最も深い階層にあるフォルダを取得する関数
-def copyDeepestFolder(source_dir,destination_dir):
-    count = 0
-    print(os.walk(source_dir))
-    # フォルダ名を昇順にwalkする    
-    for root, dirs, files in os.walk(source_dir):
-        dirs.sort(key=natural_keys)
-        if not dirs:
-            count = count + 1
-            # フォルダがない場合はそのディレクトリの名前の先頭に番号を付けてdestination_dirにコピーする
-            #rootのsource_dirからの相対パスを取得する
-            root_relative_path = os.path.relpath(root,source_dir)
-            #\を_に置換する
-            root_relative_path = root_relative_path.replace("\\","_")
-            new_basename = f"{count}_" + root_relative_path
-            #new_basename = f"{count}_" + os.path.basename(root)
-            shutil.copytree(root, os.path.join(destination_dir, new_basename))
-
-def normalizeFolder(source_dir):
-    for root, dirs, files in os.walk(source_dir):
-        #現在のディレクトリの深さを取得する
-        current_depth = root[len(source_dir):].count(os.sep)
-        if len(dirs) >= 1 and len(files) >= 1:
-            #rootとfileの間にfileと同じ名前のフォルダを作成して、その中にファイルを移動する
-            #filesから昇順にソートする
-            files.sort()
-            for file in files:
-                #fileから拡張子を取り除いた名前のフォルダを作成する
-                def decideFileName():
-                    # current_depthが0の場合はレイヤーの順番が重要なのでまとめずにファイル名をそのまま使う
-                    if current_depth == 0:
-                        file_name = os.path.splitext(file)[0]
-                    else:
-                        # file_nameを以下のどれかからdirにないものを選んで統一する。
-                        file_name_candidate = ["その他","未分類","無題"]
-                        for candidate in file_name_candidate:
-                            if candidate not in dirs:
-                                file_name = candidate
-                                break
-                    return file_name
-                file_name = decideFileName()
-                new_dir = os.path.join(root,file_name)
-                print("new_dir",new_dir)
-                if not os.path.exists(new_dir):
-                    os.makedirs(new_dir)
-                shutil.move(os.path.join(root,file),new_dir)
+    @staticmethod
+    def atoi(text):
+        return int(text) if text.isdigit() else text
+    
+    @staticmethod
+    def natural_keys(text):
+        return [atoi(c) for c in re.split(r'(\d+)', text)]
+    
+    # 最も深い階層にあるフォルダを取得する関数
+    @staticmethod
+    def copyDeepestFolder(source_dir,destination_dir):
+        count = 0
+        print(os.walk(source_dir))
+        # フォルダ名を昇順にwalkする    
+        for root, dirs, files in os.walk(source_dir):
+            dirs.sort(key=natural_keys)
+            if not dirs:
+                count = count + 1
+                # フォルダがない場合はそのディレクトリの名前の先頭に番号を付けてdestination_dirにコピーする
+                #rootのsource_dirからの相対パスを取得する
+                root_relative_path = os.path.relpath(root,source_dir)
+                #\を_に置換する
+                root_relative_path = root_relative_path.replace("\\","_")
+                new_basename = f"{count}_" + root_relative_path
+                #new_basename = f"{count}_" + os.path.basename(root)
+                shutil.copytree(root, os.path.join(destination_dir, new_basename))
+    
+    @staticmethod
+    def normalizeFolder(source_dir):
+        for root, dirs, files in os.walk(source_dir):
+            #現在のディレクトリの深さを取得する
+            current_depth = root[len(source_dir):].count(os.sep)
+            if len(dirs) >= 1 and len(files) >= 1:
+                #rootとfileの間にfileと同じ名前のフォルダを作成して、その中にファイルを移動する
+                #filesから昇順にソートする
+                files.sort()
+                for file in files:
+                    #fileから拡張子を取り除いた名前のフォルダを作成する
+                    def decideFileName():
+                        # current_depthが0の場合はレイヤーの順番が重要なのでまとめずにファイル名をそのまま使う
+                        if current_depth == 0:
+                            file_name = os.path.splitext(file)[0]
+                        else:
+                            # file_nameを以下のどれかからdirにないものを選んで統一する。
+                            file_name_candidate = ["その他","未分類","無題"]
+                            for candidate in file_name_candidate:
+                                if candidate not in dirs:
+                                    file_name = candidate
+                                    break
+                        return file_name
+                    file_name = decideFileName()
+                    new_dir = os.path.join(root,file_name)
+                    print("new_dir",new_dir)
+                    if not os.path.exists(new_dir):
+                        os.makedirs(new_dir)
+                    shutil.move(os.path.join(root,file),new_dir)
 
 # 以下メイン処理
 if __name__ == "__main__":

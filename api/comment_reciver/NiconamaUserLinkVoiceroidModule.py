@@ -1,5 +1,4 @@
-
-from api.gptAI.Human import Human
+from ..gptAI.Human import Human
 import json
 
 

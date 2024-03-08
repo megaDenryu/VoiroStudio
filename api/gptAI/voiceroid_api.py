@@ -15,7 +15,7 @@ import os
 import clr
 from typing import Dict, Any
 
-from api.Extend.ExtendFunc import ExtendFunc
+from ..Extend.ExtendFunc import ExtendFunc
 
 class cevio_human:
     def __init__(self,char_name:str,started_cevio_num:int) -> None:

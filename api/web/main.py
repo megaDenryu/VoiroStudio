@@ -27,13 +27,13 @@ import mimetypes
 from api.comment_reciver.comment_module import NicoNamaCommentReciever
 from api.comment_reciver.NiconamaUserLinkVoiceroidModule import NiconamaUserLinkVoiceroidModule
 
-from notifier import Notifier
+from api.web.notifier import Notifier
 import json
 from pprint import pprint
 import datetime
 import traceback
 from uuid import uuid4
-
+import uvicorn
 
 
 app = FastAPI()
@@ -664,3 +664,5 @@ async def startup():
     # プッシュ通知の準備
     await notifier.generator.asend(None)
 
+if __name__ == "__main__":
+    uvicorn.run(app, host="localhost", port=8020)
