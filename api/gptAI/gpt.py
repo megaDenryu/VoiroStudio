@@ -3,7 +3,6 @@ import json
 from pprint import pprint
 from pathlib import Path
 import requests
-import wave
 # pip install playsound==1.2.2を使用する
 #from playsound import playsound
 import openai
