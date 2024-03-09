@@ -10,6 +10,8 @@
 class DragDropFile{
 
     /** @type {Element}*/ human_tab
+    /** @type {Element}*/ human_window
+    /** @type {HTMLElement}*/ human_name
     /** @type {Element}*/ human_images
     /** @type {string}*/ target_voiceroid_front_name
 
@@ -18,6 +20,7 @@ class DragDropFile{
     constructor(human_tab){
         this.human_tab = human_tab;
         this.human_window = this.human_tab.getElementsByClassName("human_window")[0];
+        this.human_name = /** @type {HTMLElement}*/ (this.human_tab.getElementsByClassName("human_name")[0]);
         this.human_images = this.human_tab.getElementsByClassName("human_images")[0];
         this.target_voiceroid_front_name = "????";
         human_tab.addEventListener("click", this);
@@ -92,7 +95,8 @@ class DragDropFile{
                                 "body_parts_iamges": body_parts_iamges,
                                 "init_image_info": init_image_info
                             }
-                            this.human_window.innerHTML = front_name;
+                            
+                            // registerHumanName(front_name,this.human_tab,this.human_name)
                             humans_list[body_parts["char_name"]] = new HumanBodyManager2(body_parts,this.human_window)
                             front2chara_name[body_parts["front_name"]] = body_parts["char_name"]
                         })
@@ -133,7 +137,7 @@ class DragDropFile{
                                 "init_image_info": init_image_info
                             }
 
-                            this.human_window.innerHTML = front_name;
+                            registerHumanName(front_name,this.human_tab,this.human_name)
                             humans_list[body_parts["char_name"]] = new HumanBodyManager2(body_parts,this.human_window)
                             front2chara_name[body_parts["front_name"]] = body_parts["char_name"]
                         })
