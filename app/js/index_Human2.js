@@ -1235,8 +1235,9 @@ class HumanBodyManager2 {
 
     /**
      * @param {BodyParts} body_parts - パラメータ1の説明
+     * @param {Element|null} human_window - パラメータ2の説明
      */
-    constructor(body_parts){
+    constructor(body_parts,human_window = null){
         /**@type {boolean} */
         this.debug = false;
         
@@ -1373,7 +1374,7 @@ class HumanBodyManager2 {
         this.chara_canvas_init_data = this.setCharaCanvasInitData();
         
         //名前入力時点でhuman_windowのelementにnameも追加されてるのでそれを取得する。
-        this.human_window = document.getElementsByClassName(`${this.front_name}`)[0];
+        this.human_window = human_window || document.getElementsByClassName(`${this.front_name}`)[0];
         this.human_images = this.human_window.getElementsByClassName("human_images")[0];
         let promise_setBodyParts2Elm = new Promise((resolve,reject) => {
             //search_canvasでのモード
@@ -3041,7 +3042,7 @@ function humanWsOpen(){
 
 //ここから下がメイン処理
 var message_box_manager = new MessageBoxManager();
-const localhost = "192.168.2.100"
+const localhost = location.hostname;
 const port = "8020"
 var init_human_tab = /** @type {HTMLLIElement} */ (document.getElementsByClassName("tab human_tab")[0]);
 addClickEvent2Tab(init_human_tab)
@@ -3052,6 +3053,7 @@ var isProcessing = false;
 
 /** @type {Record<string,HumanBodyManager2>} */
 var humans_list = {};
+/** @type {Record<string,string>} */
 var front2chara_name = {};
 var setteing_info = {}; //どのキャラの設定がオンになっているかを管理する
 

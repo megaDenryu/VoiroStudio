@@ -17,6 +17,7 @@ class DragDropFile{
      * @param {Element} human_tab */
     constructor(human_tab){
         this.human_tab = human_tab;
+        this.human_window = this.human_tab.getElementsByClassName("human_window")[0];
         this.human_images = this.human_tab.getElementsByClassName("human_images")[0];
         this.target_voiceroid_front_name = "????";
         human_tab.addEventListener("click", this);
@@ -78,9 +79,9 @@ class DragDropFile{
                         .then(response => response.json())
                         .then(data => {
                             //JavaScriptでは、オブジェクトからデータを抽出して新しい変数に格納するために、以下のようにデストラクチャリング（Destructuring）という機能を使用することができます。
-                            const { body_parts_images, init_image_info, front_name, char_name } = data;
+                            const { body_parts_iamges, init_image_info, front_name, char_name } = data;
                             // これで、dataから各データが新しい変数に格納されます。
-                            // body_parts_images, init_image_info, front_name, char_nameという名前の変数が作成され、それぞれに対応するデータが格納されます
+                            // body_parts_iamges, init_image_info, front_name, char_nameという名前の変数が作成され、それぞれに対応するデータが格納されます
 
                             /**
                              * @type {BodyParts}
@@ -88,11 +89,12 @@ class DragDropFile{
                             const body_parts = {
                                 "front_name": front_name,
                                 "char_name": char_name,
-                                "body_parts_iamges": body_parts_images,
+                                "body_parts_iamges": body_parts_iamges,
                                 "init_image_info": init_image_info
                             }
-
-                            humans_list[body_parts["char_name"]] = new HumanBodyManager2(body_parts)
+                            this.human_window.innerHTML = front_name;
+                            humans_list[body_parts["char_name"]] = new HumanBodyManager2(body_parts,this.human_window)
+                            front2chara_name[body_parts["front_name"]] = body_parts["char_name"]
                         })
                         .catch(error => console.error(error));
                     } else if (response_mode == "FrontName_noNeedBodyParts") {
@@ -104,7 +106,7 @@ class DragDropFile{
                         .then(response => response.json())
                         .then(data => {
                             //JavaScriptでは、オブジェクトからデータを抽出して新しい変数に格納するために、以下のようにデストラクチャリング（Destructuring）という機能を使用することができます。
-                            const { body_parts_images, init_image_info, front_name, char_name } = data;
+                            const { body_parts_iamges, init_image_info, front_name, char_name } = data;
                             
                         })
                         .catch(error => console.error(error));
@@ -117,7 +119,7 @@ class DragDropFile{
                         .then(response => response.json())
                         .then(data => {
                             console.log(data)
-                            const { body_parts_images, init_image_info, front_name, char_name } = data;
+                            const { body_parts_iamges, init_image_info, front_name, char_name } = data;
                             // これで、dataから各データが新しい変数に格納されます。
                             // body_parts_images, init_image_info, front_name, char_nameという名前の変数が作成され、それぞれに対応するデータが格納されます
 
@@ -127,12 +129,13 @@ class DragDropFile{
                             const body_parts = {
                                 "front_name": front_name,
                                 "char_name": char_name,
-                                "body_parts_iamges": body_parts_images,
+                                "body_parts_iamges": body_parts_iamges,
                                 "init_image_info": init_image_info
                             }
 
-                            humans_list[body_parts["char_name"]] = new HumanBodyManager2(body_parts)
-                            
+                            this.human_window.innerHTML = front_name;
+                            humans_list[body_parts["char_name"]] = new HumanBodyManager2(body_parts,this.human_window)
+                            front2chara_name[body_parts["front_name"]] = body_parts["char_name"]
                         })
                         .catch(error => console.error(error));
                     }

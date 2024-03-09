@@ -544,6 +544,7 @@ async def parserPsdFile(
     # response_mode = req_body.response_mode
     # front_name = req_body.front_name
     file_contents = await file.read()
+    print("ファイル受け取り完了")
     if response_mode == ResponseMode.noFrontName_needBodyParts:
         front_name = Human.pickFrontName(filename)
         #todo front_nameがない場合の処理
@@ -578,13 +579,21 @@ async def parserPsdFile(
         # パーツを取得
         human_part = HumanPart(chara_name)
         human_part_folder,body_parts_pathes_for_gpt = human_part.getHumanAllPartsFromPath(chara_name,folder)
-        image_data_for_client = ImageData(
-            body_parts_iamges = human_part_folder["body_parts_iamges"],
-            init_image_info = human_part_folder["init_image_info"],
-            front_name = front_name,
-            char_name = chara_name
-        )
+        # image_data_for_client = ImageData(
+        #     body_parts_iamges = human_part_folder["body_parts_iamges"],
+        #     init_image_info = human_part_folder["init_image_info"],
+        #     front_name = front_name,
+        #     char_name = chara_name
+        # )
+        # return image_data_for_client
+        image_data_for_client = {
+            "body_parts_iamges": human_part_folder["body_parts_iamges"],
+            "init_image_info": human_part_folder["init_image_info"],
+            "front_name": front_name,
+            "char_name": chara_name
+        }
         return image_data_for_client
+        
     
     elif response_mode == ResponseMode.FrontName_noNeedBodyParts:
         return {"message": "psdファイルを保存しました。"}
