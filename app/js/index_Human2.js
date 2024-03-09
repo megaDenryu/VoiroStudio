@@ -143,35 +143,26 @@ function tabSwitch(event){
         audio.play();*/
         //キャラの名前を選択できるようにプルダウンかinputを追加
         this.classList.add('input_now')
-        human_tab = this.parentNode.parentNode
+        let ELM_human_name = this;
+        let human_tab = /** @type {Element}*/(ELM_human_name.parentNode.parentNode)
         //this.innerText = ""
-        var input = document.createElement("input")
+        let input = document.createElement("input")
         input.type = "text"
-        input.addEventListener("keydown", function(event) {
-        if (event.key === "Enter") {
-            //removeInputCharaNameイベントを解除する
-            input.removeEventListener("blur", removeInputCharaName.bind(input));
-            parent_elem = this.parentNode
-            //今のhuman_tabにはhuman_windowを取得。1つしかないので[0]でよい。
-            human_window = human_tab.getElementsByClassName("human_window")[0]
-            //画像が送られてきたときに画像を配置して制御するためにhuman_windowにキャラの名前のタグを付ける。
-            human_window.classList.add(`${input.value}`)
-            //名前を格納
-            parent_elem.innerText = input.value;
-            parent_elem.classList.remove("input_now")
-            sendHumanName(input.value)
-            //messageBoxにhuman_nameを格納
-            //今のhuman_tabの番号を取得
-            const tab_num = human_tab.getAttribute('data-tab_num');
-            message_box_manager.linkHumanNameAndNum(input.value,tab_num)
-            
-            delete this
-            //this.parentNode.removeChild(input);
-        } 
+        input.addEventListener("keydown", function(event) 
+        {
+            console.log(this)
+            if (event.key === "Enter") {
+                //removeInputCharaNameイベントを解除する
+                input.removeEventListener("blur", removeInputCharaName.bind(input));
+                const human_name = input.value;
+                registerHumanName(human_name, human_tab, ELM_human_name)
+                sendHumanName(human_name)
+                input.remove();
+            }
         });
         //フォーカスが外れたときにinputを削除
         input.addEventListener("blur", removeInputCharaName.bind(input));
-        this.appendChild(input);
+        ELM_human_name.appendChild(input);
         input.focus();
     }
     else if (this.innerText == "npc") {
@@ -252,6 +243,25 @@ function tabSwitch(event){
     }
     this.classList.add('is-active');
     
+}
+
+/**
+ * @param {string} human_name
+ * @param {Element} human_tab
+ * @param {HTMLElement} ELM_human_name
+ */
+function registerHumanName(human_name, human_tab, ELM_human_name) {
+    let human_window = human_tab.getElementsByClassName("human_window")[0]
+    //画像が送られてきたときに画像を配置して制御するためにhuman_windowにキャラの名前のタグを付ける。
+    human_window.classList.add(`${human_name}`)
+    //名前を格納
+    ELM_human_name.innerText = human_name;
+    ELM_human_name.classList.remove("input_now")
+    
+    //messageBoxにhuman_nameを格納
+    //今のhuman_tabの番号を取得
+    const tab_num = human_tab.getAttribute('data-tab_num');
+    message_box_manager.linkHumanNameAndNum(human_name,tab_num)
 }
 
 function removeInputCharaName(event) {
@@ -1235,8 +1245,9 @@ class HumanBodyManager2 {
 
     /**
      * @param {BodyParts} body_parts - パラメータ1の説明
+     * @param {Element|null} human_window - パラメータ2の説明
      */
-    constructor(body_parts){
+    constructor(body_parts,human_window = null){
         /**@type {boolean} */
         this.debug = false;
         
@@ -1373,7 +1384,7 @@ class HumanBodyManager2 {
         this.chara_canvas_init_data = this.setCharaCanvasInitData();
         
         //名前入力時点でhuman_windowのelementにnameも追加されてるのでそれを取得する。
-        this.human_window = document.getElementsByClassName(`${this.front_name}`)[0];
+        this.human_window = human_window || document.getElementsByClassName(`${this.front_name}`)[0];
         this.human_images = this.human_window.getElementsByClassName("human_images")[0];
         let promise_setBodyParts2Elm = new Promise((resolve,reject) => {
             //search_canvasでのモード
@@ -3041,7 +3052,7 @@ function humanWsOpen(){
 
 //ここから下がメイン処理
 var message_box_manager = new MessageBoxManager();
-const localhost = "192.168.2.100"
+const localhost = location.hostname;
 const port = "8020"
 var init_human_tab = /** @type {HTMLLIElement} */ (document.getElementsByClassName("tab human_tab")[0]);
 addClickEvent2Tab(init_human_tab)
@@ -3052,6 +3063,7 @@ var isProcessing = false;
 
 /** @type {Record<string,HumanBodyManager2>} */
 var humans_list = {};
+/** @type {Record<string,string>} */
 var front2chara_name = {};
 var setteing_info = {}; //どのキャラの設定がオンになっているかを管理する
 
