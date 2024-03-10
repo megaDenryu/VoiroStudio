@@ -53,7 +53,7 @@ class HumanPart:
         #入力名からキャラの正式名を取得
         char_file_path = self.setCharFilePath(human_char_name,psd_num)
         #キャラの正式名からキャラの体パーツフォルダの画像のpathを取得
-        path_str = f"../images/ボイロキャラ素材/{char_file_path}"
+        path_str = str(HumanPart.getVoiroCharaImageFolderPath() / char_file_path)
         return self.getHumanAllPartsFromPath(human_char_name,path_str)
     
     def getHumanAllPartsFromPath(self, human_char_name:str, path_str:str):
@@ -195,11 +195,69 @@ class HumanPart:
         init_image_info.jsonの中にcombination_nameのキーでcombination_dataを保存する
         """
         char_file_path = self.setCharFilePath(self.name,psd_num)
-        path_str = f"../images/ボイロキャラ素材/{char_file_path}"
+        path_str = str(HumanPart.getVoiroCharaImageFolderPath() / char_file_path)
         init_image_info = self.getInitImageInfo(path_str)
         init_image_info[combination_name] = combination_data
         self.saveJsonFile(f"{path_str}/init_image_info.json",init_image_info)
+    
+    @staticmethod
+    def getVoiroCharaImageFolderPath():
+        """
+        ボイロキャラの画像フォルダのパスを取得する
+        """
+        root_dir = ExtendFunc.getTargetDirFromParents(__file__,"api").parent
+        target_dir = root_dir / "ボイロキャラ素材"
+        return target_dir
+    
+    @staticmethod
+    def checkExistVoiroCharaImageFolder():
+        """
+        ボイロキャラの画像フォルダが存在するか確認する
+        """
+        target_dir = HumanPart.getVoiroCharaImageFolderPath()
+        return os.path.exists(target_dir)
+    
+    @staticmethod
+    def createVoiroCharaImageFolder():
+        """
+        ボイロキャラの画像フォルダを作成する
+        """
+        target_dir = HumanPart.getVoiroCharaImageFolderPath()
+        os.makedirs(target_dir, exist_ok=True)
+    
+    @staticmethod
+    def checkExistVoiroCharaImageFolderAndCreate():
+        """
+        ボイロキャラの画像フォルダが存在しなければ作成する
+        """
+        if not HumanPart.checkExistVoiroCharaImageFolder():
+            HumanPart.createVoiroCharaImageFolder()
+            print("ボイロキャラの画像フォルダがなかったので作成しました。")
+        else:
+            print("ボイロキャラの画像フォルダが正常に存在します。")
+    
+    @staticmethod
+    def checkNameExistInVoiroCharaImageFolderAndCreate(name:str):
+        """
+        ボイロキャラの画像フォルダにnameのフォルダが存在するか確認して、存在しなければ作成する
+        """
+        target_dir = HumanPart.getVoiroCharaImageFolderPath()
+        os.makedirs(target_dir / name, exist_ok=True)
+    
+    @staticmethod
+    def checkAllNameExistInVoiroCharaImageFolderAndCreate():
+        """
+        ボイロキャラの画像フォルダに名前が存在するかをすべてのボイロについて確認して、存在しなければ作成する
+        """
+        path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CharFilePath.json")
+        chara_name_dict = ExtendFunc.loadJsonToDict(path)
+        for chara_name in chara_name_dict:
+            HumanPart.checkNameExistInVoiroCharaImageFolderAndCreate(chara_name)
 
-
-#h = HumanPart()
-#h.getHumanAllParts("おね")
+    @staticmethod
+    def initalCheck():
+        """
+        ボイロキャラの画像フォルダが存在しなければ作成する
+        """
+        HumanPart.checkExistVoiroCharaImageFolderAndCreate()
+        HumanPart.checkAllNameExistInVoiroCharaImageFolderAndCreate()
