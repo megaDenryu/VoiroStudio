@@ -1186,7 +1186,14 @@ function deepCopy(obj) {
 /** 
  * PartInfoの拡張
  * @typedef {ExtendedMap<string,any>} MapPartInfo 
- * */
+ */
+
+/**
+ * @typedef {Object} PartsPath
+ * @property {string} folder_name
+ * @property {string} file_name
+ */
+
 
 /**
      * iHumnaBodyManagerでは一つのレイヤーで一つの画像を表示していたが、
@@ -1239,6 +1246,43 @@ class HumanBodyManager2 {
 
     /**@type {"口"|"パクパク"|"無し"} */
     lip_sync_mode = "無し"
+
+    /**@type {Record<"開候補"|"閉",PartsPath[]>} */
+    PakuPakuSetting = {
+        "開候補":[],
+        "閉":[]
+    };
+
+    /**@type {PartsPath} */
+    now_paku_paku;
+    
+
+    /**@type {Record<"開候補"|"閉",PartsPath[]>} */
+    PatiPatiSetting = {
+        "開候補":[],
+        "閉":[]
+    }
+
+    /**@type {PartsPath} */
+    now_patipati;
+
+    /**@type {Record<"開候補"|"閉",PartsPath[]>} */
+    PyokoPyokoSetting = {
+        "開候補":[],
+        "閉":[]
+    }
+
+    /**@type {PartsPath} */
+    now_pyokopyoko;
+
+    /** @type {Record<"パク"|"パチ"|"ぴょこ",Record<"開候補"|"閉",PartsPath[]>>} */
+    onomatopoeia_action_setting = {
+        "パク":this.PakuPakuSetting,
+        "パチ":this.PatiPatiSetting,
+        "ぴょこ":this.PyokoPyokoSetting
+    }
+
+
 
     /**@type {ExtendedMap<string, ExtendedMap<string, InitData>>} */
     pose_patterns;
@@ -1927,6 +1971,45 @@ class HumanBodyManager2 {
         }
         
     }
+
+    /**
+     * @param {"パク"| "パチ" | "ぴょこ"} onomatopoeia_action_mode
+     * @param {"開候補"|"閉"} openCloseState 
+     * @param {PartsPath} PartsPath 
+     */
+    setToOnomatopoeiaActionSetting(onomatopoeia_action_mode,openCloseState,PartsPath){
+        let action_setting = this.onomatopoeia_action_setting[onomatopoeia_action_mode];
+        action_setting[openCloseState].push(PartsPath);
+        console.log(this.onomatopoeia_action_setting);
+    }
+
+    /**
+     * @param {"パク"| "パチ" | "ぴょこ"} onomatopoeia_action_mode
+     * @param {"開候補"|"閉"} openCloseState 
+     * @param {PartsPath} PartsPath 
+     */
+    removeFromOnomatopoeiaActionSetting(onomatopoeia_action_mode, openCloseState, PartsPath){
+        let action_setting = this.onomatopoeia_action_setting[onomatopoeia_action_mode];
+        action_setting[openCloseState] = action_setting[openCloseState].filter((value) => {
+            return !this.isEquivalentPartsPath(value,PartsPath);
+        });
+        console.log(this.onomatopoeia_action_setting)
+    }
+
+    /**
+     * @param {PartsPath} PartsPath1
+     * @param {PartsPath} PartsPath2
+     * @returns {boolean} 
+     */
+    isEquivalentPartsPath(PartsPath1,PartsPath2){
+        if (PartsPath1.folder_name == PartsPath2.folder_name && PartsPath1.file_name == PartsPath2.file_name){
+            return true;
+        } else {
+            return false;
+        }
+    }
+        
+
 }
 
 class iHumanBodyManager{

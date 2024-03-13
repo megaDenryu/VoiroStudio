@@ -197,6 +197,10 @@ class VoiroAISetting{
 }
 
 /**
+ * @typedef {"口"|"パク"|"パチ"|"ぴょこ"|"無"} PatiMode
+ */
+
+/**
  * アコーディオンを展開したときに見えるアコーディオンコンテンツのクラス
  * パーツ名をクリックしたときに、ボタンの色を変え、人体モデルのパーツの表示を変え、プロパティのデータも変える
  */
@@ -232,6 +236,11 @@ class AccordionItem{
 
     /** @type {Record<string,"on"|"off">} */
     image_item_status
+
+    /**
+     * このアコーディオンのパチ設定のモード 
+     * @type {PatiMode} */
+    pati_setting_mode;
 
     /**
      * 
@@ -301,7 +310,7 @@ class AccordionItem{
         let ELMs_radio_button = this.html_doc.getElementsByClassName("pati_setting_radio-button");
         console.log(ELMs_radio_button)
         for (let i = 0; i < ELMs_radio_button.length; i++) {
-            let ELM_radio_button = ELMs_radio_button[i];
+            let ELM_radio_button = /** @type {HTMLElement}*/(ELMs_radio_button[i]);
             console.log(ELM_radio_button)
             ELM_radio_button.addEventListener("click", (event) => {
                 console.log("pati_setting_radio-buttonがクリックされたよ")
@@ -316,7 +325,24 @@ class AccordionItem{
                 }
                 //クリックしたボタンがオンの場合はオフにし、オフの場合はオンにする
                 ELM_radio_button.classList.toggle("on");
+                this.pati_setting_mode = /** @type {PatiMode}*/(ELM_radio_button.innerText);
+
+                //全ての開閉状態を反映する
+                this.reflectOnomatopoeiaActionViewStateToHumanModel();
             });
+        }
+    }
+
+    reflectOnomatopoeiaActionViewStateToHumanModel(){
+        for (const [key, value] of Object.entries(this.accordion_content_handler_list)){
+            
+            const pati_setting_toggle_event_object = /**@type {PatiSettingToggleEventObject} */(value.pati_setting_toggle_event_object);
+            //オノマトペアクションリストのすべてと開閉を探索して、このパーツパスを削除
+            pati_setting_toggle_event_object.removePartsPathFromOnomatopoeiaActionSetting();
+
+            //オノマトペアクションリストの現在の選択アクションに対してこのパーツパスを追加
+            const now_state = pati_setting_toggle_event_object.now_state;
+            pati_setting_toggle_event_object.reflectOnomatopoeiaActionState(now_state);
         }
     }
 
@@ -426,7 +452,7 @@ class AccordionItem{
             ELM_accordion_content_clone.classList.remove("sample");
 
             let ELM_accordion_content_pati_setting_toggle_button = /** @type {HTMLElement}*/(ELM_accordion_content_clone.getElementsByClassName("accordion_content_pati_setting_toggle_button")[0]);
-            let pati_setting_toggle_button_event_object = new PatiSettingToggleEventObject(ELM_accordion_content_pati_setting_toggle_button);
+            let pati_setting_toggle_button_event_object = new PatiSettingToggleEventObject(ELM_accordion_content_pati_setting_toggle_button, this, content_button_event_object);
 
             //アコーディオンの中身を追加
             ELM_accordion_contents.appendChild(ELM_accordion_content_clone);
@@ -523,13 +549,32 @@ class AccordionItem{
 class PatiSettingToggleEventObject{
     /** @type {HTMLElement} */
     ELM_accordion_content_pati_setting_toggle_button;
-    
+    /** @type {AccordionItem} */
+    parent_accordion_item_instance;
+    /** @type {HumanBodyManager2} */
+    human_body_manager;
+    /** @type {string} */
+    image_name;
+    /** @type {"open"|"close"} */
+    now_state = "open";
     /**
      * @param {HTMLElement} ELM_accordion_content_pati_setting_toggle_button
+     * @param {AccordionItem} parent_accordion_item_instance
+     * @param {ContentButtonEventobject} content_button_event_object
      */
-    constructor(ELM_accordion_content_pati_setting_toggle_button){
+    constructor(
+        ELM_accordion_content_pati_setting_toggle_button, 
+        parent_accordion_item_instance,
+        content_button_event_object
+    ){
         this.ELM_accordion_content_pati_setting_toggle_button = ELM_accordion_content_pati_setting_toggle_button;
+        this.parent_accordion_item_instance = parent_accordion_item_instance;
+        this.human_body_manager = parent_accordion_item_instance.chara_human_body_manager;
         this.ELM_accordion_content_pati_setting_toggle_button.addEventListener("click",this);
+        this.image_name = content_button_event_object.image_name;
+        this.content_button_event_object = content_button_event_object;
+        this.content_button_event_object.bindPatiSettingToggleEventObject(this);
+        this.now_state = this.pullInitStateFromDataStorage();
     }
 
     /**
@@ -542,11 +587,65 @@ class PatiSettingToggleEventObject{
         if (this.ELM_accordion_content_pati_setting_toggle_button?.classList.contains("open") == true){
             this.ELM_accordion_content_pati_setting_toggle_button?.classList.replace("open","close");
             this.ELM_accordion_content_pati_setting_toggle_button.innerText = "閉";
+            this.now_state = "close";
         } else {
             this.ELM_accordion_content_pati_setting_toggle_button?.classList.replace("close","open");
             this.ELM_accordion_content_pati_setting_toggle_button.innerText = "開";
+            this.now_state = "open";
+        }
+        this.reflectOnomatopoeiaActionState(this.now_state);
+        
+    }
+
+    /**
+     * @param {"open"|"close"} open_close
+     */
+    reflectOnomatopoeiaActionState(open_close){
+        //パチパク設定のモードによって、human_body_managerのプロパティを変える
+        /**@type {PartsPath} */
+        const parts_path = {
+            folder_name: this.parent_accordion_item_instance.name_acordion,
+            file_name: this.image_name
+        }
+        console.log(this.parent_accordion_item_instance.pati_setting_mode)
+        if (this.parent_accordion_item_instance.pati_setting_mode == "口"){
+            
+        } else if (["パク","パチ","ぴょこ"].includes(this.parent_accordion_item_instance.pati_setting_mode)){
+            console.log("パチパク設定のモードによって、human_body_managerのプロパティを変える")
+            
+            const mode = /**@type {"パク"|"パチ"|"ぴょこ"}*/(this.parent_accordion_item_instance.pati_setting_mode);
+            if (open_close == "open"){
+                //開候補リストに登録
+                this.human_body_manager.setToOnomatopoeiaActionSetting(mode,"開候補", parts_path)
+                this.human_body_manager.removeFromOnomatopoeiaActionSetting(mode,"閉", parts_path)
+            } else if (open_close == "close"){
+                this.human_body_manager.removeFromOnomatopoeiaActionSetting(mode,"開候補", parts_path)
+                this.human_body_manager.setToOnomatopoeiaActionSetting(mode,"閉", parts_path)
+            }
+        } else if (this.parent_accordion_item_instance.pati_setting_mode == "無"){
+            
         }
     }
+
+    /** todo: 未実装。データストレージから初期状態を取得する
+     * @returns {"open"|"close"}
+     */
+    pullInitStateFromDataStorage(){
+        return "open";
+    }
+
+    removePartsPathFromOnomatopoeiaActionSetting(){
+        for (let mode of ["パク","パチ","ぴょこ"]){
+            const parts_path = {
+                folder_name: this.parent_accordion_item_instance.name_acordion,
+                file_name: this.image_name
+            }
+            this.human_body_manager.removeFromOnomatopoeiaActionSetting(mode,"開候補", parts_path)
+            this.human_body_manager.removeFromOnomatopoeiaActionSetting(mode,"閉", parts_path)
+        }
+    
+    }
+
 }
        
 
@@ -666,6 +765,13 @@ class ContentButtonEventobject{
             this.ELM_accordion_content.classList.remove("on_accordion_content");
             this.on_off = "off";
         }
+    }
+
+    /**オノマトペアクションコントローラーをバインドする
+     * @param {PatiSettingToggleEventObject} pati_setting_toggle_event_object
+     */
+    bindPatiSettingToggleEventObject(pati_setting_toggle_event_object){
+        this.pati_setting_toggle_event_object = pati_setting_toggle_event_object;   
     }
 }
 
