@@ -327,10 +327,32 @@ class AccordionItem{
                 ELM_radio_button.classList.toggle("on");
                 this.pati_setting_mode = /** @type {PatiMode}*/(ELM_radio_button.innerText);
 
+                //todo:ここでnow_onomatopoeia_actionを取得し設定
+                if (["パク","パチ","ぴょこ"].includes(this.pati_setting_mode)){
+                    this.reflectOnItemToNowOnomatopoeiaAction(this.pati_setting_mode);
+                }
                 //全ての開閉状態を反映する
                 this.reflectOnomatopoeiaActionViewStateToHumanModel();
             });
         }
+    }
+
+    /**
+     * 
+     * @param {"パク" | "パチ" | "ぴょこ"} onomatopoeia_action_mode 
+     */
+    reflectOnItemToNowOnomatopoeiaAction(onomatopoeia_action_mode){
+        let content_status_dict = this.getContentStatusDict()
+        //"on"を持つキーを取得
+        let on_content_list = Object.keys(content_status_dict).filter((key) => content_status_dict[key] == "on");
+        for (let on_content of on_content_list){
+            let part_path = {
+                folder_name: this.name_acordion,
+                file_name: on_content
+            }
+            this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode].push(part_path);
+        }
+        
     }
 
     reflectOnomatopoeiaActionViewStateToHumanModel(){

@@ -221,6 +221,7 @@ function tabSwitch(event){
             console.log(char_name+"setteng_infoにない")
             chara_human_body_manager = humans_list[char_name]
             var vas = new VoiroAISetting(chara_human_body_manager);
+            humans_list[char_name].BindVoiroAISetting(vas);
             setteing_info[char_name] = vas;
             setteing_info[char_name].ELM_accordion.classList.add("vissible")
 
@@ -1253,7 +1254,7 @@ class HumanBodyManager2 {
         "閉":[]
     };
 
-    /**@type {PartsPath} */
+    /**@type {PartsPath[]} */
     now_paku_paku;
     
 
@@ -1263,7 +1264,7 @@ class HumanBodyManager2 {
         "閉":[]
     }
 
-    /**@type {PartsPath} */
+    /**@type {PartsPath[]} */
     now_patipati;
 
     /**@type {Record<"開候補"|"閉",PartsPath[]>} */
@@ -1272,7 +1273,7 @@ class HumanBodyManager2 {
         "閉":[]
     }
 
-    /**@type {PartsPath} */
+    /**@type {PartsPath[]} */
     now_pyokopyoko;
 
     /** @type {Record<"パク"|"パチ"|"ぴょこ",Record<"開候補"|"閉",PartsPath[]>>} */
@@ -1282,10 +1283,16 @@ class HumanBodyManager2 {
         "ぴょこ":this.PyokoPyokoSetting
     }
 
-
+    /** @type {Record<"パク"|"パチ"|"ぴょこ",PartsPath[]>} */
+    now_onomatopoeia_action = {
+        "パク":this.now_paku_paku,
+        "パチ":this.now_patipati,
+        "ぴょこ":this.now_pyokopyoko
+    }
 
     /**@type {ExtendedMap<string, ExtendedMap<string, InitData>>} */
     pose_patterns;
+
 
     /**
      * @param {BodyParts} body_parts - パラメータ1の説明
@@ -1446,8 +1453,11 @@ class HumanBodyManager2 {
             addMoveImageEvent(this.human_images,this);
         })
 
-        this.PatiPatiProcess("パチパチ");
-        this.PyokoPyokoProcess("ぴょこぴょこ");
+        // this.PatiPatiProcess("パチパチ");
+        // this.PyokoPyokoProcess("ぴょこぴょこ");
+
+        this.PatiPatiProcess2("パチ");
+        this.PyokoPyokoProcess2("ぴょこ");
 
 
     }
@@ -1862,10 +1872,12 @@ class HumanBodyManager2 {
                 break;
             case "パクパク":
                 if(this.prev_pakupaku == "close"){
-                    this.changePakuPakuImage("パクパク","open","on");
+                    // this.changePakuPakuImage("パクパク","open","on");
+                    this.changeOnomatopoeiaImage("パク","open","on");
                     this.prev_pakupaku = "open";
                 }else{
-                    this.changePakuPakuImage("パクパク","close","on");
+                    // this.changePakuPakuImage("パクパク","close","on");
+                    this.changeOnomatopoeiaImage("パク","close","on");
                     this.prev_pakupaku = "close";
                 }
                 break;
@@ -1885,7 +1897,44 @@ class HumanBodyManager2 {
             if (this.pakupaku_info.get(pakupaku_mode).has(pakupaku)){
                 const pakupaku_folder_name = this.pakupaku_info.get(pakupaku_mode).get(pakupaku)[0];
                 const next_img_name = this.pakupaku_info.get(pakupaku_mode).get(pakupaku)[1];
-                this.radioChangeImage(pakupaku_folder_name, next_img_name, on_off)
+            }
+        }
+    }
+
+    /**
+     * @param {"パク"| "パチ" | "ぴょこ"} onomatopoeia_action_mode
+     * @param {"open"|"close"} openCloseState - 開状態の画像を操作するか閉状態を操作するか
+     * @param {"on"|"off"} on_off - 操作でオンにするかオフにするか
+     */
+    changeOnomatopoeiaImage(onomatopoeia_action_mode, openCloseState, on_off){
+        let action_setting = this.onomatopoeia_action_setting[onomatopoeia_action_mode];
+        let now_onomatopoeia_list = this.now_onomatopoeia_action[onomatopoeia_action_mode];
+        if (openCloseState == "open") {
+            if (on_off == "on") {
+                //now_onomatopoeiaの画像を全てオンにする
+                for (let now_onomatopoeia of now_onomatopoeia_list){
+                    console.log(now_onomatopoeia.folder_name, now_onomatopoeia.file_name);
+                    this.voiro_ai_setting?.setGroupButtonOnOff(now_onomatopoeia.folder_name, now_onomatopoeia.file_name, "on");
+                }
+            } else {
+                //action_setting["開候補"]の画像を全てオフにする
+                for (let onomatopoeia of action_setting["開候補"]){
+                    this.voiro_ai_setting?.setGroupButtonOnOff(onomatopoeia.folder_name, onomatopoeia.file_name, "off");
+                }
+            }
+        } else if (openCloseState == "close") {
+            if (on_off == "on") {
+                //action_setting["閉"]の画像からランダムで１つオンにする
+                console.log(action_setting["閉"])
+                if (action_setting["閉"].length > 0){
+                    let onomatopoeia = action_setting["閉"][Math.floor(Math.random() * action_setting["閉"].length)];
+                    this.voiro_ai_setting?.setGroupButtonOnOff(onomatopoeia.folder_name, onomatopoeia.file_name, "on");
+                }
+            } else {
+                //action_setting["閉"]の画像をすべてオフにする
+                for (let onomatopoeia of action_setting["閉"]){
+                    this.voiro_ai_setting?.setGroupButtonOnOff(onomatopoeia.folder_name, onomatopoeia.file_name, "off");
+                }
             }
         }
     }
@@ -1919,6 +1968,50 @@ class HumanBodyManager2 {
             await this.sleep(100);
             this.changePakuPakuImage(patipati_mode,"open","on");
             this.changePakuPakuImage(patipati_mode,"close","off");
+        }
+    }
+
+    /**
+     * 
+     * @param {"パク" | "パチ" | "ぴょこ"} patipati_mode   - パクパクのモード。pakupaku_listの中から選べる。"口","パクパク","パチパチ","ぴょこぴょこ"など。
+     */
+    async PatiPatiProcess2(patipati_mode){
+        console.log("パチパチプロセス開始");
+        //20秒ごとにパチパチをする
+        while (true){
+            console.log(patipati_mode);
+            await this.sleep(200);
+            this.changeOnomatopoeiaImage(patipati_mode,"close","on");
+            this.changeOnomatopoeiaImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changeOnomatopoeiaImage(patipati_mode,"open","on");
+            this.changeOnomatopoeiaImage(patipati_mode,"close","off");
+        }
+    }
+
+    /**
+     * 
+     * @param {"パク" | "パチ" | "ぴょこ"} patipati_mode   - パクパクのモード。pakupaku_listの中から選べる。"口","パクパク","パチパチ","ぴょこぴょこ"など。
+     */
+    async PyokoPyokoProcess2(patipati_mode){
+        console.log("ぴょこぴょこプロセス開始");
+        //20秒ごとにぴょこぴょこをする
+        while (true){
+            console.log(patipati_mode);
+            //5~20秒の間でランダムなタイミングでぴょこぴょこをする
+            const timing = Math.floor(Math.random() * (20000 - 5000) + 5000);
+            await this.sleep(timing);
+            this.changeOnomatopoeiaImage(patipati_mode,"close","on");
+            this.changeOnomatopoeiaImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changeOnomatopoeiaImage(patipati_mode,"close","on");
+            this.changeOnomatopoeiaImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changeOnomatopoeiaImage(patipati_mode,"close","on");
+            this.changeOnomatopoeiaImage(patipati_mode, "open", "off")
+            await this.sleep(100);
+            this.changeOnomatopoeiaImage(patipati_mode,"close","on");
+            this.changeOnomatopoeiaImage(patipati_mode, "open", "off")
         }
     }
 
@@ -2008,6 +2101,14 @@ class HumanBodyManager2 {
             return false;
         }
     }
+
+    /**
+     * @param {VoiroAISetting} vas
+     */
+    BindVoiroAISetting(vas){
+        this.voiro_ai_setting = vas;
+    }
+
         
 
 }
