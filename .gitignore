@@ -11,7 +11,7 @@ api/web/build/*
 api/web/dist/*
 api/web/main.spec
 api/web/user_data.json
-
+ボイロキャラ素材/*
 app/images/
 api/web/output_wav/*
 api/web/output_aivoice/*

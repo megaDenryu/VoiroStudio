@@ -44,6 +44,8 @@
 .accordion_content{
     border-radius: 20px;
     background-color: #aaa;
+    display: flex;
+    justify-content: space-between;
 }
 .accordion_content:hover{
     background-color: #4e698e;
@@ -57,7 +59,17 @@
 .on_accordion_content:hover{
     background-color: rgb(0, 145, 255)
 }
-
+.accordion_content_pati_setting_toggle_button{
+    background-color: #15182553;
+    border-top-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    color: rgb(223, 234, 244);
+    padding: 5px 10px;
+    margin-top: 3px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+}
 .combination_name{
     background-color: rgb(118, 172, 73);
 }
@@ -104,4 +116,46 @@ ul {
 .gpt_mode.off:hover {
     background-color: #151825;
 }
+.pati_setting_radio-buttons {
+    display: flex;
+    align-items: center;
+    /* 文字サイズを指定*/
+    font-size: 20px;
+}
+.pati_setting_radio-buttons.non_vissible {
+    display: none;
+}
+.initial_display_object{
+    display: flex;
+    justify-content: space-between;
+}
+.pati_setting_radio-button{
+    /* ボタンの大きさを指定*/
+    width: 50px;
+    height: 50px;
+    /* ボタンの形を丸くする*/
+    border-radius: 50%;
+    /* ボタンの枠線を消す*/
+    border: none;
+    /* ボタンの文字を中央に配置する*/
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* ボタンの文字の大きさを指定*/
+    font-size: 12px;
+    /* ボタンの文字の色を指定*/
+    color: #fff;
+    /* ボタンの背景色を指定*/
+    background-color: #15182553;
+    /* ボタンの影を指定*/
+    box-shadow: 0 0 5px rgba(221, 92, 133, 0.5);
+    /* ボタンのカーソルを指定*/
+    cursor: pointer;
+    /* ボタンのマウスオーバー時の背景色を指定*/
+    transition: background-color 0.3s;
+}
+.pati_setting_radio-button.on {
+    color: #0394b8;
+}
+
   

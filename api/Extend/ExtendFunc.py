@@ -22,7 +22,7 @@ class ExtendFunc:
         if current_path.name == target_folder:
             return current_path
         else:
-            raise FileNotFoundError(f"'{target_folder}' フォルダが現在のファイルの先祖に見つかりませんでした。")
+            raise FileNotFoundError(f"{current_path}から{target_folder} フォルダが現在のファイルの先祖に見つかりませんでした。")
     
     @staticmethod
     def getCommnonAncestorPath(path1: str, path2: str) -> Path:

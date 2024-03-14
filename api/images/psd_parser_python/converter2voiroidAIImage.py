@@ -10,7 +10,7 @@ class converter2voiroidAIImage:
     
     @staticmethod
     def natural_keys(text):
-        return [atoi(c) for c in re.split(r'(\d+)', text)]
+        return [converter2voiroidAIImage.atoi(c) for c in re.split(r'(\d+)', text)]
     
     # 最も深い階層にあるフォルダを取得する関数
     @staticmethod
@@ -19,7 +19,7 @@ class converter2voiroidAIImage:
         print(os.walk(source_dir))
         # フォルダ名を昇順にwalkする    
         for root, dirs, files in os.walk(source_dir):
-            dirs.sort(key=natural_keys)
+            dirs.sort(key=converter2voiroidAIImage.natural_keys)
             if not dirs:
                 count = count + 1
                 # フォルダがない場合はそのディレクトリの名前の先頭に番号を付けてdestination_dirにコピーする
@@ -70,6 +70,6 @@ if __name__ == "__main__":
     # コピー先のディレクトリの絶対パス。バックスラッシュは2つずつ書くこと。
     destination_dir = "C:\\Users\\pokr301qup\\python_dev\\poke-fastapi-websockets\\api\\images\\ボイロキャラ素材\\IA\\kulori IA 立ち絵\\kulori IA 立ち絵_テスト\\Parts2"
     # フォルダの正規化
-    normalizeFolder(source_dir)
+    converter2voiroidAIImage.normalizeFolder(source_dir)
     # コピー元ディレクトリ内の最も深い階層にあるフォルダを取得する
-    copyDeepestFolder(source_dir,destination_dir)
+    converter2voiroidAIImage.copyDeepestFolder(source_dir,destination_dir)

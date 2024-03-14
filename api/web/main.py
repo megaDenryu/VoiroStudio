@@ -35,6 +35,8 @@ import traceback
 from uuid import uuid4
 import uvicorn
 
+#フォルダーがあるか確認
+HumanPart.initalCheck()
 
 app = FastAPI()
 # プッシュ通知各種設定が定義されているインスタンス
@@ -554,16 +556,15 @@ async def parserPsdFile(
     chara_name = Human.setCharName(front_name)
     # ファイルの保存先を指定
     api_dir = Path(__file__).parent.parent.parent / 'api'
-    print(str(api_dir))
     folder_name = f"{filename.split('.')[0]}"
-    folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{folder_name}"
+    folder = str(HumanPart.getVoiroCharaImageFolderPath() / chara_name / folder_name)
 
     # 保存先のフォルダが存在するか確認。存在する場合はフォルダ名を変更。ゆかり1,ゆかり2があればゆかり3を作成する感じ。
     file_counter = 0
     while os.path.exists(folder):
         file_counter = file_counter + 1
         folder_name = f"{filename.split('.')[0]}_{file_counter}"
-        folder = f"{str(api_dir)}\\images\\ボイロキャラ素材\\{chara_name}\\{folder_name}"
+        folder = folder = str(HumanPart.getVoiroCharaImageFolderPath() / chara_name / folder_name)
     os.makedirs(folder)
     psd_file = f"{folder}\\{filename}"
     # ファイルの内容を保存
@@ -674,4 +675,4 @@ async def startup():
     await notifier.generator.asend(None)
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="localhost", port=8020)
+    uvicorn.run(app, host="localhost", port=8020, lifespan="on")
