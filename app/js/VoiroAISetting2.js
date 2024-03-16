@@ -338,11 +338,28 @@ class AccordionItem{
     }
 
     /**
-     * 
+     * 今のアコーディオンの中身の状態を取得し、オンになっているものをnow_onomatopoeia_actionに反映する。オフになっているものは削除する。
+     * なので先に今のアコーディオンに入っているパーツをすべて削除し、その後に反映する
      * @param {"パク" | "パチ" | "ぴょこ"} onomatopoeia_action_mode 
      */
     reflectOnItemToNowOnomatopoeiaAction(onomatopoeia_action_mode){
+        if (["パク","パチ","ぴょこ"].includes(onomatopoeia_action_mode) == false){
+            return;
+        }
+
         let content_status_dict = this.getContentStatusDict()
+        //now_onomatopoeia_actionからこのアコーディオンのパーツを削除
+        let all_content_list = Object.keys(content_status_dict);
+        for (let content of all_content_list){
+            let part_path = {
+                folder_name: this.name_acordion,
+                file_name: content
+            }
+            this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode] = this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode].filter(
+                (path) => this.chara_human_body_manager.isEquivalentPartsPath(path,part_path) == false
+                );
+        }
+
         //"on"を持つキーを取得
         let on_content_list = Object.keys(content_status_dict).filter((key) => content_status_dict[key] == "on");
         for (let on_content of on_content_list){
@@ -736,11 +753,15 @@ class ContentButtonEventobject{
                     }
                 }
             }
+            // now_onomatopoeia_actionを更新。パチパク設定のモードがパク、パチ、ぴょこの場合のみ反映される
+            this.parent_accordion_item_instance.reflectOnItemToNowOnomatopoeiaAction(this.parent_accordion_item_instance.pati_setting_mode);
 
         } else {
             this.ELM_accordion_content.classList.remove("on_accordion_content");
             this.chara_human_body_manager.changeBodyPart(accordion_name,this.image_name,"off");
             this.on_off = "off";
+            // now_onomatopoeia_actionを更新。パチパク設定のモードがパク、パチ、ぴょこの場合のみ反映される
+            this.parent_accordion_item_instance.reflectOnItemToNowOnomatopoeiaAction(this.parent_accordion_item_instance.pati_setting_mode);
         }
         this.parent_accordion_item_instance.checkHasOnContentButton();
     }

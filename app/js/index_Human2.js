@@ -1290,6 +1290,8 @@ class HumanBodyManager2 {
         "ぴょこ":this.now_pyokopyoko
     }
 
+    
+
     /**@type {ExtendedMap<string, ExtendedMap<string, InitData>>} */
     pose_patterns;
 
@@ -1866,6 +1868,9 @@ class HumanBodyManager2 {
         //         this.radioChangeImage(this.mouse_folder_name, next_img_name, "on")
         //     }
         // }
+        if (["a","i","u","e","o"].includes(phoneme) == false){
+            return;
+        }
         switch(this.lip_sync_mode){
             case "口":
                 this.changePakuPakuImage("口",phoneme,"on");
