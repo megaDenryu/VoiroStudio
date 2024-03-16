@@ -352,6 +352,8 @@ class AccordionItem{
             }
             this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode].push(part_path);
         }
+
+        this.chara_human_body_manager.setLipSyncModeToPakuPaku(onomatopoeia_action_mode)
         
     }
 
@@ -374,6 +376,7 @@ class AccordionItem{
         let ELM_pati_setting = this.html_doc.querySelector(".pati_setting");
         let ELM_radio_buttons = this.html_doc.querySelector(".pati_setting_radio-buttons");
         ELM_pati_setting?.addEventListener("click", (event) => {
+            event.stopPropagation();
             ELM_radio_buttons?.classList.toggle("non_vissible");
         });
     }
@@ -552,7 +555,6 @@ class AccordionItem{
      */
     setGroupButtonOnOff(content_name, on_off){
         if (content_name != ""){
-            // debugger;
             const accordion_content_handler = this.accordion_content_handler_list[content_name];
             accordion_content_handler.setButtonOnOff(on_off);
         } else {
@@ -960,7 +962,6 @@ class CombinationContent{
             //human_body_managerのbody_partを変更する
             console.log("CombinationContentがクリックされたよ,ボタン名＝",this.combination_name,"現在の状態:",this.human_body_manager.pose_patterns)
             let combination_data = this.getCombinationData();
-            // debugger;
             for (const [body_group, part_candidate_info] of combination_data.entries()){
                 //part_candidate_info = {10_体:"on"}のようなjson
                 // console.log(body_group," なのだ ",part_candidate_info,"を適用する。現在の状態:",this.human_body_manager.pose_patterns)

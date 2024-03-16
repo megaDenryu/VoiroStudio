@@ -124,6 +124,7 @@ ul {
 }
 .pati_setting_radio-buttons.non_vissible {
     display: none;
+    /* visibility: hidden; */
 }
 .initial_display_object{
     display: flex;
