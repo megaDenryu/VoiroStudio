@@ -540,6 +540,7 @@ function sendMessage(event) {
 /**
  * @typedef {Object} InitImageInfo
  * @property {Record<string, InitData>} [property] - 動的に追加されるプロパティ
+ * @property {Record<"パク"|"パチ"|"ぴょこ",Record<"開候補"|"閉",PartsPath[]>>} OnomatopeiaActionSetting
  */
 
 /**
@@ -1248,49 +1249,19 @@ class HumanBodyManager2 {
     /**@type {"口"|"パクパク"|"無し"} */
     lip_sync_mode = "無し"
 
-    /**@type {Record<"開候補"|"閉",PartsPath[]>} */
-    PakuPakuSetting = {
-        "開候補":[],
-        "閉":[]
-    };
-
-    /**@type {PartsPath[]} */
-    now_paku_paku = [];
-    
-
-    /**@type {Record<"開候補"|"閉",PartsPath[]>} */
-    PatiPatiSetting = {
-        "開候補":[],
-        "閉":[]
-    }
-
-    /**@type {PartsPath[]} */
-    now_patipati = [];
-
-    /**@type {Record<"開候補"|"閉",PartsPath[]>} */
-    PyokoPyokoSetting = {
-        "開候補":[],
-        "閉":[]
-    }
-
-    /**@type {PartsPath[]} */
-    now_pyokopyoko = [];
-
     /** @type {Record<"パク"|"パチ"|"ぴょこ",Record<"開候補"|"閉",PartsPath[]>>} */
     onomatopoeia_action_setting = {
-        "パク":this.PakuPakuSetting,
-        "パチ":this.PatiPatiSetting,
-        "ぴょこ":this.PyokoPyokoSetting
+        "パク":{"開候補":[],"閉":[]},
+        "パチ":{"開候補":[],"閉":[]},
+        "ぴょこ":{"開候補":[],"閉":[]}
     }
 
     /** @type {Record<"パク"|"パチ"|"ぴょこ",PartsPath[]>} */
     now_onomatopoeia_action = {
-        "パク":this.now_paku_paku,
-        "パチ":this.now_patipati,
-        "ぴょこ":this.now_pyokopyoko
+        "パク":[],
+        "パチ":[],
+        "ぴょこ":[]
     }
-
-    
 
     /**@type {ExtendedMap<string, ExtendedMap<string, InitData>>} */
     pose_patterns;
@@ -1322,6 +1293,15 @@ class HumanBodyManager2 {
                 if ("setting" in body_parts["init_image_info"]) {
                     this.setting = /** @type {Record<string,Record<string,string>>} */ (body_parts["init_image_info"]["setting"]);
                     this.initializeMouseMoveSetting();
+                }
+                if ("OnomatopeiaActionSetting" in body_parts["init_image_info"]) {
+                    this.onomatopoeia_action_setting = deepCopy(body_parts["init_image_info"]["OnomatopeiaActionSetting"]);
+                    
+                } 
+                if ("NowOnomatopoeiaActionSetting" in body_parts["init_image_info"]) {
+                    // debugger;
+                    this.now_onomatopoeia_action = deepCopy(body_parts["init_image_info"]["NowOnomatopoeiaActionSetting"]);
+                    console.log(this.now_onomatopoeia_action)
                 }
                 if ("init" in body_parts["init_image_info"]){
                     this.init_image_info = /** @type {Record<string, Record<string, string>>} */ (body_parts["init_image_info"]["init"]);

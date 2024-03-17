@@ -36,7 +36,7 @@ class DragDropFile{
         if(event.type == "click"){
             console.log("ファイルがドラッグされています。")
             //POST確認
-            fetch(`http://localhost:${port}/test`, {
+            fetch(`http://${localhost}:${port}/test`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

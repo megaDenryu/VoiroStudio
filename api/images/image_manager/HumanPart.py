@@ -94,7 +94,6 @@ class HumanPart:
             with open(file_path,mode="w",encoding="utf-8") as f:
                 json.dump(json_data, f, ensure_ascii=False, indent=4)
 
-
     def recursive_file_check(self,path_str:str) -> tuple[dict, dict]:
         path = Path(path_str)
         file_names:list[str] = os.listdir(path)
@@ -140,7 +139,7 @@ class HumanPart:
             with open(path_str,encoding="UTF8") as f:
                 init_image_info = json.load(f)
                 #jsonファイルの中身を確認
-            pprint(init_image_info)
+            # pprint(init_image_info)
             return init_image_info
         except Exception as e:
             print(e)
