@@ -21,6 +21,13 @@ class VoiroAISetting{
         this.ELM_accordion = ELM_accordion
         this.accordion_item_dict = accordion_item_dict
         this.ELM_body_setting.append(this.ELM_accordion);
+
+        //オノマトペアクションの初期状態を設定する
+        // todo ここで開閉ボタンを自動で押し、ぴょこ等も自動で押す処理を実装する
+        this.setOnomatopeiaButtonToInitState();
+        // todo ここでオンボタンをオンにする処理を実装する
+        this.setOnBodyButtonToNowOnomatopeiaState();
+
     }
 
     /**
@@ -155,7 +162,6 @@ class VoiroAISetting{
         ws_combi_img_sender.onmessage = function(event){
             console.log("img_combi_saveからメッセージを受け取ったよ")
             console.log(event.data)
-            ws_combi_img_sender.close();
         }
     }
 
@@ -192,6 +198,73 @@ class VoiroAISetting{
      */
     setGroupButtonOnOff(group_name, content_name, on_off){
         this.accordion_item_dict[group_name].setGroupButtonOnOff(content_name,on_off);
+    }
+
+    /**
+     * @param {string} group_name
+     * @param {"パク" | "パチ" | "ぴょこ"} onomatopoeia_mode
+     * @param {"on" | "off"} on_off
+     */
+    setOnomatpeiaModeButtonOnOff(group_name, onomatopoeia_mode, on_off){
+        let accordion_item = this.accordion_item_dict[group_name];
+        accordion_item.setOnomatpeiaModeButtonOnOff(onomatopoeia_mode, on_off);
+    }
+
+    /** 
+     * @param {string} group_name
+     * @param {string} content_name
+     * @param {"open"|"close"} open_close
+     */
+    setOnomatpeiaButtonOnOff(group_name, content_name, open_close){
+        let handler_list = this.accordion_item_dict[group_name].accordion_content_handler_list;
+        let handler = handler_list[content_name];
+        let pati_setting_toggle_event_object = handler.pati_setting_toggle_event_object;
+        pati_setting_toggle_event_object.setButtonOpenClose(open_close);
+
+    }
+
+    /**
+     * todo パチパク設定
+     */
+    setOnomatopeiaButtonToInitState(){
+        
+        let /** @type {"パク" | "パチ" | "ぴょこ"} */ key;
+        let /** @type {"開候補" | "閉"} */ openCloseState;
+
+        for (key in this.chara_human_body_manager.onomatopoeia_action_setting){
+            let action_setting = this.chara_human_body_manager.onomatopoeia_action_setting[key];
+            for (openCloseState in action_setting){
+                let parts_list = action_setting[openCloseState];
+                
+                let /**@type {"open"|"close"} */ open_close = "open";
+                if (openCloseState == "閉"){
+                    open_close = "close";
+                }
+
+                for (let parts_path of parts_list){
+                    // debugger;
+                    this.setOnomatpeiaModeButtonOnOff(parts_path.folder_name, key, "on")
+                    this.setOnomatpeiaButtonOnOff(parts_path.folder_name, parts_path.file_name, open_close)
+                }
+            }
+            if (key == "パク" && action_setting["閉"].length > 0){
+                // リップシンクをオンにするかどうかの処理
+                this.chara_human_body_manager.setLipSyncModeToPakuPaku(key);
+            }
+        }
+    }
+
+    /**
+     * todo オノマトペアクションでオンにしていた体パーツをオンにする
+     */
+    setOnBodyButtonToNowOnomatopeiaState(){
+        let /** @type {"パク" | "パチ" | "ぴょこ"} */ key;
+        for (key in this.chara_human_body_manager.now_onomatopoeia_action){
+            let parts_list = this.chara_human_body_manager.now_onomatopoeia_action[key];
+            for (let parts_path of parts_list){
+                this.setGroupButtonOnOff(parts_path.folder_name, parts_path.file_name, "on");
+            }
+        }
     }
 
 }
@@ -273,7 +346,7 @@ class AccordionItem{
                     <div class="pati_setting_radio-button kuchi">パク</div>
                     <div class="pati_setting_radio-button kuchi">パチ</div>
                     <div class="pati_setting_radio-button kuchi">ぴょこ</div>
-                    <div class="pati_setting_radio-button kuchi">無</div>
+                    <div class="pati_setting_radio-button kuchi on">無</div>
                 </div>
             </div>
             <ul class = "accordion_contents non_vissible">
@@ -338,11 +411,50 @@ class AccordionItem{
     }
 
     /**
-     * 
+     * @param {"パク" | "パチ" | "ぴょこ"} onomatopoeia_mode
+     * @param {"on" | "off"} on_off
+     */
+    setOnomatpeiaModeButtonOnOff(onomatopoeia_mode, on_off){
+        // debugger;
+        let ELMs_radio_button = this.ELM_accordion_item_name.getElementsByClassName("pati_setting_radio-button");
+        console.log(ELMs_radio_button)
+        for (let i = 0; i < ELMs_radio_button.length; i++) {
+            let ELM_radio_button = /** @type {HTMLElement}*/(ELMs_radio_button[i]);
+            if (ELM_radio_button.innerText == onomatopoeia_mode){
+                if (on_off == "on"){
+                    ELM_radio_button.classList.add("on");
+                } else {
+                    ELM_radio_button.classList.remove("on");
+                }
+            } else {
+                ELM_radio_button.classList.remove("on");
+            }
+        }
+    }
+
+    /**
+     * 今のアコーディオンの中身の状態を取得し、オンになっているものをnow_onomatopoeia_actionに反映する。オフになっているものは削除する。
+     * なので先に今のアコーディオンに入っているパーツをすべて削除し、その後に反映する
      * @param {"パク" | "パチ" | "ぴょこ"} onomatopoeia_action_mode 
      */
     reflectOnItemToNowOnomatopoeiaAction(onomatopoeia_action_mode){
+        if (["パク","パチ","ぴょこ"].includes(onomatopoeia_action_mode) == false){
+            return;
+        }
+
         let content_status_dict = this.getContentStatusDict()
+        //now_onomatopoeia_actionからこのアコーディオンのパーツを削除
+        let all_content_list = Object.keys(content_status_dict);
+        for (let content of all_content_list){
+            let part_path = {
+                folder_name: this.name_acordion,
+                file_name: content
+            }
+            this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode] = this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode].filter(
+                (path) => this.chara_human_body_manager.isEquivalentPartsPath(path,part_path) == false
+                );
+        }
+
         //"on"を持つキーを取得
         let on_content_list = Object.keys(content_status_dict).filter((key) => content_status_dict[key] == "on");
         for (let on_content of on_content_list){
@@ -352,6 +464,8 @@ class AccordionItem{
             }
             this.chara_human_body_manager.now_onomatopoeia_action[onomatopoeia_action_mode].push(part_path);
         }
+
+        this.chara_human_body_manager.setLipSyncModeToPakuPaku(onomatopoeia_action_mode)
         
     }
 
@@ -374,6 +488,7 @@ class AccordionItem{
         let ELM_pati_setting = this.html_doc.querySelector(".pati_setting");
         let ELM_radio_buttons = this.html_doc.querySelector(".pati_setting_radio-buttons");
         ELM_pati_setting?.addEventListener("click", (event) => {
+            event.stopPropagation();
             ELM_radio_buttons?.classList.toggle("non_vissible");
         });
     }
@@ -552,7 +667,6 @@ class AccordionItem{
      */
     setGroupButtonOnOff(content_name, on_off){
         if (content_name != ""){
-            // debugger;
             const accordion_content_handler = this.accordion_content_handler_list[content_name];
             accordion_content_handler.setButtonOnOff(on_off);
         } else {
@@ -607,16 +721,26 @@ class PatiSettingToggleEventObject{
         event.stopPropagation();
         //イベント
         if (this.ELM_accordion_content_pati_setting_toggle_button?.classList.contains("open") == true){
-            this.ELM_accordion_content_pati_setting_toggle_button?.classList.replace("open","close");
-            this.ELM_accordion_content_pati_setting_toggle_button.innerText = "閉";
-            this.now_state = "close";
+            this.setButtonOpenClose("close");
         } else {
-            this.ELM_accordion_content_pati_setting_toggle_button?.classList.replace("close","open");
-            this.ELM_accordion_content_pati_setting_toggle_button.innerText = "開";
-            this.now_state = "open";
+            this.setButtonOpenClose("open");
         }
         this.reflectOnomatopoeiaActionState(this.now_state);
         
+    }
+
+    /**
+     * @param {"open"|"close"} open_close
+     */
+    setButtonOpenClose(open_close){
+        if (open_close == "open"){
+            this.ELM_accordion_content_pati_setting_toggle_button?.classList.replace("close","open");
+            this.ELM_accordion_content_pati_setting_toggle_button.innerText = "開";
+        } else if (open_close == "close"){
+            this.ELM_accordion_content_pati_setting_toggle_button?.classList.replace("open","close");
+            this.ELM_accordion_content_pati_setting_toggle_button.innerText = "閉";
+        }
+        this.now_state = open_close;
     }
 
     /**
@@ -647,6 +771,39 @@ class PatiSettingToggleEventObject{
         } else if (this.parent_accordion_item_instance.pati_setting_mode == "無"){
             
         }
+
+        //新しい状態をサーバーに送信する
+        this.sendOnomatopoeiaNewStateToDataStorage();
+    }
+
+    sendOnomatopoeiaNewStateToDataStorage(){
+        /**
+         * onomatopoeia_action_settingの新しい状態をサーバーに送信する.
+         * サーバー側でデータを保存するためにはinit_image_infoに到達するための情報が必要。
+         */
+        const data = {
+            "chara_name":this.human_body_manager.char_name,
+            "front_name":this.human_body_manager.front_name,
+            "pati_setting":this.human_body_manager.onomatopoeia_action_setting,
+            "now_onomatopoeia_action":this.human_body_manager.now_onomatopoeia_action,
+        }
+
+        console.log("パチパク設定データ",data)
+
+        //Postで送信する
+        const url = `http://${localhost}:${port}/pati_setting`
+        fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(data),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Success:', data);
+        })
+
     }
 
     /** todo: 未実装。データストレージから初期状態を取得する
@@ -678,6 +835,7 @@ class ContentButtonEventobject{
     /** @type {HTMLElement} */ ELM_accordion_content;
     /** @type {AccordionItem} */ parent_accordion_item_instance;
     /** @type {HumanBodyManager2} */ chara_human_body_manager;
+    /** @type {PatiSettingToggleEventObject} */ pati_setting_toggle_event_object;
 
     /**
      * 各コンテンツのボタンのイベントハンドラーに追加するクラス
@@ -734,11 +892,15 @@ class ContentButtonEventobject{
                     }
                 }
             }
+            // now_onomatopoeia_actionを更新。パチパク設定のモードがパク、パチ、ぴょこの場合のみ反映される
+            this.parent_accordion_item_instance.reflectOnItemToNowOnomatopoeiaAction(this.parent_accordion_item_instance.pati_setting_mode);
 
         } else {
             this.ELM_accordion_content.classList.remove("on_accordion_content");
             this.chara_human_body_manager.changeBodyPart(accordion_name,this.image_name,"off");
             this.on_off = "off";
+            // now_onomatopoeia_actionを更新。パチパク設定のモードがパク、パチ、ぴょこの場合のみ反映される
+            this.parent_accordion_item_instance.reflectOnItemToNowOnomatopoeiaAction(this.parent_accordion_item_instance.pati_setting_mode);
         }
         this.parent_accordion_item_instance.checkHasOnContentButton();
     }
@@ -881,6 +1043,11 @@ class BodyCombinationAccordionManager{
         const pose_patterns = this.human_body_manager.pose_patterns;
         console.log(pose_patterns)
         for (const [combination_name, combination_data] of pose_patterns.entries()){
+            //settingとOnomatopeiaActionSettingは特別なのでアコーディオンに追加しない
+            if (["setting","OnomatopeiaActionSetting","NowOnomatopoeiaActionSetting"].includes(combination_name) == true){
+                continue;
+            }
+
             console.log(combination_name)
             this.addCombination(combination_name);
         }
@@ -960,7 +1127,6 @@ class CombinationContent{
             //human_body_managerのbody_partを変更する
             console.log("CombinationContentがクリックされたよ,ボタン名＝",this.combination_name,"現在の状態:",this.human_body_manager.pose_patterns)
             let combination_data = this.getCombinationData();
-            // debugger;
             for (const [body_group, part_candidate_info] of combination_data.entries()){
                 //part_candidate_info = {10_体:"on"}のようなjson
                 // console.log(body_group," なのだ ",part_candidate_info,"を適用する。現在の状態:",this.human_body_manager.pose_patterns)

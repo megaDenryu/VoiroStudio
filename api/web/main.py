@@ -20,7 +20,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Literal
 
 import mimetypes
 
@@ -124,7 +124,7 @@ async def read_root(path_param: str):
     
 
 @app.websocket("/ws/{client_id}")
-async def websocket_endpoint(websocket: WebSocket, client_id: str):
+async def websocket_endpoint2(websocket: WebSocket, client_id: str):
     print("リクエスト検知")
     #game_master.reStart()
     # クライアントとのコネクション確立
@@ -397,10 +397,6 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
 
             comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
             
-            
-
-        
-            
         await websocket.send_text(json.dumps(comment))
 
 @app.websocket("/InputPokemon")
@@ -599,6 +595,39 @@ async def parserPsdFile(
     elif response_mode == ResponseMode.FrontName_noNeedBodyParts:
         return {"message": "psdファイルを保存しました。"}
     
+
+
+class PartsPath(BaseModel):
+    folder_name: str
+    file_name: str
+
+OnomatopeiaMode = Literal["パク", "パチ", "ぴょこ"]
+Status = Literal["開候補", "閉"]
+
+class PatiSetting(BaseModel):
+    chara_name: str
+    front_name: str
+    pati_setting: dict#Dict[OnomatopeiaMode, Dict[Status, List[PartsPath]]]
+    now_onomatopoeia_action: dict#Dict[OnomatopeiaMode, List[PartsPath]]
+
+
+
+@app.post("/pati_setting")
+async def pati_setting(req: PatiSetting):
+    chara_name = req.chara_name
+    front_name = req.front_name
+    pati_setting = req.pati_setting
+    now_onomatopoeia_action = req.now_onomatopoeia_action
+    
+    try:
+        human:Human = human_dict[chara_name]
+        human.saveHumanImageCombination(pati_setting,"OnomatopeiaActionSetting")
+        human.saveHumanImageCombination(now_onomatopoeia_action,"NowOnomatopoeiaActionSetting")
+        return {"message": "オノマトペアクション設定の保存に成功しました"}
+    except Exception as e:
+        print(e)
+        return {"message": "オノマトペアクション設定の保存でエラーが発生しました"}
+    
     
 
 @app.websocket("/img_combi_save")
@@ -629,14 +658,13 @@ async def ws_combi_img_reciver(websocket: WebSocket):
                     print(e)
                     msg = f"jsonファイルの保存に失敗しました。{e=}"
                 print(msg)
+                # todo:msgが重要でなかったので要件等
                 await notifier.push(msg)
-                
-            
     # セッションが切れた場合
     except WebSocketDisconnect:
         print("wsエラーです:ws_combi_img_sender")
         # 切れたセッションの削除
-        notifier.remove(websocket)
+        # notifier.remove(websocket)
 
 @app.websocket("/gpt_mode")
 async def ws_gpt_mode(websocket: WebSocket):

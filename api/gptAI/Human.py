@@ -304,7 +304,6 @@ class Human:
     
     def saveHumanImageCombination(self, combination_data:dict, combination_name:str):
         self.human_part.saveHumanImageCombination(combination_data, combination_name,0)
-        pass
 
     @staticmethod
     def parseSentenseList(sentense:str)->list[str]:

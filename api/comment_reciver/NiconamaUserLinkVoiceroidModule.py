@@ -10,7 +10,7 @@ class NiconamaUserLinkVoiceroidModule:
     
     def loadNikonamaUserIdToCharaNameJson(self):
         try:
-            with open('user_data.json', 'r') as f:
+            with open('user_data.json', 'r', encoding='utf-8') as f:
                 user_data = json.load(f)
         except FileNotFoundError:
             user_data = {}
@@ -59,7 +59,7 @@ class NiconamaUserLinkVoiceroidModule:
         """
         # 既存のデータを読み込む
         try:
-            with open('user_data.json', 'r') as f:
+            with open('user_data.json', 'r', encoding='utf-8') as f:
                 data = json.load(f)
         except FileNotFoundError:
             data = {}
@@ -68,5 +68,5 @@ class NiconamaUserLinkVoiceroidModule:
         data[NikonamaUserId] = chara_name
 
         # データをjsonに保存する
-        with open('user_data.json', 'w') as f:
+        with open('user_data.json', 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
