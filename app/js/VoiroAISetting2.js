@@ -247,6 +247,10 @@ class VoiroAISetting{
                     this.setOnomatpeiaButtonOnOff(parts_path.folder_name, parts_path.file_name, open_close)
                 }
             }
+            if (key == "パク" && action_setting["閉"].length > 0){
+                // リップシンクをオンにするかどうかの処理
+                this.chara_human_body_manager.setLipSyncModeToPakuPaku(key);
+            }
         }
     }
 
