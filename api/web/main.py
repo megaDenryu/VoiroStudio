@@ -396,6 +396,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
                 char_name = nulvm.registerNikonamaUserIdToCharaName(comment["comment"],user_id)
 
             comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
+        
+            if "/info 3" in comment["comment"]:
+                comment["comment"] = comment["comment"].replace("/info 3","")
             
         await websocket.send_text(json.dumps(comment))
 
