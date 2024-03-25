@@ -5,10 +5,10 @@ import os
 datas = [
     ('CharSettingJson', 'api/CharSettingJson'),
     ('images', 'api/images'),
-    ('comment_reciver', 'comment_reciver'),
-    ('Extend', 'Extand'),
-    ('gptAI', 'gptAI'),
-    ('web', 'web'),
+    ('comment_reciver', 'api/comment_reciver'),
+    ('Extend', 'api/Extend'),
+    ('gptAI', 'api/gptAI'),
+    ('web', 'api/web'),
 ]
 
 block_cipher = None
@@ -18,7 +18,7 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=['openai','win32com','pyaudio','clr','psd_tools'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

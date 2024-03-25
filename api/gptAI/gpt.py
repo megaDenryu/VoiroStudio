@@ -1,13 +1,7 @@
-import threading
 import json
 from pprint import pprint
 from pathlib import Path
-import requests
-# pip install playsound==1.2.2を使用する
-#from playsound import playsound
 import openai
-#import PySimpleGUI as sg
-import os
 import datetime
 import yaml
 
