@@ -3,12 +3,14 @@
 import os
 
 datas = [
+    ('AppSettingJson','api/app_setting_json'),
     ('CharSettingJson', 'api/CharSettingJson'),
     ('images', 'api/images'),
     ('comment_reciver', 'api/comment_reciver'),
     ('Extend', 'api/Extend'),
     ('gptAI', 'api/gptAI'),
     ('web', 'api/web'),
+    ('DataStore','api/DataStore')
 ]
 
 block_cipher = None

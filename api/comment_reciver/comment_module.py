@@ -7,6 +7,9 @@ import websockets.client
 from bs4 import BeautifulSoup
 
 class NicoNamaCommentReciever:
+    """
+    end_keyword: 終了キーワードを指定すると、そのキーワードがコメントに含まれた時点でコメント受信を終了する
+    """
     def __init__(self, live_id, end_keyword=""):
         self.live_id = live_id
         self.url = "https://live2.nicovideo.jp/watch/" + live_id

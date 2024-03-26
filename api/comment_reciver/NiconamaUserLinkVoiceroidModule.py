@@ -1,4 +1,5 @@
 from ..gptAI.Human import Human
+from api.DataStore.JsonAccessor import JsonAccessor
 import json
 
 
@@ -9,11 +10,7 @@ class NiconamaUserLinkVoiceroidModule:
         self.user_data = self.loadNikonamaUserIdToCharaNameJson()
     
     def loadNikonamaUserIdToCharaNameJson(self):
-        try:
-            with open('user_data.json', 'r', encoding='utf-8') as f:
-                user_data = json.load(f)
-        except FileNotFoundError:
-            user_data = {}
+        user_data = JsonAccessor.loadNikonamaUserIdToCharaNameJson()
         return user_data
     
     def getCharaNameByNikonamaUser(self,NikonamaUserId):
@@ -58,11 +55,7 @@ class NiconamaUserLinkVoiceroidModule:
         ユーザーIDとキャラ名を紐づけてjsonに保存する
         """
         # 既存のデータを読み込む
-        try:
-            with open('user_data.json', 'r', encoding='utf-8') as f:
-                data = json.load(f)
-        except FileNotFoundError:
-            data = {}
+        data = self.loadNikonamaUserIdToCharaNameJson()
 
         if NikonamaUserId in data and "*" in data[NikonamaUserId]:
             print("このユーザーはキャラを変更できません")
@@ -72,5 +65,4 @@ class NiconamaUserLinkVoiceroidModule:
         data[NikonamaUserId] = chara_name
 
         # データをjsonに保存する
-        with open('user_data.json', 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+        JsonAccessor.saveNikonamaUserIdToCharaNameJson(data)
