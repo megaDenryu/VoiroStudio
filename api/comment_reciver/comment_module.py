@@ -17,6 +17,7 @@ class NicoNamaCommentReciever:
         self.message_comment = None
         self.websocket_system = None
         self.end_keyword = end_keyword
+        self.recieve_status = "recieveing"
 
     async def _connect_WebSocket_system(self):
         response = requests.get(self.url)
@@ -77,11 +78,12 @@ class NicoNamaCommentReciever:
             while True:
                 message = await websocket.recv()
                 message_dic = json.loads(message)
-
+                print("80行目:",self.end_keyword, message_dic.get('content', ''))
                 # コメントに終了キーワードが含まれていたらループを抜ける
-                if self.end_keyword != "" and self.end_keyword in message_dic.get('comment', ''):
+                if self.recieve_status == "end":
+                    print("終了キーワードがコメントに含まれていたため、コメント受信を終了します")
                     break
-
+                print("83行目:",message_dic)
                 yield message_dic
 
     async def get_comments(self):
@@ -131,6 +133,11 @@ class NicoNamaCommentReciever:
         start = datetime(1970, 1, 1, 9, 0, 0)
         target = start + timedelta(seconds=seconds)
         return target.strftime("%Y/%m/%d %H:%M:%S")
+    
+    def checkAndStopRecieve(self,sentence):
+        if self.end_keyword != "" and self.end_keyword in sentence:
+            self.recieve_status = "end"
+    
 
 
 # 以下テスト用
