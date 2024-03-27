@@ -17,7 +17,7 @@ function addClickEvent2Tab(human_tab_elm){
     //メッセージボックスのサイズが変更された時のイベントを追加
     var message_box_elm = human_tab_elm.getElementsByClassName("messageText")[0];
     const front_name = human_tab_elm.getElementsByClassName("human_name")[0].innerText
-    var message_box = new MessageBox(message_box_elm,message_box_manager,num);
+    var message_box = new MessageBox(message_box_elm,message_box_manager,num,human_tab_elm);
 }
 
 class VoiceRecognitioManager {
@@ -361,15 +361,18 @@ class MessageBoxManager {
 class MessageBox {
     //message_box単体のクラス
 
+    /** @type {string}*/ gpt_mode
+    /** @type {GPTSettingButtonManagerModel}*/ gpt_setting_button_manager_model;
+    /** @type {HumanTab}*/ human_window;
+    
     /**
      * 
      * @param {HTMLElement} message_box_elm 
      * @param {MessageBoxManager} message_box_manager 
      * @param {number} manage_num 
-     * @property {string} gpt_mode
-     * @property {GPTSettingButtonManagerModel} gpt_setting_button_manager_model
+     * @param {HTMLElement} human_tab_elm
      */
-    constructor(message_box_elm,message_box_manager,manage_num) {
+    constructor(message_box_elm, message_box_manager, manage_num, human_tab_elm) {
         this.char_name = "";
         this.front_name = "";
         this.gpt_mode = "";
@@ -378,6 +381,7 @@ class MessageBox {
         this.ELM_send_button = this.parent_ELM_input_area.getElementsByClassName("send_button")[0];
         this.ELM_delete_button = this.parent_ELM_input_area.getElementsByClassName("delete_button")[0];
         this.message_box_manager = message_box_manager;
+        this.human_window = new HumanTab(human_tab_elm, this.front_name);
         //メッセージボックスマネージャーにこのメッセージボックスを登録
         this.manage_num = this.message_box_manager.setMessageBox(this)
         if(manage_num != this.manage_num) {
@@ -421,30 +425,8 @@ class MessageBox {
             //focusを戻す
             this.message_box_elm.focus();
         }
-        else if (message.includes("GBmode:")) {
-            let ELM_human_tab = this.message_box_elm.closest(".human_tab");
-            //ELM_bg_imageをnoneにする
-            let ELM_bg_image = ELM_human_tab.getElementsByClassName("bg_images")[0];
-            ELM_bg_image.style.display = "none";
-            //ELM_human
-            const ELM_human = ELM_human_tab.getElementsByClassName("human")[0];
-            ELM_human.classList.add("green_back");
-        } else if  (message.includes("MBmode:")) {
-            let ELM_human_tab = this.message_box_elm.closest(".human_tab");
-            //ELM_bg_imageをnoneにする
-            let ELM_bg_image = ELM_human_tab.getElementsByClassName("bg_images")[0];
-            ELM_bg_image.style.display = "none";
-            //ELM_human
-            const ELM_human = ELM_human_tab.getElementsByClassName("human")[0];
-            ELM_human.classList.add("maze_back");
-        } else if  (message.includes("BBmode:")) {
-            let ELM_human_tab = this.message_box_elm.closest(".human_tab");
-            //ELM_bg_imageをnoneにする
-            let ELM_bg_image = ELM_human_tab.getElementsByClassName("bg_images")[0];
-            ELM_bg_image.style.display = "none";
-            //ELM_human
-            const ELM_human = ELM_human_tab.getElementsByClassName("human")[0];
-            ELM_human.classList.add("blue_back");
+        else if (message.includes("背景オン:") || message.includes("GBmode:") || message.includes("MBmode:") || message.includes("BBmode:")) {
+            this.human_window.changeBackgroundMode(message);
         }
         else {
             //メッセージを送信する
@@ -491,6 +473,54 @@ class MessageBox {
         }
         ws.send(JSON.stringify(send_data));
     }
+}
+
+class HumanTab {
+
+    // モードとクラス名の対応を定義
+    bg_modes = {
+        "背景オン:": { display: "block", className: "" },
+        "GBmode:": { display: "none", className: "green_back" },
+        "MBmode:": { display: "none", className: "maze_back" },
+        "BBmode:": { display: "none", className: "blue_back" },
+        // 新しいモードを追加する場合はここに追記
+    };
+
+    /**
+     * 
+     * @param {HTMLElement} human_tab_elm 
+     * @param {string} front_name 
+     */
+    constructor(human_tab_elm,front_name) {
+        this.human_tab_elm = human_tab_elm;
+        this.human_window_elm = human_tab_elm.getElementsByClassName("human_window")[0];
+        this.front_name = front_name;
+    }
+
+    /**
+     *  @param {"背景オン:"|"GBmode:"|"MBmode:"|"BBmode:"} mode_key
+     */
+    changeBackgroundMode(mode_key) {
+        let ELM_human_tab = this.human_window_elm.closest(".human_tab");
+        let ELM_bg_image = ELM_human_tab.getElementsByClassName("bg_images")[0];
+        const ELM_human = ELM_human_tab.getElementsByClassName("human")[0];
+
+        // 全ての可能な背景クラスを削除
+        ELM_human.classList.remove("green_back", "maze_back", "blue_back");
+
+        const mode = this.bg_modes[mode_key];
+
+        if (mode) {
+            // ELM_bg_imageの表示状態を更新
+            ELM_bg_image.style.display = mode.display;
+
+            // 必要ならクラス名を追加
+            if (mode.className) {
+                ELM_human.classList.add(mode.className);
+            }
+        }
+    }
+
 }
 
 function getMessageBoxByCharName(char_name) {
@@ -925,6 +955,7 @@ class DragDropObjectStatus{
         this.human_images_elem = human_images_elem;
         this.humanBodyManager = humanBodyManager;
         this.bg_image = human_images_elem.parentNode.getElementsByClassName("bg_image")[0]
+        this.human_window = human_images_elem.parentNode
         this.human_image_elems = human_images_elem.getElementsByClassName("human_image");
         this.search_canvas_elem = human_images_elem.parentNode.getElementsByClassName("search_canvas")[0];
         this.mouse_down = false;
@@ -1050,9 +1081,13 @@ class DragDropObjectStatus{
             //console.log(`${height}vh`);
             //console.log(this.human_image_elems[0].style.height);
             //拡大縮小の中心を、クリックしたときの座標のbg_imageからの相対座標として、画像のtop,leftを変更する
-            var bg_image_rect = this.bg_image.getBoundingClientRect()
-            var P_x = parseFloat(e.pageX,10) - parseFloat(bg_image_rect.left,10)
-            var P_y = parseFloat(e.pageY,10) - parseFloat(bg_image_rect.top,10)
+
+            //背景画像の左上角の位置を取得。しかしGBmodeでは画像が消滅してうまく取得できてない可能性がある
+            // var bg_image_rect = this.bg_image.getBoundingClientRect()
+            var human_window_rect = this.human_window.getBoundingClientRect()
+            //マウスの絶対位置から背景画像の左上角の位置を引くことで、背景画像に対するマウスの相対位置を計算
+            var P_x = parseFloat(e.pageX,10) - parseFloat(human_window_rect.left,10)
+            var P_y = parseFloat(e.pageY,10) - parseFloat(human_window_rect.top,10)
             var t = this.img_scale / (this.img_scale - delta_ratio)
             var old_top = parseFloat(this.human_image_elems[0].style.top,10)
             var old_left = parseFloat(this.human_image_elems[0].style.left,10)
@@ -1060,7 +1095,9 @@ class DragDropObjectStatus{
             var new_top = P_y + t * (old_top - P_y) + "px";
             //console.log("new_left,new_top="+[new_left,new_top])
             for (let i=0;i<this.human_image_elems.length;i++){
+                //画像のサイズを変更
                 this.human_image_elems[i].style.height = `${height}vh`
+                //画像の位置を変更
                 this.human_image_elems[i].style.top = new_top;
                 this.human_image_elems[i].style.left = new_left;
             }

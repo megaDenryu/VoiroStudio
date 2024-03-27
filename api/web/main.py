@@ -9,6 +9,7 @@ from api.gptAI.Human import Human
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
 from api.Extend.ExtendFunc import ExtendFunc
+from api.DataStore.JsonAccessor import JsonAccessor
 
 from enum import Enum
 
@@ -55,6 +56,11 @@ gpt_mode_dict = {}
 game_master_enable = False
 human_queue_shuffle = False
 yukarinet_enable = True
+nikonama_comment_reciever_list:list[NicoNamaCommentReciever] = []
+
+app_setting = JsonAccessor.loadAppSetting()
+pprint(app_setting)
+
 if game_master_enable:
     game_master = Human("game_master")
 # print("アプリ起動完了")
@@ -212,6 +218,9 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                     
                     
                     for sentence in Human.parseSentenseList(input_dict[human_ai.char_name]):
+                        for reciever in nikonama_comment_reciever_list:
+                            reciever.checkAndStopRecieve(sentence)
+                            
                         human_ai.outputWaveFile(sentence)
                         #wavデータを取得
                         wav_info = human_ai.human_Voice.output_wav_info_list
@@ -384,7 +393,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
     await websocket.accept()
     char_name = Human.setCharName(front_name)
     print(f"{char_name}で{room_id}のニコ生コメント受信開始")
-    nikonama_comment_reciever = NicoNamaCommentReciever(room_id)
+    end_keyword = app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"]
+    nikonama_comment_reciever = NicoNamaCommentReciever(room_id,end_keyword)
+    nikonama_comment_reciever_list.append(nikonama_comment_reciever)
     nulvm = NiconamaUserLinkVoiceroidModule()
 
     async for comment in nikonama_comment_reciever.get_comments():
@@ -396,6 +407,9 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
                 char_name = nulvm.registerNikonamaUserIdToCharaName(comment["comment"],user_id)
 
             comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
+        
+            if "/info 3" in comment["comment"]:
+                comment["comment"] = comment["comment"].replace("/info 3","")
             
         await websocket.send_text(json.dumps(comment))
 
