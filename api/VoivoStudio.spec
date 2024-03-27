@@ -3,7 +3,7 @@
 import os
 
 datas = [
-    ('AppSettingJson','api/app_setting_json'),
+    ('AppSettingJson','api/AppSettingJson'),
     ('CharSettingJson', 'api/CharSettingJson'),
     ('images', 'api/images'),
     ('comment_reciver', 'api/comment_reciver'),
