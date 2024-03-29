@@ -51,7 +51,8 @@ class PSDParser:
             "y": layer.top,
             "width": layer.width,
             "height": layer.height,
-            "z_index": pixel_num_counter
+            "z_index": pixel_num_counter,
+            "initial_display": layer.visible
         }
 
     #layer情報保存関数
