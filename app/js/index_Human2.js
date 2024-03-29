@@ -559,6 +559,7 @@ function sendMessage(event) {
  * @property {number} json.y - 画像のy座標
  * @property {number} json.width - 画像の幅
  * @property {number} json.height - 画像の高さ
+ * @property {number} json.z_index - 画像のz_index
  * @property {string} json.口 - 口パクの文字
  */
 
@@ -1420,10 +1421,11 @@ class HumanBodyManager2 {
                 console.log(key_part_name,this.body_parts_images,this.body_parts_images.get(key_part_name))
                 z_index_counter_start = z_index_counter_end + 1;
                 z_index_counter_end = z_index_counter_start + Object.keys(this.body_parts_images.get(key_part_name)).length - 1;
+                
 
                 /** @type {PartInfo} */
                 const partInfo = {
-                    "z_index": (key_part_name.match(/\d+/))[0],
+                    "z_index": (key_part_name.match(/\d+/))[0],//todo もう使わないので消す。一応確認する。
                     "z_index_range": {"start": z_index_counter_start, "end": z_index_counter_end},
                     "imgs": new ExtendedMap(Object.entries(this.body_parts_images.get(key_part_name)).sort(
                         (a, b) => {
@@ -1621,8 +1623,8 @@ class HumanBodyManager2 {
         var body_img = this.createPartCanvas()
         body_img.classList.add("human_image",`${part_group_name}_img`,`${part_name}_img`,`${this.front_name}_img`)
         this.drawPart(body_img, iamge_info);
-        //body_imgのz-indexを設定する
-        body_img.style.zIndex = String(part_info["z_index"]);
+        //todo body_imgのz-indexを設定する
+        body_img.style.zIndex = String(iamge_info["json"]["z_index"]);//String(part_info["z_index"]);
         this.human_images.appendChild(body_img);
         return body_img;
     }
