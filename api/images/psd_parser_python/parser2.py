@@ -10,6 +10,7 @@ class PSDParser:
     def __init__(self):
         self.invalid_chars = ["\\","/",":","*","?","!","<",">","|"," ","　"]
         self.layer_counter_interval = 10
+        self.pixel_num_counter = 0
         self.error_layer_paths = []
     def save_layers(self,layer, path, now_layer_counter):
         if layer.kind == 'group':
@@ -21,6 +22,7 @@ class PSDParser:
                 self.save_layers(child, folder_path, child_layer_counter)
                 child_layer_counter += 1
         elif layer.kind == 'pixel':
+            self.pixel_num_counter += 1
             layer_image = layer.topil()
             file_name = self.validate_path(layer.name)
             file_path = f"{path}\\{now_layer_counter * self.layer_counter_interval}_{file_name}.png"
@@ -28,7 +30,7 @@ class PSDParser:
                 # 画像保存処理
                 layer_image.save(file_path)
                 #json保存処理
-                layer_info = self.get_layer_info(layer,now_layer_counter)
+                layer_info = self.get_layer_info(layer,now_layer_counter,self.pixel_num_counter)
                 self.save_layer_info(layer_info, f"{path}\\{now_layer_counter * self.layer_counter_interval}_{file_name}.json")
             except:
                 # 画像保存失敗時はエラー処理をする必要がある
@@ -42,13 +44,14 @@ class PSDParser:
         return path
 
     #layer情報取得関数
-    def get_layer_info(self, layer,now_layer_counter):
+    def get_layer_info(self, layer, now_layer_counter,pixel_num_counter):
         return {
             "name": f"{now_layer_counter}_{layer.name}.png",
             "x": layer.left,
             "y": layer.top,
             "width": layer.width,
-            "height": layer.height
+            "height": layer.height,
+            "z_index": pixel_num_counter
         }
 
     #layer情報保存関数
