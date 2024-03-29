@@ -60,7 +60,7 @@ class HumanPart:
         #キャラの体パーツフォルダの画像を全て辞書形式で取得
         data_for_client = {}
         data_for_client["body_parts_iamges"],body_parts_pathes_for_gpt = self.recursive_file_check(f"{path_str}/parts")
-        self.saveImageInfo(body_parts_pathes_for_gpt,path_str)
+        self.saveImageInfo(body_parts_pathes_for_gpt, path_str, data_for_client["body_parts_iamges"])
         data_for_client["init_image_info"] = self.getInitImageInfo(path_str)
         return data_for_client,body_parts_pathes_for_gpt
 
@@ -146,7 +146,7 @@ class HumanPart:
             print(f"init_image_info.jsonが見つかりませんでした。path:{path}")
             return init_image_info
         
-    def saveImageInfo(self,info_dict:dict,path_str:str):
+    def saveImageInfo(self,info_dict:dict, path_str:str, body_parts_iamges:dict):
         save_switch = False
         # もしinit_image_info.jsonがなかったら作成する
         if not os.path.exists(f"{path_str}/init_image_info.json"):
@@ -162,7 +162,7 @@ class HumanPart:
                     init_dict[key] = list(part_image_dict.keys())[0].split(".")[0]
                 elif mode_human_part_manager == "HumanPartManager2":
                     #HumanPartManager2用の処理
-                    init_dict[key] = self.allPartNameDict(part_image_dict)
+                    init_dict[key] = self.allPartNameDict(part_image_dict, body_parts_iamges[key])
                 
                 
 
@@ -177,7 +177,7 @@ class HumanPart:
             with open(f"{path_str}/init_image_info.json",mode="w",encoding="utf-8") as f:
                 json.dump(save_data,f,indent=4,ensure_ascii=False)
     
-    def allPartNameDict(self,part_image_dict:dict):
+    def allPartNameDict(self,part_image_dict:dict ,body_parts_iamge:dict):
         """
         part_image_dictのキー配列の最初の要素を取得。hoge.pngやhoge.jsonのhogeの部分を取得。
         """
@@ -185,7 +185,10 @@ class HumanPart:
         all_part_name_list = part_image_dict.keys()
         for part_name in all_part_name_list:
             part_name = part_name.split(".")[0]
-            return_dict[part_name] = "off"
+            if body_parts_iamge[part_name]["json"]["initial_display"] == True:
+                return_dict[part_name] = "on"
+            else:
+                return_dict[part_name] = "off"
 
         return return_dict
         
