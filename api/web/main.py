@@ -56,7 +56,7 @@ gpt_mode_dict = {}
 game_master_enable = False
 human_queue_shuffle = False
 yukarinet_enable = True
-nikonama_comment_reciever_list:list[NicoNamaCommentReciever] = []
+nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
 
 app_setting = JsonAccessor.loadAppSetting()
 pprint(app_setting)
@@ -218,7 +218,7 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                     
                     
                     for sentence in Human.parseSentenseList(input_dict[human_ai.char_name]):
-                        for reciever in nikonama_comment_reciever_list:
+                        for reciever in nikonama_comment_reciever_list.values():
                             reciever.checkAndStopRecieve(sentence)
                             
                         human_ai.outputWaveFile(sentence)
@@ -395,7 +395,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
     print(f"{char_name}で{room_id}のニコ生コメント受信開始")
     end_keyword = app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"]
     nikonama_comment_reciever = NicoNamaCommentReciever(room_id,end_keyword)
-    nikonama_comment_reciever_list.append(nikonama_comment_reciever)
+    nikonama_comment_reciever_list[char_name] = nikonama_comment_reciever
     nulvm = NiconamaUserLinkVoiceroidModule()
 
     async for comment in nikonama_comment_reciever.get_comments():
@@ -412,6 +412,15 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
                 comment["comment"] = comment["comment"].replace("/info 3","")
             
         await websocket.send_text(json.dumps(comment))
+
+@app.post("/nikonama_comment_reciver_stop/{front_name}")
+async def nikonama_comment_reciver_stop(front_name: str):
+    char_name = Human.setCharName(front_name)
+    if char_name in nikonama_comment_reciever_list:
+        print(f"{front_name}のニコ生コメント受信停止")
+        nikonama_comment_reciever = nikonama_comment_reciever_list[char_name]
+        nikonama_comment_reciever.stopRecieve()
+        return
 
 @app.websocket("/InputPokemon")
 async def inputPokemon(websocket: WebSocket):
