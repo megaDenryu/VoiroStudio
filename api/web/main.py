@@ -672,8 +672,6 @@ async def ws_combi_img_reciver(websocket: WebSocket):
                     print(e)
                     msg = f"jsonファイルの保存に失敗しました。{e=}"
                 print(msg)
-                # todo:msgが重要でなかったので要件等
-                await notifier.push(msg)
     # セッションが切れた場合
     except WebSocketDisconnect:
         print("wsエラーです:ws_combi_img_sender")
