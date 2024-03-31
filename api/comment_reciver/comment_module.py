@@ -136,8 +136,10 @@ class NicoNamaCommentReciever:
     
     def checkAndStopRecieve(self,sentence):
         if self.end_keyword != "" and self.end_keyword in sentence:
-            self.recieve_status = "end"
+            self.stopRecieve()
     
+    def stopRecieve(self):
+        self.recieve_status = "end"
 
 
 # 以下テスト用

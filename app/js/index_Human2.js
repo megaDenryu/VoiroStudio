@@ -134,7 +134,32 @@ function tabSwitch(event){
         delete_target_element.remove()
         //changeMargin()
         //別のタブにアクティブを移す処理
+
+        //ニコ生コメント受信を停止する。nikonama_comment_reciver_stopにfront_nameをfetchで送信する。
+        const front_name = delete_target_element.getElementsByClassName("human_name")[0].innerText;
+        fetch(`http://${localhost}:${port}/nikonama_comment_reciver_stop/${front_name}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ front_name: front_name })
+        })
+        const char_name = front2chara_name[front_name]
+        //設定タブを開いてるならエレメントを削除し、setting_infoからも削除
+        console.log("設定タブを開いてるならエレメントを削除し、setting_infoからも削除")
+        if (char_name in setting_info) {
+            console.log(char_name+"setteng_infoにあるので削除")
+            setting_info[char_name].ELM_accordion.remove();
+            delete setting_info[char_name];
+            
+        }
         
+        //このタブのキャラのデータを削除
+        if (char_name in humans_list) {
+            delete humans_list[char_name];
+        }
+        
+        //message_box_managerからも削除
+        message_box_manager.message_box_dict.delete(front_name);
+
     }
     else if (this.className.includes("human_name") && !this.className.includes("input_now")) {
         //iosの自動再生制限対策でid=audioのaudioタグを再生する
@@ -205,25 +230,25 @@ function tabSwitch(event){
         //設定画面を表示
         const front_name = this.parentNode.getElementsByClassName("human_name")[0].innerText
         const char_name = front2chara_name[front_name]
-        if (char_name in setteing_info) {
+        if (char_name in setting_info) {
             console.log(char_name+"setteng_infoにある")
-            if (setteing_info[char_name].ELM_accordion.classList.contains("vissible")){
-                console.log("vissibleを削除",setteing_info[char_name].ELM_accordion)
-                setteing_info[char_name].ELM_accordion.classList.remove("vissible")
-                setteing_info[char_name].ELM_accordion.classList.add("non_vissible")
+            if (setting_info[char_name].ELM_accordion.classList.contains("vissible")){
+                console.log("vissibleを削除",setting_info[char_name].ELM_accordion)
+                setting_info[char_name].ELM_accordion.classList.remove("vissible")
+                setting_info[char_name].ELM_accordion.classList.add("non_vissible")
 
             }else{
-                console.log("vissibleを追加",setteing_info[char_name].ELM_accordion)
-                setteing_info[char_name].ELM_accordion.classList.remove("non_vissible")
-                setteing_info[char_name].ELM_accordion.classList.add("vissible")
+                console.log("vissibleを追加",setting_info[char_name].ELM_accordion)
+                setting_info[char_name].ELM_accordion.classList.remove("non_vissible")
+                setting_info[char_name].ELM_accordion.classList.add("vissible")
             }
         } else {
             console.log(char_name+"setteng_infoにない")
             chara_human_body_manager = humans_list[char_name]
             var vas = new VoiroAISetting(chara_human_body_manager);
             humans_list[char_name].BindVoiroAISetting(vas);
-            setteing_info[char_name] = vas;
-            setteing_info[char_name].ELM_accordion.classList.add("vissible")
+            setting_info[char_name] = vas;
+            setting_info[char_name].ELM_accordion.classList.add("vissible")
 
 
 
@@ -1484,13 +1509,43 @@ class HumanBodyManager2 {
     }
 
     setCharaCanvasInitData(){
+        const [max_width,max_height] = this.getMaxSizeOfBodyParts(this.body_parts_images);
+
         const chara_canvas_init_data = {
-            "width":3500,
-            "height":3500,
+            "width":max_width,
+            "height":max_height,
             "top":0,
             "left":0,
         };
         return chara_canvas_init_data;
+    }
+
+    /**
+     * 
+     * @param {ExtendedMap<string,Record<string,ImageInfo>>} body_parts_images 
+     * @returns 
+     */
+    getMaxSizeOfBodyParts(body_parts_images){
+        let max_width = 0;
+        let max_height = 0;
+        let /** @type {string}*/ key_part_name; 
+        let /** @type {Record<string,ImageInfo>}*/ part_info = {};
+        for ([key_part_name,part_info] of body_parts_images.entries()){
+            let /** @type {string}*/ part_img_name;
+            let /** @type {ImageInfo}*/ part_img_info;
+            for ([part_img_name,part_img_info] of Object.entries(part_info)){
+                const width = part_img_info["json"]["width"] + part_img_info["json"]["x"];
+                const height = part_img_info["json"]["height"] + part_img_info["json"]["y"];
+                if (width > max_width){
+                    max_width = width;
+                }
+                if (height > max_height){
+                    max_height = height;
+                }
+            }
+        }
+        console.log("max_width,max_height="+[max_width,max_height]);
+        return [max_width,max_height];
     }
 
     /**
@@ -2716,7 +2771,7 @@ class iHumanBodyManager{
                 body_part["now_img_index"] = index;
                 body_part["now_img_name"] = [...body_part["imgs"].keys()][index];
                 
-                if (this.char_name in setteing_info) {
+                if (this.char_name in setting_info) {
                     this.setBodyPartImage(body_part,index);
                 } else {
                     body_part["element"].src = `data:image/png;base64,${[...body_part["imgs"].values()][index]}`;
@@ -2785,8 +2840,8 @@ class iHumanBodyManager{
         body_part["now_img_index"] = index;
         body_part["element"].src = `data:image/png;base64,${[...body_part["imgs"].values()][index]["img"]}`;
         //設定用アコーディオンの状態を変更する
-        if (this.char_name in setteing_info){
-            const accordion = setteing_info[this.char_name]
+        if (this.char_name in setting_info){
+            const accordion = setting_info[this.char_name]
             const body_part_name = body_part["name"]
             const image_name = this.getNamesListBodyPartByIndex(body_part_name,index)
             accordion.setBodyPartImage(body_part_name,image_name)
@@ -3320,7 +3375,8 @@ var isProcessing = false;
 var humans_list = {};
 /** @type {Record<string,string>} */
 var front2chara_name = {};
-var setteing_info = {}; //どのキャラの設定がオンになっているかを管理する
+/** @type {Record<string,VoiroAISetting>} */
+var setting_info = {}; //どのキャラの設定がオンになっているかを管理する
 
 let first_human_tab = document.getElementsByClassName("tab human_tab")[0];
 /**@type {DragDropFile[]} */
