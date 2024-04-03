@@ -4,7 +4,7 @@ from pathlib import Path
 import openai
 import datetime
 import yaml
-
+from api.DataStore.JsonAccessor import JsonAccessor
 class ChatGPT:
     def __init__(self,name:str, prompt_setting_num:str = "キャラ個別システム設定",gpt_switch:bool = True, char_image_info_dict:dict = {}, char_setting_input = None):
         self.name = name
@@ -18,10 +18,7 @@ class ChatGPT:
     def initFunction(self,name:str, prompt_setting_num:str = "キャラ個別システム設定", char_setting_input = None):
         # APIキーを設定
         try:
-            key_path = str(Path(__file__).resolve().parent) + "/json/openAIAPIkey.json"
-            with open(key_path) as f:
-                key = json.load(f)
-            openai.api_key = key["1"]
+            openai.api_key = JsonAccessor.loadOpenAIAPIKey()
             if False:
                 if char_setting_input == None:
                     char_setting_input = self.load_character_setting(name)
@@ -39,7 +36,9 @@ class ChatGPT:
             else:
                 try:
                     self.loadMessagesFromYaml()
-                except:
+                except Exception as er:
+                    print("yamlの読み込みに失敗しました。")
+                    print(er)
                     print("yamlの読み込みに失敗しました。")
         except Exception as e:
             print(f"APIキーの設定に失敗しました。{e}")
@@ -286,12 +285,15 @@ class ChatGPT:
         """
         ymlから初期化用メッセージを読み込む
         """
-        #このファイルと同じディレクトリ\gptAI にある\gptAI\json\CharSetting.json を読み込む
-        yml_path = str(Path(__file__).resolve().parent) + "/json/CharSetting.yml"
-        with open(yml_path,encoding="UTF8") as f:
-            setting_dict = yaml.safe_load(f)
-            self.messages = setting_dict[self.name]
-        self.messages = setting_dict[self.name]
+        content = JsonAccessor.loadCharSettingYamlAsString()
+        # {{character_name}}をキャラクター名に置換
+        print(content)
+        content = content.replace("{{character_name}}", self.name)
+        # 置換後の文字列を辞書として解析
+        setting_dict = yaml.safe_load(content)
+        self.messages = setting_dict["一般"]
+        print("gpt設定")
+        pprint(self.messages)
         self.pop_point = len(self.messages)
         self.limit_length = len(self.messages) + 6
 

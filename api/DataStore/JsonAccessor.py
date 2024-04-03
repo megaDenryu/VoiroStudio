@@ -36,3 +36,23 @@ class JsonAccessor:
     def saveNikonamaUserIdToCharaNameJson(user_data):
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/user_data.json"
         ExtendFunc.saveDictToJson(path, user_data)
+
+    @staticmethod
+    def loadOpenAIAPIKey():
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/openai_api_key.json"
+        #もしファイルが存在しない場合はファイルを作成
+        if not path.exists():
+            with open(path, mode='w') as f:
+                json.dump({"openai_api_key":""}, f, indent=4)
+        openai_api_key = ExtendFunc.loadJsonToDict(path)["openai_api_key"]
+        return openai_api_key
+    
+    @staticmethod
+    def loadCharSettingYamlAsString()->str:
+        """
+        CharSetting.ymlを読み込み、その内容を文字列として返します。
+        """
+        yml_path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/CharSetting.yml"
+        with open(yml_path,encoding="UTF8") as f:
+                content = f.read()
+        return content
