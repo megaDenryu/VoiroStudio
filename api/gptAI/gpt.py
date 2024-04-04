@@ -1,10 +1,14 @@
 import json
 from pprint import pprint
 from pathlib import Path
-import openai
+from openai import OpenAI
 import datetime
 import yaml
+import os,sys
+import Levenshtein
+sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 from api.DataStore.JsonAccessor import JsonAccessor
+from api.Extend.ExtendFunc import ExtendFunc
 class ChatGPT:
     def __init__(self,name:str, prompt_setting_num:str = "キャラ個別システム設定",gpt_switch:bool = True, char_image_info_dict:dict = {}, char_setting_input = None):
         self.name = name
@@ -12,13 +16,15 @@ class ChatGPT:
         self.prompt_setteing_num = prompt_setting_num
         self.char_image_info_sentence:str = self.createCharImageInfoSentence(char_image_info_dict)
         self.gpt_switch = gpt_switch
+        self.messages:list[dict]
         self.initFunction(name, prompt_setting_num, char_setting_input)
         self.initSentenceSendingCount = 0
-        self.messages:list[dict]
     def initFunction(self,name:str, prompt_setting_num:str = "キャラ個別システム設定", char_setting_input = None):
         # APIキーを設定
         try:
-            openai.api_key = JsonAccessor.loadOpenAIAPIKey()
+            
+            api_key = JsonAccessor.loadOpenAIAPIKey()
+            self.client = OpenAI(api_key = api_key)
             if False:
                 if char_setting_input == None:
                     char_setting_input = self.load_character_setting(name)
@@ -87,12 +93,20 @@ class ChatGPT:
 
     def cleanMessagesList(self):
         """
-        メッセージのリストを整理する
+        メッセージのリストを整理する。
+        1. キャラ設定でjsonから読み込んだメッセージ数をn個とする
+        2. メッセージ数がn+6を超えた場合、n+1番目以降を2つずつ削除する
         """
         if len(self.messages) > self.limit_length:
             #第3,4要素を削除。一回の会話で2つ送信と返信で2つ増えるので2つ消さないとだめ。
             self.messages.pop(self.pop_point)
             self.messages.pop(self.pop_point)
+    
+    def cleanLatestMessage(self):
+        """
+        最新のメッセージが形式を満たさなかったときなどに最新のメッセージを履歴に残さないようにする
+        """
+        self.messages.pop(-1)
 
 
     def generate_text(self, user_input, gpt_version)->str:
@@ -131,7 +145,7 @@ class ChatGPT:
         }
         # ChatGPT APIにリクエストを送る
         if self.gpt_switch:
-            response = openai.ChatCompletion.create(
+            response = self.client.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=self.messages,
                 response_format= { "type":"json_object" },
@@ -139,7 +153,7 @@ class ChatGPT:
             )
         # レスポンスから生成された文章を取得
         pprint(f"{response=}")
-        generated_text = response["choices"][0]["message"]["content"]
+        generated_text = response.choices[0].message.content
         """
         # リストに生成された文章を追加
         gptから返されたメッセージを履歴に残すために追加
@@ -160,17 +174,90 @@ class ChatGPT:
         # リストにユーザーのメッセージを追加
         self.messages.append({"role": "user", "content": user_input})
         self.cleanMessagesList()
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
                 #model="gpt-3.5-turbo","gpt-4-1106-preview"
                 model=gpt_version,
                 messages=self.messages,
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
-        self.messages.append({"role": "assistant", "content": response["choices"][0]["message"]["content"]})
+        self.messages.append({"role": "assistant", "content": response.choices[0].message.content})
         #jsonに保存
         append_to_json("chat.json",self.messages)
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
+    
+    
+    def filterResponse(self,response,chara_name:str)->str:
+        """
+        レスポンスがjsonかどうかを判定し、jsonならdictに変換してstatus、spoken_wordsを返す
+        """
+        # レスポンスがjsonかどうかを判定
+        try :
+            response_dict = json.loads(response)
+            
+        except json.JSONDecodeError:
+            print("json形式ではありません")
+            
+            response = response.replace(f"{self.name}:","").replace(f"{self.name}：","").replace(f"{self.name}「","")
+            response_dict = {
+                "status":"speak",
+                f"{chara_name}の発言":response
+            }
+        # json形式のレスポンスかどうかを判定する
+        response_dict = self.checkAndModifyJsonModel(response_dict)
+        status = response_dict["status"]
+        understanding = response_dict[f"相手の発言を理解したか"]
+        spoken_words = response_dict[f"{chara_name}の発言"]
+        if status == "wait" or understanding == "false":
+            return ""
+        elif status == "speak":
+            return spoken_words
+        else:
+            print("statusが不正です")
+            return ""
+    
+    def checkAndModifyJsonModel(self,response_dict:dict):
+        """
+        json形式のレスポンスかどうかを判定する
+        """
+        if "status" not in response_dict:
+            response_dict["status"] = "wait"
+
+        if "status" in response_dict:
+            if response_dict["status"] not in  ["wait","speak"]:
+                response_dict["status"] = "speak"
+
+        if f"{self.name}の心内の考え" not in response_dict:
+            response_dict[f"{self.name}の心内の考え"] = "頭が真っ白だ。考えないで喋ってる。"
+
+        if f"{self.name}の発言" not in response_dict:
+            response_dict[f"{self.name}の発言"] = ""
+
+        if "character_name" not in response_dict:
+            response_dict["character_name"] = self.name
+
+        if "相手の発言を理解したか" not in response_dict:
+            response_dict["相手の発言を理解したか"] = "false"
+        if response_dict["相手の発言を理解したか"] not in ["false","true"]:
+            response_dict["相手の発言を理解したか"] = ExtendFunc.closestBoolean(response_dict["相手の発言を理解したか"],["false","true"])
+
+        new_response_dict = {
+            "character_name":response_dict["character_name"],
+            f"{self.name}の心内の考え":response_dict[f"{self.name}の心内の考え"],
+            "相手の発言を理解したか":response_dict["相手の発言を理解したか"],
+            "status":response_dict["status"],
+            f"{self.name}の発言":response_dict[f"{self.name}の発言"],
+            
+        }
+        # 最新のメッセージを削除して修正した物に書き換える
+        self.cleanLatestMessage()
+        response_json_str = json.dumps(new_response_dict, ensure_ascii=False)
+        self.messages.append({"role": "assistant", "content": response_json_str})
+        
+        return new_response_dict
+            
+        
+        
     
     def generate_text_simple(self, user_input, gpt_version = "gpt-3.5-turbo")->str:
         """
@@ -180,16 +267,15 @@ class ChatGPT:
         # リストにユーザーのメッセージを追加
         self.messages.append({"role": "user", "content": user_input})
         self.cleanMessagesList()
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
                 #model="gpt-3.5-turbo","gpt-4-1106-preview"
                 model=gpt_version,
-                messages=self.messages,
-                temperature=0.7
+                messages=self.messages
             )
-        self.messages.append({"role": "assistant", "content": response["choices"][0]["message"]["content"]})
+        self.messages.append({"role": "assistant", "content": response.choices[0].message.content})
         #jsonに保存
         append_to_json("chat.json",self.messages)
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     
     def generateTextVersion104_init(self, gpt_version = "gpt-4-1106-preview")->str:
         # リストにユーザーのメッセージを追加
@@ -245,7 +331,7 @@ class ChatGPT:
 
         """
         self.messages.append({"role": "user", "content": load_init_sentence})
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
                 #model="gpt-3.5-turbo","gpt-4-1106-preview"
                 model=gpt_version,
                 messages=self.messages,
@@ -253,12 +339,12 @@ class ChatGPT:
                 temperature=0.7
             )
 
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     
     def generateTextVersion104_2(self, user_input, gpt_version = "gpt-4-1106-preview")->str:
         # リストにユーザーのメッセージを追加
         self.messages.append({"role": "user", "content": user_input})
-        response = openai.ChatCompletion.create(
+        response = self.client.chat.completions.create(
                 #model="gpt-3.5-turbo","gpt-4-1106-preview"
                 model=gpt_version,
                 messages=self.messages,
@@ -266,7 +352,7 @@ class ChatGPT:
                 temperature=0.7
             )
 
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     
 
 
@@ -292,10 +378,11 @@ class ChatGPT:
         # 置換後の文字列を辞書として解析
         setting_dict = yaml.safe_load(content)
         self.messages = setting_dict["一般"]
+        # self.messages = setting_dict["送信テスト"]
         print("gpt設定")
         pprint(self.messages)
         self.pop_point = len(self.messages)
-        self.limit_length = len(self.messages) + 6
+        self.limit_length = self.pop_point + 6
 
     def load_prompt_setting(self,mode:str = "キャラ個別システム設定"):
         setting = ""

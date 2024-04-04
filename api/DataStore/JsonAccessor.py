@@ -45,6 +45,7 @@ class JsonAccessor:
             with open(path, mode='w') as f:
                 json.dump({"openai_api_key":""}, f, indent=4)
         openai_api_key = ExtendFunc.loadJsonToDict(path)["openai_api_key"]
+        print("openai_api_key:",openai_api_key)
         return openai_api_key
     
     @staticmethod

@@ -347,7 +347,7 @@ class MessageBoxManager {
         this.message_box_dict.set(front_name,message_box);
         message_box.front_name = front_name;
         message_box.setGptMode("off");
-        const gpt_mode_name_list = ["off","SimpleWait","low","high","test"];
+        const gpt_mode_name_list = ["off","SimpleWait4","SimpleWait3.5","low","high","test"];
         message_box.gpt_setting_button_manager_model = new GPTSettingButtonManagerModel(front_name, message_box, gpt_mode_name_list)
     }
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 import os
+import Levenshtein
 
 class ExtendFunc:
     @staticmethod
@@ -126,6 +127,21 @@ class ExtendFunc:
         if not isinstance(ret_dict, dict):
             raise ValueError(f"{file_path} は辞書形式ではありません。")
         return ret_dict
+
+    @staticmethod
+    def closestBoolean(target:str, str_list: list) -> str:
+        """
+        与えられた文字列リストの中から、最も近い文字列を返します。
+
+        Parameters:
+        target (str): 比較対象の文字列
+        str_list (list): 比較対象の文字列リスト
+
+        Returns:
+        str: 最も近い文字列
+        """
+        return min(str_list, key=lambda x: Levenshtein.distance(target, x))
+    
        
 
 if __name__ == '__main__':

@@ -268,7 +268,7 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                             #バイナリーをjson形式で送信
                             await websocket.send_json(json.dumps(wav_info))
                 
-                elif gpt_mode == "SimpleWait":
+                elif gpt_mode == "SimpleWait4":
 
                     input_sentence,sentence_count = human_ai.appendSentence(input_dict[inputer])
 
@@ -284,7 +284,8 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                     response_dict = json.loads(response_json)
                     status = response_dict["status"]
                     response = response_dict["spoken_words"]
-                    if status != "wait":
+                    
+                    async def generateVoice(response):
                         # 生成された返答をフロントエンドに送るための辞書に入れる
                         message[human_ai.front_name] = response
                         json_data = json.dumps(message, ensure_ascii=False)
@@ -302,7 +303,47 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                             print(f"{human_ai.char_name}のwavデータを送信します")
                             await websocket.send_json(json.dumps(wav_info))
                         pprint(response_dict)
-                        human_ai.resetSentence()
+                    if status != "wait":
+                        await generateVoice(response)
+                    human_ai.resetSentence()
+                
+                elif gpt_mode == "SimpleWait3.5":
+                    print("SimpleWait3.5モードです")
+                    # GPT3でwaitがあるモード
+                    input_sentence,sentence_count = human_ai.appendSentence(input_dict[inputer],inputer)
+
+                    if sentence_count <= random.randint(2,4) or len(input_sentence) < 10 :
+                        continue
+
+                    # prompt_setteing_num を確認し、prompt_setteing_numを1にする
+                    if human_ai.human_GPT.prompt_setteing_num != 1:
+                        human_ai.resetGPTPromptSetting(1)
+                    #シンプルに実行したいので、inputerの文章だけを投げる
+                    response_json = human_ai.generate_text_simple(input_sentence,"gpt-3.5-turbo")
+                    #このモードの時はjsonなのでdictに変換
+                    response = human_ai.human_GPT.filterResponse(response_json,human_ai.char_name)
+                    print(f"{response=}")
+                    human_ai.resetSentence()
+
+                    # 生成された返答をフロントエンドに送るための辞書に入れる
+                    message[human_ai.front_name] = response
+                    json_data = json.dumps(message, ensure_ascii=False)
+                    print(f"{json_data=}を送信します")
+                    try:
+                        await notifier.push(json_data)
+                    except Exception as e:
+                        print(e)
+                        await websocket.send_json(json_data)
+                    if "wav出力" == human_ai.voice_mode:
+                        human_ai.outputWaveFile(response)
+                        #wavデータを取得
+                        wav_info = human_ai.human_Voice.output_wav_info_list
+                        #バイナリーをjson形式で送信
+                        print(f"{human_ai.char_name}のwavデータを送信します")
+                        await websocket.send_json(json.dumps(wav_info))
+                    
+                    
+
                 
                 elif gpt_mode == "low":
                     input_sentence,sentence_count = human_ai.appendSentence(sentence_dict4sedn_gpt)#input_dict[inputer])
