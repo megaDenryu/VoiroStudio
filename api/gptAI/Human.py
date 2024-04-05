@@ -189,11 +189,11 @@ class Human:
             self.response_dict[self.char_name] = text
             self.response_dict["json返答"] = "失敗"
 
-    def appendSentence(self,input_sentence:str):
-        self.sentence = f"""
-        {self.sentence}
-        {input_sentence}
-        """
+    def appendSentence(self,input_sentence:str, inputer_name:str):
+        if self.sentence_count == 0:
+            self.sentence = f"{inputer_name}:{input_sentence}"
+        else:
+            self.sentence = f"{self.sentence}, {inputer_name}:{input_sentence}"
         self.sentence_count += 1
         return self.sentence,self.sentence_count
     def resetSentence(self):
