@@ -600,3 +600,65 @@ if __name__ == '__main__':
         print("開始")
         voicevox_human.createVoiceVoxNameToNumberDict()
         print("終了")
+
+class Coeiroinc {
+    _init_() {
+        self.url = 'http://localhost:50031/'
+        self.query_p = 'audio_query'
+        self.req_url = url + query_p
+        enable_interrogative_upspeak = ''
+
+
+        v_name = "test.wav"
+        v_dir = "C:\\Users\\ユーザー名\\Documents\\"
+        voice_pass = v_dir + v_name
+
+        # APIに送信する情報
+        speaker_id = 0　
+        #speaker_idには（重要）しゃべらせたいボイスのstyleIdを書いてください（上記はつくよみちゃんれいせいです）　
+        my_text = 'これはテストです。'
+
+        headers = {'speaker':1}
+        q_params = {'text' :my_text,'speaker' :speaker_id, 'core_version':'0.0.0'}
+        a_params = {'speaker' :speaker_id, 'core_version':'0.0.0','enable_interrogative_upspeak' : 'true'}
+
+    }
+
+    @staticmethod
+    def getCharNum(name):
+        """
+        coeiroincとの通信で使う名前。
+        front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
+        """
+        api_dir = 
+        
+        return 0
+    
+    
+    def getVoiceQuery(self, text: str) -> Dict[str, Any]:
+        return 0
+    
+    def getVoiceWav(self,query_dict:Dict[str, Any]):
+        return 0
+    
+    def wav2base64(self,wav):
+        return 0
+    
+    def getLabData(self,query_dict:Dict[str,Any], pitchScale = None, speedScale = None, intonationScale = None):
+        return 0
+
+    def speak(self,text):
+        return 0
+    
+    def saveWav(self,response_wav):
+        return 0
+
+    def playWav_pyaudio(self,response_wav):
+        return 0
+    
+    def outputWaveFile(self,content:str):
+        return 0
+    
+    def createVoiceVoxNameToNumberDict():
+        return 0
+}
