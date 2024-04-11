@@ -157,6 +157,35 @@ class DragDropFile{
                         }
 
                     }
+                } else if (file.name.endsWith('.json')) {
+                    console.log("jsonファイルです。")
+                    const reader = new FileReader();
+                    reader.readAsText(file);
+                    reader.onload = () => {
+                        const json = JSON.parse(reader.result);
+                        console.log(json);
+                        if (json["front_name"]) {
+                            this.setFrontname(json["front_name"]);
+                        }
+                    }
+                } else if (file.name.endsWith('.csv')) {
+                    console.log("csvファイルです。")
+                    const reader = new FileReader();
+                    reader.readAsText(file);
+                    reader.onload = () => {
+                        const csv = reader.result;
+                        console.log(csv);
+                        //csvの型チェック
+                        try{
+                            if (typeof csv == "string") {
+                                const sentence_timeline = new sentenceTimeLineCreater(csv); 
+                                const sentence_timeline_list = sentence_timeline.getSentenceTimeLine();
+                            }
+                        } catch (error) {
+                            console.error(error)
+                        }
+                        
+                    }
                 } else {
                     console.log("ファイルが適切な形式ではありません。");
                 }
@@ -242,4 +271,70 @@ class DragDropEventObject{
      * @param {DragEvent} event 
      */
     
+}
+
+/**
+ * @typedef {Object} sentenceTimeLine
+ * @property {Number} number
+ * @property {String} sentence
+ * @property {Number} start_time
+ * @property {Number} end_time
+ * @property {String} speaker 
+ */
+
+class sentenceTimeLineCreater{
+    /** @type {string[][]}*/ csv_data
+    /** @type {string[]}*/ header
+    /** @type {Record<string,number>} */ key_num = {
+        '番号': 0,
+        'セリフ': 1,
+        '開始時間': 2,
+        '終了時間': 3,
+        '話者': 4
+    };
+    /** @type {sentenceTimeLine[]} */ sentence_timeline_list
+    /** */ 
+    constructor(/** @type {string}*/csv){
+        this.csv_data = this.csvToArray(csv);
+        this.header = this.csv_data[0];
+        //headerはkeyが書いてある。keyの番号を確認して更新。
+        for (let i = 0; i < this.header.length; i++) {
+            this.key_num[this.header[i]] = i;
+        }
+        const num = this.key_num;
+        // 1行目はヘッダーなので、2行目からデータが始まる
+        this.sentence_timeline_list = this.csv_data.slice(1).map((line) => {
+            return {
+                number: Number(line[num['番号']]),
+                sentence: line[num['セリフ']],
+                start_time: Number(line[num['開始時間']]),
+                end_time: Number(line[num['終了時間']]),
+                speaker: line[num['話者']]
+            }
+        });
+        
+    }
+
+    /**
+     * 
+     * @param {string} csv 
+     * @returns {string[][]}
+     */
+    csvToArray(/** @type {string}*/csv){
+        const lines = csv.split('\n');
+        const result = [];
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const cells = line.split(',');
+            result.push(cells);
+        }
+        return result;
+    }
+
+    /**
+     * @return {sentenceTimeLine[]}
+     */
+    getSentenceTimeLine(){
+        return this.sentence_timeline_list;
+    }
 }
