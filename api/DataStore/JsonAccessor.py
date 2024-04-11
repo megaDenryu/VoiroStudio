@@ -57,3 +57,14 @@ class JsonAccessor:
         with open(yml_path,encoding="UTF8") as f:
                 content = f.read()
         return content
+    
+    @staticmethod
+    def loadCoeiroinkNameToNumberJson():
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "CharSettingJson/CoeiroinkNameToNumber.json"
+        coeiroink_name_to_number = ExtendFunc.loadJsonToDict(path)
+        return coeiroink_name_to_number
+    
+    @staticmethod
+    def saveCoeiroinkNameToNumberJson(coeiroink_name_to_number):
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "CharSettingJson/CoeiroinkNameToNumber.json"
+        ExtendFunc.saveDictToJson(path, coeiroink_name_to_number)
