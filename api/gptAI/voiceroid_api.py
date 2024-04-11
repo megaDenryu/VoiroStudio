@@ -16,6 +16,7 @@ import clr
 from typing import Dict, Any
 
 from ..Extend.ExtendFunc import ExtendFunc
+from api.DataStore.JsonAccessor import JsonAccessor
 
 class cevio_human:
     def __init__(self,char_name:str,started_cevio_num:int) -> None:
@@ -579,6 +580,212 @@ class AIVoiceHuman:
     def saveWav(self,response_wav):
         pass
 
+class Coeiroink:
+    # def __init__(self,name:str,started_coeiro_num:int) -> None:
+        
+    #     if "" != self.getCharNum(name):
+    #         self.char_num = self.getCharNum(name)
+    #         self.query_url = f"http://127.0.0.1:50031/audio_query" #f"http://localhost:50021/audio_query"だとlocalhostの名前解決に時間がかかるらしい
+    #         self.synthesis_url = f"http://127.0.0.1:50031/synthesis" #f"http://localhost:50021/synthesis"だとlocalhostの名前解決に時間がかかるらしい
+    #         self.char_name = name
+    #     else:
+    #         self.char_name = ""
+    #         self.name = ""
+    def _init_():
+        self.url = 'http://localhost:50031/'
+        self.query_p = 'audio_query'
+        self.req_url = url + query_p
+        enable_interrogative_upspeak = ''
+
+
+        v_name = "test.wav"
+        v_dir = "C:\\Users\\ユーザー名\\Documents\\"
+        voice_pass = v_dir + v_name
+
+        # APIに送信する情報
+        speaker_id = 0
+        #speaker_idには（重要）しゃべらせたいボイスのstyleIdを書いてください（上記はつくよみちゃんれいせいです）　
+        my_text = 'これはテストです。'
+
+        headers = {'speaker':1}
+        q_params = {'text' :my_text,'speaker' :speaker_id, 'core_version':'0.0.0'}
+        a_params = {'speaker' :speaker_id, 'core_version':'0.0.0','enable_interrogative_upspeak' : 'true'}
+
+
+    @staticmethod
+    def getCharNum(name):
+        """
+        coeiroinkとの通信で使う名前。
+        front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
+        """
+        name_dict = JsonAccessor.loadCoeiroinkNameToNumberJson()
+        if name in name_dict:
+            return name_dict[name]
+        
+        return ""
+    
+    
+    def getVoiceQuery(self, text: str) -> Dict[str, Any]:
+        params = {
+            'speaker': self.char_num,
+            'text': text
+        }
+        pprint(params)
+        query_dict:Dict[str, Any] = requests.post(self.query_url, params=params).json()
+        return query_dict
+    
+    def getVoiceWav(self,query_dict:Dict[str, Any]):
+        """
+        getVoiceQuery()で取得したquery_dictを引数に使ってwavを生成する.
+        """
+        query_json = json.dumps(query_dict)
+        wav = requests.post(self.synthesis_url, params={'speaker': self.char_num}, data=query_json)
+        return wav
+    
+    def wav2base64(self,wav):
+        binary_data = wav.content
+        base64_data = base64.b64encode(binary_data)
+        base64_data_str = base64_data.decode("utf-8")
+        return base64_data_str
+    
+    def getLabData(self,query_dict:Dict[str,Any], pitchScale = None, speedScale = None, intonationScale = None):
+        """
+        参考URL:https://qiita.com/hajime_y/items/7a5b3be2eec561a6117d
+        getVoiceQuery()で取得したquery_dictを引数に使ってlabdataを生成する.
+        """
+        if pitchScale is not None:
+            query_dict["pitchScale"] = pitchScale
+        if speedScale is not None:
+            query_dict["speedScale"] = speedScale
+        if intonationScale is not None:
+            query_dict["intonationScale"] = intonationScale
+
+        labdata=""
+        phonome_str = []
+        phonome_time = []
+        now_length=0
+        timescale = 10000000/float(query_dict["speedScale"])
+        for phrase in query_dict["accent_phrases"]:
+            for mora in phrase["moras"]:
+                #moraの中には子音の情報と母音の情報が両方ある。子音はない場合もある。
+                # 子音がある場合
+                if mora["consonant_length"] is not None:
+                    #labdata += str(int(now_length*timescale)) + " "
+                    start = int(now_length*timescale) / 10000000
+                    now_length += mora["consonant_length"]
+                    #labdata += str(int(now_length*timescale)) + " " + mora["consonant"] + "\n"
+                    end = int(now_length*timescale) / 10000000
+                    phonome_str.append([mora["consonant"],start,end])
+                    phonome_time.append(mora["consonant"])
+                # 母音
+                #labdata += str(int(now_length*timescale)) + " "
+                start = int(now_length*timescale) / 10000000
+                now_length += mora["vowel_length"]
+                #labdata += str(int(now_length*timescale)) + " " + mora["vowel"] + "\n"
+                end = int(now_length*timescale) / 10000000
+                phonome_str.append([mora["vowel"],start,end])
+                phonome_time.append(mora["vowel"])
+            if phrase["pause_mora"] is not None:
+                # ポーズの場合
+                #labdata += str(int(now_length*timescale)) + " "
+                start = int(now_length*timescale) / 10000000
+                now_length += phrase["pause_mora"]["vowel_length"]
+                #labdata += str(int(now_length*timescale)) + " " + "pau\n"
+                end = int(now_length*timescale) / 10000000
+                phonome_str.append(["pau",start,end])
+                phonome_time.append("pau")
+        return phonome_str,phonome_time#labdata
+
+    def speak(self,text):
+        query:Dict[str, Any] = self.getVoiceQuery(text)
+        pprint(query)
+        phonome_str,phonome_time = self.getLabData(query)
+        pprint(phonome_str)
+        wav = self.getVoiceWav(query)
+        print(text)
+        self.playWav_pyaudio(wav)
+        #self.saveWav(wav)
+        print("終わり")
+    
+    def saveWav(self,response_wav):
+        with open("audio.wav", "wb") as f:
+            f.write(response_wav.content)
+
+    def playWav_pyaudio(self,response_wav):
+        p = pyaudio.PyAudio()
+        stream =  p.open(format=pyaudio.paInt16,
+                         channels=1,
+                         rate=24000,
+                         output=True)
+        stream.write(response_wav.content)
+
+        stream.stop_stream()
+        stream.close()
+
+        p.terminate()
+    
+    def outputWaveFile(self,content:str):
+        """
+        todo : 声色インク用の改造が終わってないので、この関数は未完成
+        ２００文字以上だと切り詰められるので文節に区切って再生する
+        """
+        sentence_list = content.split("。")
+        print(sentence_list)
+        #output_wav_info_listを初期化
+        self.output_wav_info_list = []
+        for index,text in enumerate(sentence_list):
+            if text == "":
+                continue
+            else:
+                #output_wavフォルダがなければ作成
+                os.makedirs("output_wav", exist_ok=True)
+                print(f"voicevoxでwavを生成します:{index + 1}/{len(sentence_list)}")
+                wav_path = f"output_wav/voicevox_audio_{self.char_name}_{index}.wav"
+                query:Dict[str, Any] = self.getVoiceQuery(text)
+                print("query取得完了")
+                phoneme_str,phoneme_time = self.getLabData(query)
+                print("lab_data取得完了")
+                wav_data = self.wav2base64(self.getVoiceWav(query))
+                print("wav_data取得完了")
+                wav_info = {
+                    "path":wav_path,
+                    "wav_data":wav_data,
+                    "phoneme_time":phoneme_time,
+                    "phoneme_str":phoneme_str,
+                    "char_name":self.char_name,
+                }
+                self.output_wav_info_list.append(wav_info)
+    
+    @staticmethod
+    def createCoeiroinkNameToNumberDict():
+        """
+        todo : 声色インク用の改造が終わってないので、この関数は未完成
+        まず
+        curl -X 'GET' \
+        'http://localhost:50021/speakers' \
+        -H 'accept: application/json'
+        を実行して、VOICEVOXのキャラクター名とキャラクター番号のjsonを取得する。
+        次にVOICEVOXのキャラクター名とキャラクター番号の対応表を作成する。
+        """
+        import requests
+
+        url = "http://localhost:50021/speakers"
+        headers = {'accept': 'application/json'}
+        response = requests.get(url, headers=headers)
+        speaker_dict = response.json()
+        save_dict = {}
+        for speaker in speaker_dict:
+            name = speaker["name"]
+            styles = speaker["styles"]
+            for style in styles:
+                style_name = style["name"]
+                style_num = style["id"]
+                save_name = name + ":" +style_name
+                save_dict[save_name] = style_num
+        pprint(save_dict)
+        JsonAccessor.saveCoeiroinkNameToNumberJson(save_dict)
+
+
 if __name__ == '__main__':
     if False:
         print("開始")
@@ -600,65 +807,3 @@ if __name__ == '__main__':
         print("開始")
         voicevox_human.createVoiceVoxNameToNumberDict()
         print("終了")
-
-class Coeiroinc {
-    _init_() {
-        self.url = 'http://localhost:50031/'
-        self.query_p = 'audio_query'
-        self.req_url = url + query_p
-        enable_interrogative_upspeak = ''
-
-
-        v_name = "test.wav"
-        v_dir = "C:\\Users\\ユーザー名\\Documents\\"
-        voice_pass = v_dir + v_name
-
-        # APIに送信する情報
-        speaker_id = 0　
-        #speaker_idには（重要）しゃべらせたいボイスのstyleIdを書いてください（上記はつくよみちゃんれいせいです）　
-        my_text = 'これはテストです。'
-
-        headers = {'speaker':1}
-        q_params = {'text' :my_text,'speaker' :speaker_id, 'core_version':'0.0.0'}
-        a_params = {'speaker' :speaker_id, 'core_version':'0.0.0','enable_interrogative_upspeak' : 'true'}
-
-    }
-
-    @staticmethod
-    def getCharNum(name):
-        """
-        coeiroincとの通信で使う名前。
-        front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
-        """
-        api_dir = 
-        
-        return 0
-    
-    
-    def getVoiceQuery(self, text: str) -> Dict[str, Any]:
-        return 0
-    
-    def getVoiceWav(self,query_dict:Dict[str, Any]):
-        return 0
-    
-    def wav2base64(self,wav):
-        return 0
-    
-    def getLabData(self,query_dict:Dict[str,Any], pitchScale = None, speedScale = None, intonationScale = None):
-        return 0
-
-    def speak(self,text):
-        return 0
-    
-    def saveWav(self,response_wav):
-        return 0
-
-    def playWav_pyaudio(self,response_wav):
-        return 0
-    
-    def outputWaveFile(self,content:str):
-        return 0
-    
-    def createVoiceVoxNameToNumberDict():
-        return 0
-}
