@@ -50,7 +50,7 @@ human_dict:dict = {}
 #Humanクラスの生成されたインスタンスをid順に登録する辞書を作成
 human_id_dict = []
 #使用してる合成音声の種類をカウントする辞書を作成
-voiceroid_dict = {"cevio":0,"voicevox":0,"AIVOICE":0}
+voiceroid_dict = {"cevio":0,"voicevox":0,"AIVOICE":0,"Coeiroink":0}
 gpt_mode_dict = {}
 #game_masterのインスタンスを生成
 game_master_enable = False

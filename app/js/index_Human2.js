@@ -173,6 +173,8 @@ function tabSwitch(event){
         //this.innerText = ""
         let input = document.createElement("input")
         input.type = "text"
+        input.enterKeyHint = "enter"
+        //pc版
         input.addEventListener("keydown", function(event) 
         {
             console.log(this)
@@ -813,6 +815,15 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
         audio_group.removeChild(audio_group.firstElementChild);
     }
 
+    audio.load();
+    await new Promise(resolve => audio.onloadedmetadata = resolve);
+    //audioの長さを取得
+    const time_length = audio.duration * 1000;
+    //labdataの最後の要素の終了時間を取得
+    const last_end_time = lab_data[lab_data.length-1][2] * 1000;
+    const ratio = time_length / last_end_time;
+    console.log(time_length,last_end_time,ratio)
+
     //audioを再生して口パクもする。
     var lab_pos = 0;
     console.log("audioタグを再生")
@@ -821,11 +832,11 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
         audio.play().then(() => {
             var intervalId = setInterval(() => {
                 var current_time = audio.currentTime * 1000;
-                //console.log("current_time="+current_time, "lab_pos="+lab_pos);
+                // console.log("current_time="+current_time, "lab_pos="+lab_pos);
                 
                 if (lab_data[lab_pos] !== undefined) {
-                    var start_time = lab_data[lab_pos][1] * 1000;
-                    var end_time = lab_data[lab_pos][2] * 1000;
+                    var start_time = lab_data[lab_pos][1] * 1000 * ratio;
+                    var end_time = lab_data[lab_pos][2] * 1000 * ratio;
                 } else {
                     console.error('Invalid lab_pos:', lab_data, "lab_pos="+lab_pos);
                     // ここで適切なエラーハンドリングを行います
@@ -855,6 +866,10 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
                         console.log(e)
                         console.log(("口画像が設定されていない"))
                     }
+                    clearInterval(intervalId);
+                }
+
+                if (audio.ended) {
                     clearInterval(intervalId);
                 }
             }, 50); // 100ミリ秒ごとに更新

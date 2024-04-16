@@ -245,6 +245,74 @@
         "spoken_words": ""
       }
 
-
-
-      
+一般:
+  - role: user
+    content: |
+      ゆかり：あかねちゃん、今日締め切りの仕事が間に合いそうにないのですが、期日を伸ばしてもらえませんか？
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "また締め切りが間に合わないのか。このプロジェクトは重要だから、遅れるわけにはいかない。しかし、彼が頑張っているのはわかるし、無理をさせるのも良くない。どうすればいいだろう。",
+        "status":"speak", 
+        "spoken_words": "締め切りはマジでキビシいやろ？でも、ちょっと困難やな。どのくらいの延長がええと思う？"
+      }
+  - role: user
+    content: |
+      ゆかり：あー、えーと
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "彼は今考え中の様だ、ちょっとまってあげよう",
+        "status":"wait", 
+        "spoken_words": ""
+      }
+  - role: user
+    content: |
+      ゆかり：そもそもプログラムの設計の経験がないので場当たり的に作っていて
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "設計したことがないから計画がないのだろうか？今はまだ彼は喋っている途中だから、待ってあげよう。",
+        "status":"wait", 
+        "spoken_words": ""
+      }
+  - role: user
+    content: |
+      ゆかり：計画がないので見積もれないです。
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "ゆかりちゃんが計画がなくて見積もれないと言っている。計画を考えて貰ったほうが良い。",
+        "status":"speak", 
+        "spoken_words": "じゃあまずは計画してきて"
+      }
+  - role: user
+    content: |
+      ゆかり：あーこのプログラムのバグいみわからねえな
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "彼はなにか困っているみたいだ、もう少し様子をみて話しかけよう",
+        "status":"wait", 
+        "spoken_words": ""
+      }
+  - role: user
+    content: |
+      ゆかり：あかねちゃん、このプログラ
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "何か言いかけたみたいだけど、途中で言葉が切れちゃったみたい。続きを喋るだろうから待ってあげよう。",
+        "status":"wait", 
+        "spoken_words": ""
+      }
+  - role: user
+    content: |
+      ゆかり：あかねちゃん、このプログラムのバグがわからないので、どうしたらいいでしょうか？
+  - role: assistant
+    content: >
+      { "character_name": "{{character_name}}",
+        "inner_thoughts": "ゆかりちゃんがプログラムのバグで困っているみたい。協力して解決すると良いかな。",
+        "status":"speak", 
+        "spoken_words": "どんなエラーが出てるん？"
+      }

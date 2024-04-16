@@ -11,11 +11,12 @@ import os
 import base64
 
 #AI.VOICE Editor API用のライブラリ
-import os
 import clr
 from typing import Dict, Any
 
-from ..Extend.ExtendFunc import ExtendFunc
+import sys
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from api.Extend.ExtendFunc import ExtendFunc
 from api.DataStore.JsonAccessor import JsonAccessor
 
 class cevio_human:
@@ -581,39 +582,27 @@ class AIVoiceHuman:
         pass
 
 class Coeiroink:
-    # def __init__(self,name:str,started_coeiro_num:int) -> None:
+    DEFAULT_SERVER = "http://127.0.0.1:50032"
+    none_num = -1
+    server = DEFAULT_SERVER
+    def __init__(self,name:str,started_coeiro_num:int) -> None:
         
-    #     if "" != self.getCharNum(name):
-    #         self.char_num = self.getCharNum(name)
-    #         self.query_url = f"http://127.0.0.1:50031/audio_query" #f"http://localhost:50021/audio_query"だとlocalhostの名前解決に時間がかかるらしい
-    #         self.synthesis_url = f"http://127.0.0.1:50031/synthesis" #f"http://localhost:50021/synthesis"だとlocalhostの名前解決に時間がかかるらしい
-    #         self.char_name = name
-    #     else:
-    #         self.char_name = ""
-    #         self.name = ""
-    def _init_():
-        self.url = 'http://localhost:50031/'
-        self.query_p = 'audio_query'
-        self.req_url = url + query_p
-        enable_interrogative_upspeak = ''
+        if "" != self.getCharNum(name):
+            self.styleId = self.getCharNum(name)
+            if self.styleId == Coeiroink.none_num:
+                print(f"{name}はcoeiroinkに登録されていません。")
+                Coeiroink.createCoeiroinkNameToNumberDict()
+                return
 
-
-        v_name = "test.wav"
-        v_dir = "C:\\Users\\ユーザー名\\Documents\\"
-        voice_pass = v_dir + v_name
-
-        # APIに送信する情報
-        speaker_id = 0
-        #speaker_idには（重要）しゃべらせたいボイスのstyleIdを書いてください（上記はつくよみちゃんれいせいです）　
-        my_text = 'これはテストです。'
-
-        headers = {'speaker':1}
-        q_params = {'text' :my_text,'speaker' :speaker_id, 'core_version':'0.0.0'}
-        a_params = {'speaker' :speaker_id, 'core_version':'0.0.0','enable_interrogative_upspeak' : 'true'}
-
+            self.speaker = Coeiroink.get_speaker_info(self.styleId)
+            self.char_name = name
+        else:
+            self.char_name = ""
+            self.name = ""
+    
 
     @staticmethod
-    def getCharNum(name):
+    def getCharNum(name)->int:
         """
         coeiroinkとの通信で使う名前。
         front_nameとchar_nameのようなgptや画像管理で使うための名前ではない。
@@ -622,90 +611,227 @@ class Coeiroink:
         if name in name_dict:
             return name_dict[name]
         
-        return ""
+        return Coeiroink.none_num
     
+    # ステータスを取得する
+    @staticmethod
+    def get_status(print_error=False) -> str:
+        try:
+            response = requests.get(f"{Coeiroink.server}/")
+            response.raise_for_status()
+            return response.json()["status"]
+        except Exception as err:
+            if print_error:
+                print(err)
+            return None
+
+    # 話者リストを取得する
+    @staticmethod
+    def get_speakers(print_error=False) -> {}:
+        try:
+            response = requests.get(f"{Coeiroink.server}/v1/speakers")
+            response.raise_for_status()
+            return response.json()
+        except Exception as err:
+            if print_error:
+                print(err)
+            return None
+
+    # スタイルIDから話者情報を取得する
+    @staticmethod
+    def get_speaker_info(styleId: int, print_error=False) -> {}:
+        try:
+            post_params = {"styleId": styleId}
+            response = requests.post(f"{Coeiroink.server}/v1/style_id_to_speaker_meta", params=post_params)
+            response.raise_for_status()
+            return response.json()
+        except Exception as err:
+            if print_error:
+                print(err)
+            return None
+
+    # テキストの読み上げ用データを取得する
+    @staticmethod
+    def estimate_prosody(text: str, print_error=False) -> {}:
+        try:
+            post_params = {"text": text}
+            response = requests.post(f"{Coeiroink.server}/v1/estimate_prosody", data=json.dumps(post_params))
+            response.raise_for_status()
+            return response.json()
+        except Exception as err:
+            if print_error:
+                print(err)
+            return None
     
-    def getVoiceQuery(self, text: str) -> Dict[str, Any]:
-        params = {
-            'speaker': self.char_num,
-            'text': text
+    @staticmethod
+    def predict_with_duration(speaker: {}, text: str, prosody: {},
+                  speedScale = 1, volumeScale = 1, pitchScale = 0, intonationScale = 1,
+                  prePhonemeLength = 0.1, postPhonemeLength = 0.1, outputSamplingRate = 24000, print_error=False) -> {}:
+        """
+        wavBase64とlabデータを取得できる。
+        """
+        
+        post_params = {
+            "speakerUuid": speaker["speakerUuid"],
+            "styleId": speaker["styleId"],
+            "text": text,
+            "prosodyDetail": prosody["detail"],
+            "speedScale": 1,
+            "volumeScale": volumeScale,
+            "pitchScale": pitchScale,
+            "intonationScale": intonationScale,
+            "prePhonemeLength": prePhonemeLength,
+            "postPhonemeLength": postPhonemeLength,
+            "outputSamplingRate": outputSamplingRate
         }
-        pprint(params)
-        query_dict:Dict[str, Any] = requests.post(self.query_url, params=params).json()
-        return query_dict
+        print("678")
+
+        try:
+            response = requests.post(f"{Coeiroink.server}/v1/predict_with_duration", data=json.dumps(post_params))
+            response.raise_for_status()
+            return response.json()
+        except Exception as err:
+            print(err)
+            return None
+
+    # 音声データを生成する
+    @staticmethod
+    def synthesis(speaker: {}, text: str, prosody: {},
+                  speedScale = 1, volumeScale = 1, pitchScale = 0, intonationScale = 1,
+                  prePhonemeLength = 0.1, postPhonemeLength = 0.1, outputSamplingRate = 24000, print_error=False) -> bytes:
+        post_params = {
+            "speakerUuid": speaker["speakerUuid"],
+            "styleId": speaker["styleId"],
+            "text": text,
+            "prosodyDetail": prosody["detail"],
+            "speedScale": speedScale,
+            "volumeScale": volumeScale,
+            "pitchScale": pitchScale,
+            "intonationScale": intonationScale,
+            "prePhonemeLength": prePhonemeLength,
+            "postPhonemeLength": postPhonemeLength,
+            "outputSamplingRate": outputSamplingRate
+        }
+        try:
+            response = requests.post(f"{Coeiroink.server}/v1/synthesis", data=json.dumps(post_params))
+            response.raise_for_status()
+            return response.content
+        except Exception as err:
+            if print_error:
+                print(err)
+            return None
     
-    def getVoiceWav(self,query_dict:Dict[str, Any]):
+    @staticmethod
+    def labDataFromMora(moraDurations)->tuple[list[list[str]],list[str]]:
         """
-        getVoiceQuery()で取得したquery_dictを引数に使ってwavを生成する.
+        predictionからlabデータを取得する。labDataは他のボイロと同じくphonome_strで
+        [[phoneme,start,end]]である
         """
-        query_json = json.dumps(query_dict)
-        wav = requests.post(self.synthesis_url, params={'speaker': self.char_num}, data=query_json)
-        return wav
+        phoneme_str = []
+        phoneme_time = []
+        for moraDuration in moraDurations:
+            phonemePitches:list[dict] = moraDuration["phonemePitches"]
+            print(moraDuration["wavRange"])
+            for phonemePitche in phonemePitches:
+                print(phonemePitche)
+                phoneme = phonemePitche["phoneme"]
+                start = phonemePitche["wavRange"]["start"] / (10**5)
+                end = phonemePitche["wavRange"]["end"] / (10**5)
+
+                phoneme_str.append([phoneme,start,end])
+                phoneme_time.append(phoneme)
+        pprint(phoneme_str)
+        return phoneme_str, phoneme_time
+
+    # 音声データを生成する
+    @staticmethod
+    def get_wave_data(styleId: int, text: str,
+                      speedScale = 1, volumeScale = 1, pitchScale = 0, intonationScale = 1,
+                      prePhonemeLength = 0.1, postPhonemeLength = 0.1, outputSamplingRate = 24000, print_error=False) -> bytes:
+
+        speaker = Coeiroink.get_speaker_info(styleId)
+        if speaker is None:
+            print("Failed to get speaker info.")
+            return None
+        
+        prosody = Coeiroink.estimate_prosody(text)
+        if prosody is None:
+            print("Failed to estimate prosody.")
+            return None
+        
+        return Coeiroink.synthesis(speaker, text, prosody,
+                                      speedScale, volumeScale, pitchScale, intonationScale,
+                                      prePhonemeLength, postPhonemeLength, outputSamplingRate, print_error)
     
-    def wav2base64(self,wav):
+    def getWavData(self, text: str,
+                      speedScale = 1, volumeScale = 1, pitchScale = 0, intonationScale = 1,
+                      prePhonemeLength = 0.1, postPhonemeLength = 0.1, outputSamplingRate = 24000, print_error=False) -> bytes:
+        speaker = self.speaker
+        if speaker is None:
+            print("Failed to get speaker info.")
+            return None
+        
+        prosody = Coeiroink.estimate_prosody(text)
+        pprint(prosody)
+        if prosody is None:
+            print("Failed to estimate prosody.")
+            return None
+        
+        return Coeiroink.synthesis(speaker, text, prosody,
+                                      speedScale, volumeScale, pitchScale, intonationScale,
+                                      prePhonemeLength, postPhonemeLength, outputSamplingRate, print_error)
+    
+     # 音声データを生成する
+    @staticmethod
+    def get_wave_and_lab_data(styleId: int, text: str,
+                      speedScale = 1, volumeScale = 1, pitchScale = 0, intonationScale = 1,
+                      prePhonemeLength = 0.1, postPhonemeLength = 0.1, outputSamplingRate = 24000, print_error=False):
+
+        speaker = Coeiroink.get_speaker_info(styleId)
+        if speaker is None:
+            print("Failed to get speaker info.")
+            return None
+        
+        prosody = Coeiroink.estimate_prosody(text)
+        if prosody is None:
+            print("Failed to estimate prosody.")
+            return None
+        prediction = Coeiroink.predict_with_duration(speaker, text, prosody,
+                                                      speedScale, volumeScale, pitchScale, intonationScale,
+                                                      prePhonemeLength, postPhonemeLength, outputSamplingRate, print_error)
+        wavBase64 = prediction["wavBase64"]
+        moraDurations = prediction["moraDurations"]
+        phoneme_str, phoneme_time = Coeiroink.labDataFromMora(moraDurations)
+        return wavBase64, phoneme_str,phoneme_time
+
+    def getWavAndLabData(self, text: str,
+                      speedScale = 1, volumeScale = 1, pitchScale = 0, intonationScale = 1,
+                      prePhonemeLength = 0.1, postPhonemeLength = 0.1, outputSamplingRate = 24000, print_error=False):
+        speaker = self.speaker
+        if speaker is None:
+            print("Failed to get speaker info.")
+            return None, None, None
+        
+        prosody = Coeiroink.estimate_prosody(text)
+        if prosody is None:
+            print("Failed to estimate prosody.")
+            return None, None, None
+        prediction = Coeiroink.predict_with_duration(speaker, text, prosody,
+                                                      speedScale, volumeScale, pitchScale, intonationScale,
+                                                      prePhonemeLength, postPhonemeLength, outputSamplingRate, print_error)
+
+        wavBase64 = prediction["wavBase64"]
+        moraDurations = prediction["moraDurations"]
+        phoneme_str, phoneme_time = Coeiroink.labDataFromMora(moraDurations)
+        return wavBase64, phoneme_str, phoneme_time
+
+    
+    @staticmethod
+    def wav2base64(wav):
         binary_data = wav.content
         base64_data = base64.b64encode(binary_data)
         base64_data_str = base64_data.decode("utf-8")
         return base64_data_str
-    
-    def getLabData(self,query_dict:Dict[str,Any], pitchScale = None, speedScale = None, intonationScale = None):
-        """
-        参考URL:https://qiita.com/hajime_y/items/7a5b3be2eec561a6117d
-        getVoiceQuery()で取得したquery_dictを引数に使ってlabdataを生成する.
-        """
-        if pitchScale is not None:
-            query_dict["pitchScale"] = pitchScale
-        if speedScale is not None:
-            query_dict["speedScale"] = speedScale
-        if intonationScale is not None:
-            query_dict["intonationScale"] = intonationScale
-
-        labdata=""
-        phonome_str = []
-        phonome_time = []
-        now_length=0
-        timescale = 10000000/float(query_dict["speedScale"])
-        for phrase in query_dict["accent_phrases"]:
-            for mora in phrase["moras"]:
-                #moraの中には子音の情報と母音の情報が両方ある。子音はない場合もある。
-                # 子音がある場合
-                if mora["consonant_length"] is not None:
-                    #labdata += str(int(now_length*timescale)) + " "
-                    start = int(now_length*timescale) / 10000000
-                    now_length += mora["consonant_length"]
-                    #labdata += str(int(now_length*timescale)) + " " + mora["consonant"] + "\n"
-                    end = int(now_length*timescale) / 10000000
-                    phonome_str.append([mora["consonant"],start,end])
-                    phonome_time.append(mora["consonant"])
-                # 母音
-                #labdata += str(int(now_length*timescale)) + " "
-                start = int(now_length*timescale) / 10000000
-                now_length += mora["vowel_length"]
-                #labdata += str(int(now_length*timescale)) + " " + mora["vowel"] + "\n"
-                end = int(now_length*timescale) / 10000000
-                phonome_str.append([mora["vowel"],start,end])
-                phonome_time.append(mora["vowel"])
-            if phrase["pause_mora"] is not None:
-                # ポーズの場合
-                #labdata += str(int(now_length*timescale)) + " "
-                start = int(now_length*timescale) / 10000000
-                now_length += phrase["pause_mora"]["vowel_length"]
-                #labdata += str(int(now_length*timescale)) + " " + "pau\n"
-                end = int(now_length*timescale) / 10000000
-                phonome_str.append(["pau",start,end])
-                phonome_time.append("pau")
-        return phonome_str,phonome_time#labdata
-
-    def speak(self,text):
-        query:Dict[str, Any] = self.getVoiceQuery(text)
-        pprint(query)
-        phonome_str,phonome_time = self.getLabData(query)
-        pprint(phonome_str)
-        wav = self.getVoiceWav(query)
-        print(text)
-        self.playWav_pyaudio(wav)
-        #self.saveWav(wav)
-        print("終わり")
     
     def saveWav(self,response_wav):
         with open("audio.wav", "wb") as f:
@@ -740,12 +866,9 @@ class Coeiroink:
                 #output_wavフォルダがなければ作成
                 os.makedirs("output_wav", exist_ok=True)
                 print(f"voicevoxでwavを生成します:{index + 1}/{len(sentence_list)}")
-                wav_path = f"output_wav/voicevox_audio_{self.char_name}_{index}.wav"
-                query:Dict[str, Any] = self.getVoiceQuery(text)
-                print("query取得完了")
-                phoneme_str,phoneme_time = self.getLabData(query)
+                wav_path = f"output_wav/coeiroink_audio_{self.char_name}_{index}.wav"
+                wav_data, phoneme_str, phoneme_time = self.getWavAndLabData(text)
                 print("lab_data取得完了")
-                wav_data = self.wav2base64(self.getVoiceWav(query))
                 print("wav_data取得完了")
                 wav_info = {
                     "path":wav_path,
@@ -762,24 +885,24 @@ class Coeiroink:
         todo : 声色インク用の改造が終わってないので、この関数は未完成
         まず
         curl -X 'GET' \
-        'http://localhost:50021/speakers' \
+        'http://127.0.0.1:50021/speakers' \
         -H 'accept: application/json'
         を実行して、VOICEVOXのキャラクター名とキャラクター番号のjsonを取得する。
         次にVOICEVOXのキャラクター名とキャラクター番号の対応表を作成する。
         """
         import requests
 
-        url = "http://localhost:50021/speakers"
+        url = "http://127.0.0.1:50032/v1/speakers"
         headers = {'accept': 'application/json'}
         response = requests.get(url, headers=headers)
         speaker_dict = response.json()
         save_dict = {}
         for speaker in speaker_dict:
-            name = speaker["name"]
+            name = speaker["speakerName"]
             styles = speaker["styles"]
             for style in styles:
-                style_name = style["name"]
-                style_num = style["id"]
+                style_name = style["styleName"]
+                style_num = style["styleId"]
                 save_name = name + ":" +style_name
                 save_dict[save_name] = style_num
         pprint(save_dict)
@@ -803,7 +926,23 @@ if __name__ == '__main__':
     elif False:
         aoi = AIVoiceHuman("琴葉葵",0)
         aoi.outputWaveFile("あーしは葵,埼玉１のギャルの琴葉葵だよ、よろしくねオタク君")
-    elif True:
+    elif False:
         print("開始")
         voicevox_human.createVoiceVoxNameToNumberDict()
         print("終了")
+
+    elif False:
+        print("開始")
+        Coeiroink.createCoeiroinkNameToNumberDict()
+        print("終了")
+    elif True:
+        wav = Coeiroink.get_wave_data(1315987311, "いまははは")
+        # 音声をファイルに保存
+        with open("test.wav", "wb") as f:
+            f.write(wav)
+    elif False:
+        horomegu = Coeiroink("幌呂めぐる",0)
+        wav = horomegu.getWavData("こんにちは、私はほろめぐだよおおおおおお。")
+        # 音声をファイルに保存
+        with open("test.wav", "wb") as f:
+            f.write(wav)
