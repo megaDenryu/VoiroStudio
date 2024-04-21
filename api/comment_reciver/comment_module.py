@@ -18,6 +18,8 @@ class NicoNamaCommentReciever:
         self.websocket_system = None
         self.end_keyword = end_keyword
         self.recieve_status = "recieveing"
+        self.prev_comment_time = None
+        self.comment_time_list:list[datetime] = []
 
     async def _connect_WebSocket_system(self):
         response = requests.get(self.url)
@@ -95,8 +97,39 @@ class NicoNamaCommentReciever:
             now = datetime.now()
             if "date" in comment_data:
                 comment_date = datetime.strptime(comment_data["date"], "%Y/%m/%d %H:%M:%S")
-                if (now - comment_date).total_seconds() < 60 and should_recive:
+                #このコメント投稿されてから現在までの経過時間を計算
+                elapsed_time = (now - comment_date).total_seconds()
+                should_recive = (elapsed_time < 60) and should_recive
+
+                # コメントの速度を見て早すぎる場合は調整する
+                # should_recive = self.adjustCommentSpeed(comment_date,now) and should_recive
+
+                if should_recive == True:
                     yield comment_data
+    
+    def adjustCommentSpeed(self, comment_date:datetime, now:datetime):
+        if self.prev_comment_time is not None:
+            # 前回のコメント投稿からの経過時間を計算
+            elapsed_time = (comment_date - self.prev_comment_time).total_seconds()
+            # コメント時間配列に追加
+            self.comment_time_list.append(comment_date)
+            #直近x秒のコメントの個数を計算
+            x = 10
+            v = self.countCommentDeltaXSecond(x,now)
+
+        self.prev_comment_time = comment_date
+    
+    def countCommentDeltaXSecond(self, x:float, now:datetime):
+        # 直近x秒のコメントの個数を計算
+        prev_time_x_second = now - timedelta(seconds=x)
+        count = 0
+        for comment_time in self.comment_time_list:
+            if comment_time > prev_time_x_second:
+                count += 1
+        return count
+    
+
+        
 
     def filterRecieveData(self, recive_data):
         """
