@@ -7,6 +7,8 @@ import re
 from pprint import pprint
 from .gpt import ChatGPT
 from .voiceroid_api import voicevox_human
+from .voiceroid_api import Coeiroink
+
 from ..images.image_manager.HumanPart import HumanPart
 from starlette.websockets import WebSocket
 
@@ -75,7 +77,7 @@ class Human:
 
         
     
-    def start(self, prompt_setteing_num:str = "キャラ個別システム設定", voiceroid_dict:dict[str,int] = {"cevio":0,"voicevox":0,"AIVOICE":0}):#voiceroid_dictはcevio,voicevox,AIVOICEの数をカウントする
+    def start(self, prompt_setteing_num:str = "キャラ個別システム設定", voiceroid_dict:dict[str,int] = {"cevio":0,"voicevox":0,"AIVOICE":0,"Coeiroink":0}):#voiceroid_dictはcevio,voicevox,AIVOICEの数をカウントする
         print(f"{self.char_name}のgpt起動開始")
         self.human_GPT = ChatGPT(self.char_name, prompt_setteing_num,self.gpt_switch, self.body_parts_pathes_for_gpt)
         print(f"{self.char_name}のgpt起動完了")
@@ -100,10 +102,16 @@ class Human:
                 tmp_aivoice = AIVoiceHuman(self.char_name,voiceroid_dict["AIVOICE"])
                 print(f"{self.char_name}のAIVOICE起動開始")
                 self.human_Voice = tmp_aivoice
-                print(f"{self.char_name}のvoicevox起動完了")
+                print(f"{self.char_name}のAIVOICE起動完了")
                 self.human_Voice.speak("起動完了")
-
                 return "AIVOICE"
+            elif "" != Coeiroink.getCharNum(self.char_name):
+                tmp_coeiroink = Coeiroink(self.char_name,voiceroid_dict["Coeiroink"])
+                print(f"{self.char_name}のcoeiroink起動開始")
+                self.human_Voice = tmp_coeiroink
+                print(f"{self.char_name}のcoeiroink起動完了")
+                # self.human_Voice.speak("起動完了")
+                return "Coeiroink"
             else:
                 return "ボイロにいない名前が入力されたので起動に失敗しました。"
         else:
@@ -158,6 +166,9 @@ class Human:
             self.human_Voice.outputWaveFile(str)
         elif voicevox_human == type(self.human_Voice):
             print("voicevoxでwav出力します")
+            self.human_Voice.outputWaveFile(str)
+        elif Coeiroink == type(self.human_Voice):
+            print("coeiroinkでwav出力します")
             self.human_Voice.outputWaveFile(str)
         else:
             print("wav出力できるボイロが起動してないのでwav出力できませんでした。")

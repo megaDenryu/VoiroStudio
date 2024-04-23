@@ -173,6 +173,8 @@ function tabSwitch(event){
         //this.innerText = ""
         let input = document.createElement("input")
         input.type = "text"
+        input.enterKeyHint = "enter"
+        //pc版
         input.addEventListener("keydown", function(event) 
         {
             console.log(this)
@@ -449,6 +451,30 @@ class MessageBox {
             this.message_box_elm.value = "";
             //focusを戻す
             this.message_box_elm.focus();
+        } else if (message.includes("https://www.youtube.com/watch?v=")) {
+            //youtubeのコメントを受信する
+            const video_id = message.split("https://www.youtube.com/watch?v=")[1];
+            console.log(video_id)
+            //websocketを開く
+            this.ws_youtube_comment_reciver = new ExtendedWebSocket(`ws://${localhost}:${port}/YoutubeCommentReceiver/${video_id}/${front_name}`);
+            this.ws_youtube_comment_reciver.onmessage = this.receiveYoutubeLiveComment.bind(this);
+            //接続を完了するまで待つ
+            this.ws_youtube_comment_reciver.onopen = () => {
+                //開始メッセージを送信
+                // @ts-ignore
+                this.ws_youtube_comment_reciver.sendJson({ "start_stop": "start" });
+            }
+
+            //メッセージボックスの中身を削除
+            this.message_box_elm.value = "";
+            //focusを戻す
+            this.message_box_elm.focus();
+        } else if (message.includes("ようつべコメント停止:")) {
+            console.log("コメント受信停止します")
+            if (this.ws_youtube_comment_reciver) {
+                console.log("コメント受信停止を送信")
+                this.ws_youtube_comment_reciver.sendJson({ "start_stop": "stop" });
+            }
         }
         else if (message.includes("背景オン:") || message.includes("GBmode:") || message.includes("MBmode:") || message.includes("BBmode:")) {
             this.human_window.changeBackgroundMode(message);
@@ -481,6 +507,25 @@ class MessageBox {
             }
 
         }
+    }
+
+    receiveYoutubeLiveComment(event) {
+        const message = JSON.parse(event.data);
+        const char_name = message["char_name"];
+        const comment = message["message"];
+        console.log("char_name=",char_name,"comment=",comment)
+        if (char_name == this.char_name) {
+            this.sendMessage(comment);
+        } else {
+            let message_box = message_box_manager.getMessageBoxByCharName(char_name)
+            if (message_box == null) {
+                this.sendMessage(comment);
+            } else {
+                message_box.sendMessage(comment);
+            }
+
+        }
+    
     }
 
     setGptMode(gpt_mode) {
@@ -802,6 +847,7 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
     var wav_binary = obj["wav_data"]
     //wavファイルをbase64エンコードした文字列をaudioタグのsrcに設定
     var lab_data = obj["phoneme_str"];
+    const voice_system_name = obj["voice_system_name"];
     console.log("lab_data=",lab_data)
     var audio = document.createElement('audio');
     audio.src = `data:audio/wav;base64,${wav_binary}`;
@@ -813,6 +859,18 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
         audio_group.removeChild(audio_group.firstElementChild);
     }
 
+    audio.load();
+    await new Promise(resolve => audio.onloadedmetadata = resolve);
+    //audioの長さを取得
+    const time_length = audio.duration * 1000;
+    //labdataの最後の要素の終了時間を取得
+    const last_end_time = lab_data[lab_data.length-1][2] * 1000;
+    let ratio = 1;
+    if (voice_system_name == "Coeiroink") {
+        ratio = time_length / last_end_time;
+    }
+    console.log(time_length,last_end_time,ratio)
+
     //audioを再生して口パクもする。
     var lab_pos = 0;
     console.log("audioタグを再生")
@@ -821,11 +879,11 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
         audio.play().then(() => {
             var intervalId = setInterval(() => {
                 var current_time = audio.currentTime * 1000;
-                //console.log("current_time="+current_time, "lab_pos="+lab_pos);
+                // console.log("current_time="+current_time, "lab_pos="+lab_pos);
                 
                 if (lab_data[lab_pos] !== undefined) {
-                    var start_time = lab_data[lab_pos][1] * 1000;
-                    var end_time = lab_data[lab_pos][2] * 1000;
+                    var start_time = lab_data[lab_pos][1] * 1000 * ratio;
+                    var end_time = lab_data[lab_pos][2] * 1000 * ratio;
                 } else {
                     console.error('Invalid lab_pos:', lab_data, "lab_pos="+lab_pos);
                     // ここで適切なエラーハンドリングを行います
@@ -857,7 +915,11 @@ async function execAudio(obj,audio_group, maxAudioElements = 100) {
                     }
                     clearInterval(intervalId);
                 }
-            }, 50); // 100ミリ秒ごとに更新
+
+                if (audio.ended) {
+                    clearInterval(intervalId);
+                }
+            }, 10); // 100ミリ秒ごとに更新
         });
     });
     return audio_group;

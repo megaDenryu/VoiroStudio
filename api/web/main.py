@@ -10,6 +10,7 @@ from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
 from api.Extend.ExtendFunc import ExtendFunc
 from api.DataStore.JsonAccessor import JsonAccessor
+from api.DataStore.AppSettingModule import AppSettingModule, PageMode
 
 from enum import Enum
 
@@ -27,6 +28,7 @@ import mimetypes
 
 from api.comment_reciver.comment_module import NicoNamaCommentReciever
 from api.comment_reciver.NiconamaUserLinkVoiceroidModule import NiconamaUserLinkVoiceroidModule
+from api.comment_reciver.YoutubeCommentReciever import YoutubeCommentReciever
 
 from api.web.notifier import Notifier
 import json
@@ -45,18 +47,20 @@ notifier = Notifier()
 # クライアントのidと対応するwsを格納する配列類
 client_ids: list[str] = []
 clients_ws:dict[str,WebSocket] = {}
+setting_module = AppSettingModule()
 #Humanクラスの生成されたインスタンスを登録する辞書を作成
 human_dict:dict = {}
 #Humanクラスの生成されたインスタンスをid順に登録する辞書を作成
 human_id_dict = []
 #使用してる合成音声の種類をカウントする辞書を作成
-voiceroid_dict = {"cevio":0,"voicevox":0,"AIVOICE":0}
+voiceroid_dict = {"cevio":0,"voicevox":0,"AIVOICE":0,"Coeiroink":0}
 gpt_mode_dict = {}
 #game_masterのインスタンスを生成
 game_master_enable = False
 human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
+YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
 
 app_setting = JsonAccessor.loadAppSetting()
 pprint(app_setting)
@@ -115,6 +119,10 @@ async def read_root(path_param: str):
     
     if path_param == "newHuman":
         target = app_dir / "index_Human2.html"
+    
+    if path_param == "settingPage":
+        target = app_dir / "setting.html"
+
     print(f"{target=}")
 
     # ファイルが存在しない場合は404エラーを返す
@@ -462,6 +470,44 @@ async def nikonama_comment_reciver_stop(front_name: str):
         nikonama_comment_reciever = nikonama_comment_reciever_list[char_name]
         nikonama_comment_reciever.stopRecieve()
         return
+    
+@app.websocket("/YoutubeCommentReceiver/{video_id}/{front_name}")
+async def getYoutubeComment(websocket: WebSocket, video_id: str, front_name: str):
+    print("YoutubeCommentReceiver")
+    await websocket.accept()
+    char_name = Human.setCharName(front_name)
+
+    try:
+        while True:
+            datas:dict = await websocket.receive_json()
+            start_stop = datas["start_stop"]
+            print(f"{front_name=} , {video_id=} , {start_stop=}")
+            if start_stop == "start":
+                nulvm = NiconamaUserLinkVoiceroidModule()
+                print(f"{char_name}で{video_id}のYoutubeコメント受信開始")
+                #コメント受信を開始
+                ycr = YoutubeCommentReciever(video_id=video_id)
+                YoutubeCommentReciever_list[char_name] = ycr
+                async for comment in ycr.fetch_comments(ycr.video_id):
+                    print(f"478:{comment=}") # {'author': 'ぴっぴ', 'datetime': '2024-04-20 16:48:47', 'message': 'はろー'}
+                    author = comment["author"]
+                    if "@" in comment["message"] or "＠" in comment["message"]:
+                        print("authorとキャラ名を紐づけます")
+                        char_name = nulvm.registerNikonamaUserIdToCharaName(comment["message"],author)
+
+                    comment["char_name"] = nulvm.getCharaNameByNikonamaUser(author)
+                    await websocket.send_text(json.dumps(comment))
+            else:
+                print(f"{char_name}で{video_id}のYoutubeコメント受信停止")
+                if char_name in YoutubeCommentReciever_list:
+                    YoutubeCommentReciever_list[char_name].stop()
+                    del YoutubeCommentReciever_list[char_name]
+                    await websocket.close()
+    except WebSocketDisconnect:
+        print(f"WebSocket disconnected unexpectedly for {char_name} and {video_id}")
+        if char_name in YoutubeCommentReciever_list:
+            YoutubeCommentReciever_list[char_name].stop()
+            del YoutubeCommentReciever_list[char_name]
 
 @app.websocket("/InputPokemon")
 async def inputPokemon(websocket: WebSocket):
@@ -528,7 +574,6 @@ async def inputGPT(websocket: WebSocket):
 async def human_pict(websocket: WebSocket, client_id: str):
      # クライアントとのコネクション確立
     print("humanコネクションします")
-    #await notifier.connect(websocket)
     await websocket.accept()
     print("humanコネクション完了！")
     try:
@@ -763,6 +808,33 @@ async def push_to_connected_websockets(message: str):
 async def startup():
     # プッシュ通知の準備
     await notifier.generator.asend(None)
+
+# 設定の状態を取得、管理、配信するAPI
+@app.websocket("/settingStore/{client_id}/{setting_name}/{mode_name}")
+async def settingStore(websocket: WebSocket, setting_name: str, mode_name:PageMode, client_id: str):
+    print("settingStoreコネクションします")
+    await websocket.accept()
+    setting_module.addWs(setting_name, mode_name, client_id, websocket)
+    try:
+        while True:
+            # クライアントからメッセージの受け取り
+            data = await websocket.receive_json()
+            pprint(data)
+            #受け取ったデータをjsonに保存する
+            if type(data) != dict:
+                print("データがdict型ではありません")
+                continue
+            new_setting = setting_module.setSetting(setting_name,mode_name,data)
+            await setting_module.notify(new_setting,setting_name)
+
+    # セッションが切れた場合
+    except WebSocketDisconnect:
+        print("wsエラーです:settingStore")
+
+
+
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8020, lifespan="on")
