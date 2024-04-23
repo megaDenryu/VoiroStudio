@@ -10,6 +10,7 @@ from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
 from api.Extend.ExtendFunc import ExtendFunc
 from api.DataStore.JsonAccessor import JsonAccessor
+from api.DataStore.AppSettingModule import AppSettingModule, PageMode
 
 from enum import Enum
 
@@ -46,6 +47,7 @@ notifier = Notifier()
 # クライアントのidと対応するwsを格納する配列類
 client_ids: list[str] = []
 clients_ws:dict[str,WebSocket] = {}
+setting_module = AppSettingModule()
 #Humanクラスの生成されたインスタンスを登録する辞書を作成
 human_dict:dict = {}
 #Humanクラスの生成されたインスタンスをid順に登録する辞書を作成
@@ -117,6 +119,10 @@ async def read_root(path_param: str):
     
     if path_param == "newHuman":
         target = app_dir / "index_Human2.html"
+    
+    if path_param == "settingPage":
+        target = app_dir / "setting.html"
+
     print(f"{target=}")
 
     # ファイルが存在しない場合は404エラーを返す
@@ -568,7 +574,6 @@ async def inputGPT(websocket: WebSocket):
 async def human_pict(websocket: WebSocket, client_id: str):
      # クライアントとのコネクション確立
     print("humanコネクションします")
-    #await notifier.connect(websocket)
     await websocket.accept()
     print("humanコネクション完了！")
     try:
@@ -803,6 +808,33 @@ async def push_to_connected_websockets(message: str):
 async def startup():
     # プッシュ通知の準備
     await notifier.generator.asend(None)
+
+# 設定の状態を取得、管理、配信するAPI
+@app.websocket("/settingStore/{client_id}/{setting_name}/{mode_name}")
+async def settingStore(websocket: WebSocket, setting_name: str, mode_name:PageMode, client_id: str):
+    print("settingStoreコネクションします")
+    await websocket.accept()
+    setting_module.addWs(setting_name, mode_name, client_id, websocket)
+    try:
+        while True:
+            # クライアントからメッセージの受け取り
+            data = await websocket.receive_json()
+            pprint(data)
+            #受け取ったデータをjsonに保存する
+            if type(data) != dict:
+                print("データがdict型ではありません")
+                continue
+            new_setting = setting_module.setSetting(setting_name,mode_name,data)
+            await setting_module.notify(new_setting,setting_name)
+
+    # セッションが切れた場合
+    except WebSocketDisconnect:
+        print("wsエラーです:settingStore")
+
+
+
+
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="localhost", port=8020, lifespan="on")
