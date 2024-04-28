@@ -119,6 +119,9 @@ async def read_root(path_param: str):
     
     if path_param == "newHuman":
         target = app_dir / "index_Human2.html"
+
+    if path_param == "MultiHuman":
+        target = app_dir / "index_MultiHuman.html"
     
     if path_param == "settingPage":
         target = app_dir / "setting.html"
