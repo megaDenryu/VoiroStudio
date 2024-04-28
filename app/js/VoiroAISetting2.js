@@ -337,7 +337,7 @@ class AccordionItem{
         this.statu_open_close = "close";
         this.accordion_content_handler_list = {};
         //accordion_sampleを複製
-        this.HTML_str_accordion_sample = `
+        const HTML_str_accordion_sample = `
         <li class = "accordion_item close layer ">
             <div class="accordion_item_name accordion_tab">
                 <div class="initial_display_object">
@@ -360,8 +360,7 @@ class AccordionItem{
             </ul>
         </li>
         `;
-        const parser = new DOMParser();
-        this.html_doc = parser.parseFromString(this.HTML_str_accordion_sample, "text/html");
+        this.html_doc = ElementCreater.createnewDocumentFromHTMLString(HTML_str_accordion_sample)
         //名前を設定
         this.setAccordionItemName(name_acordion);
         this.radio_mode = false;
