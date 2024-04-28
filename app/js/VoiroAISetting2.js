@@ -315,6 +315,9 @@ class AccordionItem{
      * @type {PatiMode} */
     pati_setting_mode;
 
+    /** @type {Document} */
+    html_doc;
+
     /**
      * 
      * @param {string} name_acordion           body_setting要素内のアコーディオンの名前は、対応する画像名と同じにする

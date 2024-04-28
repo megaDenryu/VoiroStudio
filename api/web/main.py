@@ -824,8 +824,8 @@ async def settingStore(websocket: WebSocket, setting_name: str, mode_name:PageMo
             if type(data) != dict:
                 print("データがdict型ではありません")
                 continue
-            new_setting = setting_module.setSetting(setting_name,mode_name,data)
-            await setting_module.notify(new_setting,setting_name)
+            new_setting = setting_module.setSetting(setting_name, mode_name, data, {})
+            await setting_module.notify(new_setting, setting_name)
 
     # セッションが切れた場合
     except WebSocketDisconnect:

@@ -1,0 +1,11 @@
+.function_blocks {
+    display: flex;
+}
+
+.function_blocks.sample{
+    display: none;
+}
+
+.key_name, .input_function, .send_function {
+    flex: 1;
+}
