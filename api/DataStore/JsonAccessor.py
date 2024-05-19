@@ -1,5 +1,6 @@
 from api.Extend.ExtendFunc import ExtendFunc
 import json
+import yaml
 
 class JsonAccessor:
     def __init__(self, json_path):
@@ -45,7 +46,7 @@ class JsonAccessor:
             with open(path, mode='w') as f:
                 json.dump({"openai_api_key":""}, f, indent=4)
         openai_api_key = ExtendFunc.loadJsonToDict(path)["openai_api_key"]
-        print("openai_api_key:",openai_api_key)
+        # print("openai_api_key:",openai_api_key)
         return openai_api_key
     
     @staticmethod
@@ -59,6 +60,26 @@ class JsonAccessor:
         return content
     
     @staticmethod
+    def loadAppSettingYamlAsString(yml_file_name:str)->str:
+        """
+        CharSetting.ymlを読み込み、その内容を文字列として返します。
+        """
+        yml_path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson" / yml_file_name
+        with open(yml_path,encoding="UTF8") as f:
+                content = f.read()
+        return content
+    
+    @staticmethod
+    def loadAppSettingYamlAsReplacedDict(yml_file_name:str, replace_dict:dict)->dict:
+        """
+        CharSetting.ymlを読み込み、その内容を辞書として返します。
+        """
+        content = JsonAccessor.loadAppSettingYamlAsString(yml_file_name)
+        replaced_content = ExtendFunc.replaceBulkString(content, replace_dict)
+        content_dict = yaml.safe_load(replaced_content)
+        return content_dict
+    
+    @staticmethod
     def loadCoeiroinkNameToNumberJson():
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "CharSettingJson/CoeiroinkNameToNumber.json"
         coeiroink_name_to_number = ExtendFunc.loadJsonToDict(path)
@@ -68,3 +89,14 @@ class JsonAccessor:
     def saveCoeiroinkNameToNumberJson(coeiroink_name_to_number):
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "CharSettingJson/CoeiroinkNameToNumber.json"
         ExtendFunc.saveDictToJson(path, coeiroink_name_to_number)
+
+    @staticmethod
+    def loadGPTBehaviorYaml(chara_name:str = "一般"):
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/GPTBehavior.yml"
+        with open(path,encoding="UTF8") as f:
+            content = f.read()
+        dict = yaml.safe_load(content)
+        return dict[chara_name]
+
+if __name__ == "__main__":
+    print(JsonAccessor.loadGPTBehaviorYaml("一般"))

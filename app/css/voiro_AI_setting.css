@@ -5,6 +5,7 @@
     /*flex-grow: 1;*/
     overflow:auto;
     height:100vh;
+    width: 20vh;
     color:rgb(223, 234, 244);              /*文字色*/
     background-color: rgb(223, 234, 244);
 }
@@ -24,7 +25,14 @@
     text-align:center;
     cursor:pointer;
 }
-
+.accordion_item{
+    width: auto;
+}
+.accordion_item.open{
+    
+    /* 枠の色を付ける*/
+    border: solid 3px #000000;
+}
 .accordion_item_name{
     border-bottom-right-radius: 10px;
     text-decoration: none;
@@ -59,8 +67,17 @@
 .on_accordion_content:hover{
     background-color: rgb(0, 145, 255)
 }
+.accordion_content_name_string{
+    /* color: rgb(223, 234, 244); */
+    padding: 5px 10px;
+    margin-top: 3px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 12px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+}
 .accordion_content_pati_setting_toggle_button{
-    background-color: #15182553;
     border-top-left-radius: 10px;
     border-bottom-right-radius: 10px;
     color: rgb(223, 234, 244);
@@ -68,7 +85,24 @@
     margin-top: 3px;
     text-align: center;
     text-decoration: none;
-    font-size: 16px;
+    font-size: 12px;
+}
+
+.accordion_content_pati_setting_toggle_button.open{
+    background-color: #b80397;
+    border-top-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+.accordion_content_pati_setting_toggle_button.open:hover{
+    background-color: #ff2f00;
+}
+.accordion_content_pati_setting_toggle_button.close{
+    background-color: #3f2626;
+    border-top-right-radius: 20px;
+    border-bottom-left-radius: 20px;
+}
+.accordion_content_pati_setting_toggle_button.close:hover{
+    background-color: #ff2f00;
 }
 .combination_name{
     background-color: rgb(118, 172, 73);
@@ -119,8 +153,9 @@ ul {
 .pati_setting_radio-buttons {
     display: flex;
     align-items: center;
-    /* 文字サイズを指定*/
-    font-size: 20px;
+}
+.pati_setting_radio-buttons:hover {
+    background-color: #a2a2a253;
 }
 .pati_setting_radio-buttons.non_vissible {
     display: none;
@@ -130,10 +165,40 @@ ul {
     display: flex;
     justify-content: space-between;
 }
+.name_string{
+    flex-grow: 1;
+    padding: 5px 10px;
+    margin-top: 3px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 15px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.name_string:hover{
+    background-color: #636363;
+    /* color: #1b7bdb; */
+    /*太文字にする*/
+    font-weight: bold;
+}
+.pati_setting{
+    flex-grow: 1;
+    padding: 5px 10px;
+    margin-top: 3px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 12px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+.pati_setting:hover{
+    background-color: #636363;
+    /* color: #1b7bdb; */
+    /*太文字にする*/
+    font-weight: bold;
+}
 .pati_setting_radio-button{
     /* ボタンの大きさを指定*/
-    width: 50px;
-    height: 50px;
+    width: 4vh;
+    height: 4vh;
     /* ボタンの形を丸くする*/
     border-radius: 50%;
     /* ボタンの枠線を消す*/
@@ -143,7 +208,7 @@ ul {
     justify-content: center;
     align-items: center;
     /* ボタンの文字の大きさを指定*/
-    font-size: 12px;
+    font-size: 10px;
     /* ボタンの文字の色を指定*/
     color: #fff;
     /* ボタンの背景色を指定*/
@@ -156,7 +221,10 @@ ul {
     transition: background-color 0.3s;
 }
 .pati_setting_radio-button.on {
-    color: #0394b8;
+    color: rgb(139, 209, 236)
+}
+.pati_setting_radio-button:hover {
+    background-color: #002fff;
 }
 
   

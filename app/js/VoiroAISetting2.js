@@ -1194,6 +1194,8 @@ class GPTSettingButtonManagerModel {
     /** @type {HTMLElement} */
     gpt_mode_accordion_open_close_button
 
+    /** @type {Record<string, ExtendedWebSocket>} */
+    human_gpt_routine_ws_dict = {};
 
     /**
      * 
@@ -1399,6 +1401,25 @@ class GPTSettingButtonManagerModel {
             console.log(event.data)
             ws_gpt_mode_sender.close();
         }
+    }
+    startGptRoutine() {
+        const front_name = this.front_name;
+        let ws_gpt_routine = new ExtendedWebSocket(`ws://${localhost}:${port}/gpt_routine/${front_name}`);
+        ws_gpt_routine.onopen = (event) => {
+            console.log("gpt_routineが開かれた")
+        }
+        ws_gpt_routine.onclose = (event) => {
+            console.log("gpt_routineが閉じられた")
+        }
+        ws_gpt_routine.onmessage = (event) => {
+            console.log("gpt_routineからメッセージを受け取った")
+            console.log(event.data)
+            messageQueue.push(event);
+            console.log("messageQueue=",messageQueue,"messageQueueをpushしました","isProcessing=",isProcessing);
+            processMessages();
+            console.log("messageQueue=",messageQueue,"イベントを一つとりだした後のmessageQueueです");
+        }
+        this.human_gpt_routine_ws_dict[front_name] = ws_gpt_routine;
     }
 }
 

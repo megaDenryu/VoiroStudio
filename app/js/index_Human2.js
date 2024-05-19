@@ -302,14 +302,22 @@ function removeInputCharaName(event) {
 }
 
 class MessageBoxManager {
-    /**
-     * 
-     * @property {MessageBox[]} message_box_list      メッセージボックスのリスト
-     * @property {ExtendedMap} message_box_dict     メッセージボックスの辞書。キーはキャラのfront_name、値はメッセージボックスのインスタンス。
-     * @property {number} observe_target_num        監視しているメッセージボックスの番号を格納。-1なら監視していない。
-     * @property {ResizeObserver} resizeObserver    監視対象のメッセージボックスの高さが変更されたときに、他のメッセージボックスの高さも変更するためのオブジェクト。
-     * @property {ExtendedMap} all_char_gpt_mode_status  キャラのgptモードの状態を格納する辞書。キーはキャラのfront_name、値はgptモードの状態。
-     */
+
+    /** @type {MessageBox[]} メッセージボックスのリスト*/ 
+    message_box_list
+
+    /** @type {ExtendedMap< string, MessageBox>}  メッセージボックスの辞書。キーはキャラのfront_name、値はメッセージボックスのインスタンス。*/
+    message_box_dict
+
+    /** @type {number} 監視しているメッセージボックスの番号を格納。-1なら監視していない。*/
+    observe_target_num
+
+    /** @type {ResizeObserver} 監視対象のメッセージボックスの高さが変更されたときに、他のメッセージボックスの高さも変更するためのオブジェクト。*/
+    resizeObserver
+
+    /** @type {ExtendedMap<string, string>} キャラのgptモードの状態を格納する辞書。キーはキャラのfront_name、値はgptモードの状態。*/
+    Map_all_char_gpt_mode_status
+
     constructor() {
         this.message_box_list = [];
         this.message_box_dict = new ExtendedMap();
@@ -349,10 +357,14 @@ class MessageBoxManager {
         this.message_box_dict.set(front_name,message_box);
         message_box.front_name = front_name;
         message_box.setGptMode("off");
-        const gpt_mode_name_list = ["off","SimpleWait4","SimpleWait3.5","low","high","test"];
+        const gpt_mode_name_list = ["off","individual_process0501dev","SimpleWait4","SimpleWait3.5","low","high","test"];
         message_box.gpt_setting_button_manager_model = new GPTSettingButtonManagerModel(front_name, message_box, gpt_mode_name_list)
     }
 
+    /**
+     * @param {string} front_name 
+     * @param {string} gpt_mode 
+     */
     setGptMode2AllStatus(front_name,gpt_mode) {
         this.Map_all_char_gpt_mode_status.set(front_name, gpt_mode);
     }
@@ -365,6 +377,10 @@ class MessageBoxManager {
         return gpt_mode_dict;
     }
 
+    /**
+     * @param {string} front_name
+     * @return {MessageBox | null}
+     * */
     getMessageBoxByFrontName(front_name) {
         //front_nameがfront2chara_nameにない場合はnullを返す
         if (front_name in front2chara_name) {
@@ -528,6 +544,9 @@ class MessageBox {
     
     }
 
+    /**
+     * @param {string} gpt_mode 
+     */
     setGptMode(gpt_mode) {
         this.gpt_mode = gpt_mode;
         this.message_box_manager.setGptMode2AllStatus(this.front_name,gpt_mode);
@@ -717,63 +736,6 @@ async function receiveConversationData(event) {
             console.log(item["char_name"]+`音源再生終了`)
         }
         console.log("全て再生終了")
-        /*while (audio_group.firstChild) {
-            audio_group.removeChild(audio_group.firstChild);
-        }/*
-        
-            
-        /*prepare_audio_promise.then(() => {
-            console.log("audio準備完了")
-            //audio_groupnの中に格納された音声を連続で順番に再生
-            var audios = audio_group.getElementsByTagName("audio")
-            console.log(audios)
-            console.log("audio_groupの中のaudioタグを取得")
-            var playAudio = function(i) {
-                if (audios.length > 0) {
-                    if (i >= obj.length) {
-                        console.log("全て再生終了")
-                        //audio_groupの中のaudioタグを削除
-                        while (audio_group.firstChild) {
-                            audio_group.removeChild(audio_group.firstChild);
-                        }
-                    }else{
-                        console.log("obj[i]=",obj[i],"i="+i);
-                        var lab_data = obj[i]["phoneme_str"];
-                        var lab_pos = 0;
-                        audios[i].play().then(() => {
-                            var intervalId = setInterval(() => {
-                                var current_time = audios[i].currentTime * 1000;
-                                //console.log("current_time="+current_time, "lab_pos="+lab_pos);
-
-                                var start_time = lab_data[lab_pos][1] * 1000;
-                                var end_time = lab_data[lab_pos][2] * 1000;
-                                //console.log("start_time,end_time="+[start_time,end_time]);
-
-                                if (start_time <= current_time && current_time <= end_time ) {
-                                    //console.log(humans_list[obj[i]["char_name"]]);
-                                    humans_list[obj[i]["char_name"]].changeLipImage(obj[i]["char_name"],lab_data[lab_pos][0]);
-                                    lab_pos += 1;
-                                }
-
-                                if (current_time > end_time) {
-                                    lab_pos += 1;
-                                }
-
-                                if (lab_pos >= lab_data.length) {
-                                    clearInterval(intervalId);
-                                }
-                            }, 50); // 100ミリ秒ごとに更新
-                        });
-                        console.log("audioタグを再生")
-                        audios[i].addEventListener("ended", function() {
-                            console.log(`${i}番目音源再生終了`)
-                            playAudio(i+1)
-                        });
-                    }
-                }
-            }
-            playAudio(0)
-        })*/
 
     }
     else {
@@ -838,6 +800,19 @@ async function receiveConversationData(event) {
             
             //humans_list.ONE_chan.changeTail()
         }
+    }
+
+    //gptかの音声だった場合は終了を通知。
+    // todo gptかどうかの判定や名前の取得や通知するjsonの中身がまだ仮置きなので、後で修正する。
+    if (true) {
+        const front_name = "One_chan"
+        const message_box = message_box_manager.getMessageBoxByFrontName(front_name);
+        if (message_box) {
+            const human_gpt_routine_ws = message_box.gpt_setting_button_manager_model.human_gpt_routine_ws_dict[front_name];
+            human_gpt_routine_ws.sendJson({ "start_stop": "stop" });
+        }
+        
+
     }
 
 }

@@ -1,16 +1,19 @@
-import sys
+import asyncio
 from pathlib import Path
 import os
 import random
+import sys
 sys.path.append('../..')
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
+from api.gptAI.AgentManager import AgentEventManager, AgentManager
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
-from api.Extend.ExtendFunc import ExtendFunc
+from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.DataStore.AppSettingModule import AppSettingModule, PageMode
+from api.Epic.Epic import Epic
 
 from enum import Enum
 
@@ -49,7 +52,7 @@ client_ids: list[str] = []
 clients_ws:dict[str,WebSocket] = {}
 setting_module = AppSettingModule()
 #Humanクラスの生成されたインスタンスを登録する辞書を作成
-human_dict:dict = {}
+human_dict:dict[str,Human] = {}
 #Humanクラスの生成されたインスタンスをid順に登録する辞書を作成
 human_id_dict = []
 #使用してる合成音声の種類をカウントする辞書を作成
@@ -61,6 +64,7 @@ human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
+epic = Epic()
 
 app_setting = JsonAccessor.loadAppSetting()
 pprint(app_setting)
@@ -215,6 +219,7 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                 human_ai:Human = human_dict[name]
                 print("yukarinetに投げます")
                 print(f"{input_dict=}")
+                epic.appendMessage(input_dict)
                 print(f"{human_ai.char_name=}")
                 if "" != input_dict[human_ai.char_name]:
                     print(f"{input_dict[human_ai.char_name]=}")
@@ -796,6 +801,66 @@ async def ws_gpt_mode(websocket: WebSocket):
     # セッションが切れた場合
     except WebSocketDisconnect:
         print("wsを切断:ws_gpt_mode")
+
+@app.websocket("/gpt_routine/{front_name}")
+async def ws_gpt_routine(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+    human_gpt_manager = AgentManager(chara_name, epic)
+    while True:
+        if gpt_mode_dict[chara_name] == "individual_process0501dev":
+            start_time_second = TimeExtend()
+            message_memory = human_gpt_manager.message_memory
+            latest_message_time = human_gpt_manager.latest_message_time
+            message = human_gpt_manager.joinMessageMemory(message_memory)
+            think_agent_response = human_gpt_manager.think_agent.run(message)
+            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+                continue
+            serif_agent_response = await human_gpt_manager.serif_agent.run(think_agent_response)
+            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+                continue
+            serif_list = human_gpt_manager.serif_agent.getSerifList(serif_agent_response)
+            for serif_unit in serif_agent_response:
+                send_data = human_gpt_manager.createSendData(serif_unit, human)
+                await websocket.send_json(send_data)
+                # 区分音声の再生が完了したかメッセージを貰う
+                end_play = await websocket.receive_json()
+                # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
+                if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+                    human_gpt_manager.modifyMemory()
+                    break
+            else:
+                # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
+                human_gpt_manager.message_memory = []
+
+@app.websocket("/gpt_routine_test/{front_name}")
+async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+    
+    agenet_event_manager = AgentEventManager(chara_name, epic)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket)
+
+    pipe = asyncio.gather(
+        agenet_event_manager.input_reciever.observeEpic(),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
+    )
+
+
 
 
 

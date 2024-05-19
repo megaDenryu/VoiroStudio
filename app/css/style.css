@@ -119,9 +119,10 @@ display:block;
 .input_area{
     width: auto;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 }
 .messageText {
+    flex-grow: 15;
     resize: vertical;
     text-align: left;
     width: auto ;
@@ -134,6 +135,15 @@ display:block;
     color: #fff; /* テキスト色を白に */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* ボックスシャドウを追加 */
     font-family: 'Yu Gothic', 'Roboto', sans-serif;
+}
+.message_box_buttons{
+    flex-grow: 2;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    /* align-items: center; */
+    width: auto;
+    height: auto;
 }
 
 .message{
@@ -185,12 +195,12 @@ display:block;
     padding: 0.5vh 1vh; /* パディングを追加 */
     text-align: center; /* テキストを中央揃えに */
     text-decoration: none; /* テキスト装飾を削除 */
-    display: inline-block;
+    display: inline-block;  
     font-size: 1.3vh; /* フォントサイズを大きく */
     margin: 0.5vh 1vh;
     cursor: pointer; /* カーソルをポインタに */
     border-radius: 0.5vh; /* 角を丸くする */
-    background-color: #333; /* 背景色をダークグレーに */
+    background-color: #77dfff; /* 背景色をダークグレーに */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* ボックスシャドウを追加 */
 }
 
