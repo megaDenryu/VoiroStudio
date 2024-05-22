@@ -297,7 +297,7 @@ class Agent:
         query = self.prepareQuery(transported_item)
         result = await self.request(query)
         corrected_result = self.correctResult(result)
-        JsonAccessor.saveJson(f"test_gpt_routine_result.json", corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result)
         self.saveResult(result)
         self.clearMemory()
         transported_item = self.addIndoToTransportedItem(transported_item, corrected_result)
@@ -482,13 +482,14 @@ class SpeakerDistributeAgent(Agent):
         }
 
     def __init__(self, agent_manager: AgentManager):
-        super().__init__(agent_manager, self.replaceDictDef(""))
         self.name = "発言者振り分けエージェント"
         self.request_template_name = "発言者振り分けエージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
         self.event_queue = Queue()
         self.agent_manager = agent_manager
+        print(f"{self.agent_manager=}")
         self.epic:Epic = agent_manager.epic
+        super().__init__(agent_manager, self.replaceDictDef(""))
 
     async def handleEvent(self, transported_item:TransportedItem):
         # 話者割り振りエージェントが会話を見て次に喋るべきキャラクターを推論
