@@ -3,8 +3,13 @@ from typing import TypedDict
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 
+class MessageUnit:
+    def __init__(self, message: dict[str,str]):
+        self.message = message
+        self.speakers = message.keys()
+
 class MassageHistoryUnit(TypedDict):
-    message: dict[str,str]
+    message: MessageUnit
     現在の日付時刻: TimeExtend
 
 class Epic:
@@ -17,8 +22,9 @@ class Epic:
         return self.massage_history
 
     async def appendMessage(self, message: dict[str,str]):
+        print("epicでメッセージが来た",message)
         history_object:MassageHistoryUnit = {
-            "message": message,
+            "message": MessageUnit(message),
             "現在の日付時刻": TimeExtend()
         }
         self.massage_history.append(history_object)

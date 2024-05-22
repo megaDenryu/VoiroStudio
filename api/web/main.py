@@ -7,7 +7,7 @@ sys.path.append('../..')
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
-from api.gptAI.AgentManager import AgentEventManager, AgentManager
+from api.gptAI.AgentManager import AgentEventManager, AgentManager, GPTAgent, InputReciever
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
@@ -65,6 +65,9 @@ yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
 epic = Epic()
+gpt_agent_dict: dict[str,GPTAgent] = {}
+input_reciever = InputReciever(epic ,gpt_agent_dict, gpt_mode_dict)
+
 
 app_setting = JsonAccessor.loadAppSetting()
 pprint(app_setting)
@@ -219,7 +222,7 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                 human_ai:Human = human_dict[name]
                 print("yukarinetに投げます")
                 print(f"{input_dict=}")
-                epic.appendMessage(input_dict)
+                await epic.appendMessage(input_dict)
                 print(f"{human_ai.char_name=}")
                 if "" != input_dict[human_ai.char_name]:
                     print(f"{input_dict[human_ai.char_name]=}")
@@ -796,13 +799,17 @@ async def ws_gpt_mode(websocket: WebSocket):
                 gpt_mode_dict[name] = recieve_gpt_mode_dict[name]
             msg = f"gpt_modeの変更に成功しました。{gpt_mode_dict=}"
             print(msg)
+            if "individual_process0501dev" not in gpt_mode_dict.values():
+                print("individual_process0501devがないので終了します")
+                input_reciever.stopObserveEpic()
+                break
                 
             
     # セッションが切れた場合
     except WebSocketDisconnect:
         print("wsを切断:ws_gpt_mode")
 
-@app.websocket("/gpt_routine/{front_name}")
+@app.websocket("/gpt_routine_test/{front_name}")
 async def ws_gpt_routine(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
     print("gpt_routineコネクションします")
@@ -838,7 +845,7 @@ async def ws_gpt_routine(websocket: WebSocket, front_name: str):
                 # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
                 human_gpt_manager.message_memory = []
 
-@app.websocket("/gpt_routine_test/{front_name}")
+@app.websocket("/gpt_routine/{front_name}")
 async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
     print("gpt_routineコネクションします")
@@ -848,12 +855,16 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
         return
     human = human_dict[chara_name]
     
-    agenet_event_manager = AgentEventManager(chara_name, epic)
+    
+    
+    agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
     agenet_manager = AgentManager(chara_name, epic, human_dict, websocket)
+    gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
+    gpt_agent_dict[chara_name] = gpt_agent
 
     pipe = asyncio.gather(
-        agenet_event_manager.input_reciever.observeEpic(),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.input_reciever, agenet_manager.mic_input_check_agent),
+        input_reciever.runObserveEpic(),
+        agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),

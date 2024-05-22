@@ -187,32 +187,79 @@ class ExtendFunc:
         keys = list(TypeDict.keys())
         print("keys",keys)
         for key in keys:
-            if key in result:
-                print("key",key)
-                if TypeDict[key] == str:
-                    corrected_data[key] = str(result[key])
-                elif type(TypeDict[key]) == list[str]:
-                    if result[key] in TypeDict[key]:
-                        corrected_data[key] = result[key]
+            if key in result:                
+                def correctData(data_want_convert,target_type):
+                    """
+                    data_want_convertをtarget_typeに変換する
+                    data_want_convert: result[key]
+                    target_type: TypeDict[key]
+                    """
+                    type_converted_data = None
+                    if target_type == str:
+                        type_converted_data = str(data_want_convert)
+                    elif isinstance(target_type, list) == True:
+                        if data_want_convert in target_type:
+                            type_converted_data = data_want_convert
+                        else:
+                            type_converted_data = target_type[0]
+                    elif type(target_type) == list[list[str]]:
+                        for type_dict in target_type:
+                            if data_want_convert in type_dict:
+                                type_converted_data = data_want_convert
+                            else:
+                                type_converted_data = type_dict[0]
+                    elif isinstance(target_type, Interval):
+                        # 結果をfloatに変換
+                        data_want_convert = float(data_want_convert)
+                        # 変換できたかチェックし、できなかった場合はstartに変換
+                        if data_want_convert == float(data_want_convert):
+                            if data_want_convert in target_type:
+                                type_converted_data = data_want_convert
+                            else:
+                                type_converted_data = target_type.start
+                    elif isinstance(target_type, dict) == True:
+                        dict_type = target_type
+                        key_type = list(dict_type.keys())[0]
+                        value_type = dict_type[key_type]
+                        type_converted_data = {}
+                        for result_key,result_val in data_want_convert.items():
+                            corrected_result_key = correctData(result_key, key_type)
+                            corrected_result_val = correctData(result_val, value_type)
+                            type_converted_data[corrected_result_key] = corrected_result_val
+                    
                     else:
-                        corrected_data[key] = TypeDict[key][0]
-                elif type(TypeDict[key]) == list[list[str]]:
-                    for type_dict in TypeDict[key]:
-                        if result[key] in type_dict:
-                            corrected_data[key] = result[key]
-                        else:
-                            corrected_data[key] = type_dict[0]
-                elif isinstance(TypeDict[key], Interval):
-                    # 結果をfloatに変換
-                    result[key] = float(result[key])
-                    # 変換できたかチェックし、できなかった場合はstartに変換
-                    if result[key] == float(result[key]):
-                        if result[key] in TypeDict[key]:
-                            corrected_data[key] = result[key]
-                        else:
-                            corrected_data[key] = TypeDict[key].start
-                else:
-                    print("key",type(TypeDict[key]))
+                        print("key",type(target_type))
+
+                    return type_converted_data
+
+                print("key",key)
+                corrected_data[key] = correctData(result[key], TypeDict[key])
+                # if TypeDict[key] == str:
+                #     corrected_data[key] = str(result[key])
+                # elif isinstance(TypeDict[key], list) == True:
+                #     if result[key] in TypeDict[key]:
+                #         corrected_data[key] = result[key]
+                #     else:
+                #         corrected_data[key] = TypeDict[key][0]
+                # elif type(TypeDict[key]) == list[list[str]]:
+                #     for type_dict in TypeDict[key]:
+                #         if result[key] in type_dict:
+                #             corrected_data[key] = result[key]
+                #         else:
+                #             corrected_data[key] = type_dict[0]
+                # elif isinstance(TypeDict[key], Interval) == True:
+                #     # 結果をfloatに変換
+                #     result[key] = float(result[key])
+                #     # 変換できたかチェックし、できなかった場合はstartに変換
+                #     if result[key] == float(result[key]):
+                #         if result[key] in TypeDict[key]:
+                #             corrected_data[key] = result[key]
+                #         else:
+                #             corrected_data[key] = TypeDict[key].start
+                
+                # else:
+                #     print("key",type(TypeDict[key]))
+
             else:
                 print("key",key)
                 if TypeDict[key] == str:
@@ -450,16 +497,45 @@ if __name__ == '__main__':
             "入力成功度合い":Interval("[",0,1,"]")
         }
         result = {
-            "入力成功度合い": "0.3"
+            "入力成功度合い": "1.1"
         }
         corrected_data = ExtendFunc.correctDictToTypeDict(result, TypeDict)
         print(corrected_data)
     elif True:
-        dict = {
+        TypeDict = {
+            "以前と今を合わせた周囲の状況の要約": str,
+            "どのキャラがどのキャラに話しかけているか？または独り言か？": str,
+            "他のキャラの会話ステータス": {str:['質問', '愚痴', 'ボケ', 'ツッコミ', 'ジョーク', '励まし', '慰め', '共感', '否定', '肯定', '感嘆表現', '愛情表現']},
+            "ロール": ['アシスタント', 'キャラクターなりきり'],
+            "あなたの属性": ['赤ちゃん', '大工', '彼女', '看護師', '嫁', '先生', '同僚', '先輩', '上司', 'ママ', 'パパ'],
+            "{{gptキャラ}}のこれからの感情": ['喜', '怒', '悲', '楽', '好き', '嫌い', '疲れ', '混乱', '疑問', 'ツンツン', 'デレデレ', '否定', '肯定', '催眠'],
+            "{{gptキャラ}}のこれからの会話ステータス": ['傾聴', '質問', '教える', 'ボケる', '突っ込む', '嘲笑', '感嘆表現', '愛憎表現', '続きを言う'],
+            "今まで起きたことの要約": str,
+            "{{gptキャラ}}の次の行動を見据えた心内セリフと思考": str
+            }
+        result = {
+                "以前と今を合わせた周囲の状況の要約": "プレイヤーキャラが考え事をしていて独り言を言っている中、{{gptキャラ}}がボケて「ぴよぴよ」と発言。プレイヤーキャラが「びよーん」と返答した。",
+                "どのキャラがどのキャラに話しかけているか？または独り言か？": "プレイヤーキャラが独り言を言っている中、{{gptキャラ}}がボケた。その後、プレイヤーキャラが{{gptキャラ}}に「びよーん」と返答。",
+                "他のキャラの会話ステータス": {
+                    "プレイヤーキャラ": "ボケ",
+                    "{{gptキャラ}}": "はげしいボケ"
+                },
+                "ロール": "キャラクターなりきり",
+                "あなたの属性": "年下の女友達",
+                "{{gptキャラ}}のこれからの感情": "楽",
+                "{{gptキャラ}}のこれからの会話ステータス": "続きを言う",
+                "今まで起きたことの要約": "プレイヤーキャラが独り言を言っていたところに、{{gptキャラ}}がボケて「ぴよぴよ」と言った。それに対してプレイヤーキャラが「びよーん」と返した。",
+                "{{gptキャラ}}の次の行動を見据えた心内セリフと思考": "プレイヤーキャラが楽しんでいるみたいだから、もっと楽しませるために次もボケてみよう。『ぴよぴよ』に続けてもっと可愛く楽しいことを言ってみよう。"
+            }
+
+        corrected_data = ExtendFunc.correctDictToTypeDict(result, TypeDict)
+        pprint(corrected_data)
+    elif False:
+        dicta = {
             "赤ちゃんの発言": "babu-babu",
             "あなたの発言も踏まえた現在の全体状況": "あなたの発言も踏まえた現在の全体状況",
             "属性": "hoge",
             "huげ":"zunndamo"
         } 
-        print(ExtendFunc.dictToStr(dict))
+        print(ExtendFunc.dictToStr(dicta))
     

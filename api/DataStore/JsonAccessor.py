@@ -97,6 +97,24 @@ class JsonAccessor:
             content = f.read()
         dict = yaml.safe_load(content)
         return dict[chara_name]
+    
+    @staticmethod
+    def saveLogJson(file_name, input_dict):
+        # 拡張子がついてるかチェックし、なければつける
+        if not file_name.endswith(".json"):
+            file_name += ".json"
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "LogJson" / file_name
+        ExtendFunc.saveDictToJson(path, input_dict)
+
+    @staticmethod
+    def insertLogJsonToDict(file_name, input_dict):
+        # 拡張子がついてるかチェックし、なければつける
+        if not file_name.endswith(".json"):
+            file_name += ".json"
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "LogJson" / file_name
+        dict = ExtendFunc.loadJsonToDict(path)
+        dict.update(input_dict)
+        ExtendFunc.saveDictToJson(path, dict)
 
 if __name__ == "__main__":
     print(JsonAccessor.loadGPTBehaviorYaml("一般"))

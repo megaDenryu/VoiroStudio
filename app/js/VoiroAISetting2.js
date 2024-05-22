@@ -1307,6 +1307,10 @@ class GPTSettingButtonManagerModel {
         this.radioChangeButtonView(mode);
         this.sendGPTSettingStatus(mode);
         this.sendGPTSettingStatus2Server(mode);
+        if (mode == "individual_process0501dev") {
+            alert("individual_process0501devがクリックされた")
+            this.startGptRoutine();
+        }
     }
 
     /**
@@ -1403,6 +1407,7 @@ class GPTSettingButtonManagerModel {
         }
     }
     startGptRoutine() {
+        alert("startGptRoutineが呼ばれた")
         const front_name = this.front_name;
         let ws_gpt_routine = new ExtendedWebSocket(`ws://${localhost}:${port}/gpt_routine/${front_name}`);
         ws_gpt_routine.onopen = (event) => {
