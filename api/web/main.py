@@ -453,6 +453,12 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
     await websocket.accept()
     char_name = Human.setCharName(front_name)
     print(f"{char_name}で{room_id}のニコ生コメント受信開始")
+    update_room_id_query = {
+        "ニコ生コメントレシーバー設定": {
+            "生放送URL":room_id
+        }
+    }
+    JsonAccessor.updateAppSettingJson(update_room_id_query)
     end_keyword = app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"]
     nikonama_comment_reciever = NicoNamaCommentReciever(room_id,end_keyword)
     nikonama_comment_reciever_list[char_name] = nikonama_comment_reciever

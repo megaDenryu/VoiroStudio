@@ -12,6 +12,44 @@ T = TypeVar('T', bound=Dict)
 
 class ExtendFunc:
     @staticmethod
+    def ExtendPrint(*args, **kwargs):
+        """
+        拡張プリント関数
+        """
+        # 呼び出し箇所のファイルパスと行数を取得
+        caller_frame = sys._getframe(1)
+        caller_file = caller_frame.f_code.co_filename
+        caller_line = caller_frame.f_lineno
+        print(f"{caller_file}:{caller_line}")
+        # dict型ならpprintで出力
+        for arg in args:
+            if isinstance(arg, dict):
+                pprint(arg, **kwargs ,indent=4)
+            else:
+                print(arg)
+
+
+
+    @staticmethod
+    def deepUpdateDict(target: dict, update: dict) -> dict:
+        """
+        辞書を再帰的に更新します。
+
+        Parameters:
+        target (dict): 更新対象の辞書
+        update (dict): 更新内容
+
+        Returns:
+        dict: 更新後の辞書
+        """
+        for key, value in update.items():
+            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
+                ExtendFunc.deepUpdateDict(target[key], value)
+            else:
+                target[key] = value
+        return target
+
+    @staticmethod
     def getTargetDirFromParents(current_file: str, target_folder: str) -> Path:
         """
         現在のファイルから親ディレクトリを遡り、指定したフォルダ名を探します。
@@ -261,7 +299,7 @@ class ExtendFunc:
                 #     print("key",type(TypeDict[key]))
 
             else:
-                print("key",key)
+                print("key",key, "がresultに存在しません")
                 if TypeDict[key] == str:
                     corrected_data[key] = ""
                 elif TypeDict[key] is Literal:
@@ -270,9 +308,9 @@ class ExtendFunc:
                     corrected_data[key] = TypeDict[key][0]
                 elif type(TypeDict[key]) == list[list[str]]:
                     corrected_data[key] = TypeDict[key][0][0]
-                elif TypeDict[key] is Interval:
+                elif isinstance(TypeDict[key], Interval):
                     corrected_data[key] = TypeDict[key].start
-        
+        ExtendFunc.ExtendPrint("corrected_data",corrected_data)
         return corrected_data
     
     @staticmethod
@@ -287,6 +325,8 @@ class ExtendFunc:
         Returns:
         str: 置換後の文字列
         """
+        if replace_dict is None:
+            return target
         for key, value in replace_dict.items():
             target = target.replace(key, value)
         return target

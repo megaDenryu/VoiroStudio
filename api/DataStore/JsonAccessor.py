@@ -1,3 +1,7 @@
+from pprint import pprint
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).parent.parent.parent))
 from api.Extend.ExtendFunc import ExtendFunc
 import json
 import yaml
@@ -22,6 +26,14 @@ class JsonAccessor:
     def saveEndKeyWordsToJson(end_keywords):
         app_setting = JsonAccessor.loadAppSetting()
         app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"] = end_keywords
+        JsonAccessor.saveAppSetting(app_setting)
+    
+    @staticmethod
+    def updateAppSettingJson(setting_value:dict):
+        app_setting = JsonAccessor.loadAppSetting()
+        pprint(app_setting)
+        ExtendFunc.deepUpdateDict(app_setting, setting_value)
+        pprint(app_setting)
         JsonAccessor.saveAppSetting(app_setting)
 
     @staticmethod
@@ -117,4 +129,7 @@ class JsonAccessor:
         ExtendFunc.saveDictToJson(path, dict)
 
 if __name__ == "__main__":
-    print(JsonAccessor.loadGPTBehaviorYaml("一般"))
+    pudate = {}
+    pudate["ニコ生コメントレシーバー設定"] = {}
+    pudate["ニコ生コメントレシーバー設定"]["生放送URL"] = "test"
+    JsonAccessor.updateAppSettingJson(pudate)

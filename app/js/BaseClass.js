@@ -1,3 +1,5 @@
+///@ts-check
+
 class VectorN {
     /** @param {number[]} array */
     constructor(array) {
@@ -110,16 +112,22 @@ class Arrow extends Edge {
 }
   
 class Graph {
+    /** @type { Record<Number,Vertex> } */
+    vertices = {};
+    /** @type {Edge[]} */
+    edges = [];
+    /** @type {boolean} */
+    isDirected 
     constructor(isDirected = false) {
-      this.vertices = {};
-      this.edges = [];
-      this.isDirected = isDirected;
+        this.isDirected = isDirected;
     }
-  
+
+    /** @param {Vertex} vertex*/
     addVertex(vertex) {
       this.vertices[vertex.id] = vertex;
     }
   
+    /** @param {Edge} edge */
     addEdge(edge) {
       this.edges.push(edge);
     }

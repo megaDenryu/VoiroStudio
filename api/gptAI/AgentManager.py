@@ -215,8 +215,8 @@ class AgentManager:
         replace_dict = {
             "gptキャラ":self.chara_name,
             "playerキャラ":"",
-            "gpt_role":"",
-            "gpt_attribute":""
+            "gptキャラのロール":"",
+            "gptキャラの属性":""
         }
         return replace_dict
 
@@ -289,18 +289,24 @@ class Agent:
     プロンプトサンプルを受け取って名前などを書き換えてそれをもとにリクエストを作成し送る。
     gptから受け取るときの型を定義して毎回矯正する必要がある
     """
-    def __init__(self,agent_manager: AgentManager,  replace_dict: dict):
+    replace_dict:dict[str,str] = {}
+    def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
         self._gpt_api_unit = ChatGptApiUnit(True)
+        ExtendFunc.ExtendPrint(replace_dict)
         self.replace_dict = replace_dict
-        pass
+
     async def run(self,transported_item: TransportedItem)->TransportedItem:
         query = self.prepareQuery(transported_item)
+        ExtendFunc.ExtendPrint(query)
         result = await self.request(query)
+        ExtendFunc.ExtendPrint(result)
         corrected_result = self.correctResult(result)
+        ExtendFunc.ExtendPrint(corrected_result)
         JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result)
         self.saveResult(result)
         self.clearMemory()
         transported_item = self.addIndoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
         return transported_item
     
     @abstractmethod
@@ -435,16 +441,17 @@ class MicInputJudgeAgent(Agent):
     
     def prepareQuery(self, input:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
         # 最新のメッセージを埋め込むのでここで新たにreplace_dictを作成
-        replace_dict = {"{{input}}":input.recieve_messages}
+        self.replace_dict = {"{{input}}":input.recieve_messages}
         # プロンプトサンプルymlを好きなタイミングで修正したいので毎回読み込むようにしておく。todo 将来的にここは消す。
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
         # クエリを作成
-        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, replace_dict)
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
         query = self.agent_setting + replaced_template
         return query
     
-    def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
-        result = self._gpt_api_unit.genereateResponseGPT4TurboJson(query)
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
@@ -469,6 +476,17 @@ class MicInputJudgeAgent(Agent):
     
 
 class SpeakerDistributeAgent(Agent):
+    def __init__(self, agent_manager: AgentManager):
+        self.name = "発言者振り分けエージェント"
+        self.request_template_name = "発言者振り分けエージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        self.event_queue = Queue()
+        self.agent_manager = agent_manager
+        print(f"{self.agent_manager=}")
+        self.epic:Epic = agent_manager.epic
+        super().__init__(agent_manager)
+        
+
     @staticmethod
     def typeSpeakerDistributeAgentResponse(replace_dict: dict, chara_name_list: str):
         TypeDict = {
@@ -480,16 +498,6 @@ class SpeakerDistributeAgent(Agent):
             "{{input}}":input,
             "{{character_list}}":self.createCharacterListStr()
         }
-
-    def __init__(self, agent_manager: AgentManager):
-        self.name = "発言者振り分けエージェント"
-        self.request_template_name = "発言者振り分けエージェントリクエストひな形"
-        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue = Queue()
-        self.agent_manager = agent_manager
-        print(f"{self.agent_manager=}")
-        self.epic:Epic = agent_manager.epic
-        super().__init__(agent_manager, self.replaceDictDef(""))
 
     async def handleEvent(self, transported_item:TransportedItem):
         # 話者割り振りエージェントが会話を見て次に喋るべきキャラクターを推論
@@ -511,17 +519,15 @@ class SpeakerDistributeAgent(Agent):
         return all_template_dict[self.name], all_template_dict[self.request_template_name]
     
     def prepareQuery(self, input:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
-        input_replace_dict = {
-            "{{input}}":input.recieve_messages,
-            "{{character_list}}":f"[{self.createCharacterListStr()}]"
-            }
+        self.replace_dict = self.replaceDictDef(input.recieve_messages)
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, input_replace_dict)
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
         query = self.agent_setting + replaced_template
         return query
     
-    def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
-        result = self._gpt_api_unit.genereateResponseGPT4TurboJson(query)
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
@@ -592,6 +598,7 @@ class ListeningAgent(Agent):
         return query
     
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
         result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
@@ -631,8 +638,8 @@ class ThinkAgent(Agent,QueueNode):
         gpt_behavior = JsonAccessor.loadGPTBehaviorYaml("一般")
         if tI is None:
             return {
-                "{{gptキャラ}}":self.replace_dict["gpt_character"],
-                "{{playerキャラ}}":"",
+                "{{gptキャラ}}":self.replace_dict["gptキャラ"],
+                "{{playerキャラ}}":self.replace_dict["playerキャラ"],
                 "{{前の状況}}":previous_situation,
                 "{{input}}":"",
                 "{{gptキャラのロール}}":gpt_behavior["gptキャラのロール"],
@@ -644,8 +651,8 @@ class ThinkAgent(Agent,QueueNode):
         
         # キャラのロールや属性は別のキャラクター設定ymlから取得する
         relace_dict = {
-            "{{gptキャラ}}":self.replace_dict["gpt_character"],
-            "{{playerキャラ}}":"",
+            "{{gptキャラ}}":self.replace_dict["gptキャラ"],
+            "{{playerキャラ}}":self.replace_dict["playerキャラ"],
             "{{前の状況}}":previous_situation,
             "{{input}}":input,
             "{{gptキャラのロール}}":gpt_behavior["gptキャラのロール"],
@@ -667,7 +674,6 @@ class ThinkAgent(Agent,QueueNode):
         self.name = "思考エージェント"
         self.request_template_name = "思考エージェントリクエストひな形"
         self.agent_setting = self.loadAgentSetting()
-        self.replace_dict = self.replaceDictDef()
         self.event_queue = Queue()
 
     async def handleEvent(self, data:TransportedItem):
@@ -689,14 +695,15 @@ class ThinkAgent(Agent,QueueNode):
         return all_template_dict[self.name], all_template_dict[self.request_template_name]
 
     def prepareQuery(self, tI:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
-        replace_dict = self.replaceDictDef(tI, self.previous_situation)
+        self.replace_dict = self.replaceDictDef(tI, self.previous_situation)
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        replaced_setting = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting,replace_dict)
-        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template,replace_dict)
+        replaced_setting = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting,self.replace_dict)
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template,self.replace_dict)
         query = replaced_setting + replaced_template
         return query
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
         result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
@@ -768,7 +775,7 @@ class SerifAgent(Agent):
     @staticmethod
     def typeSerifAgentResponse(replace_dict: dict):
         TypeDict = {
-                f'{replace_dict["gpt_character"]}の発言': str,
+                f'{replace_dict["gptキャラ"]}の発言': str,
                 'あなたの発言も踏まえた現在の全体状況': str,
             }
         return TypeDict
@@ -776,12 +783,13 @@ class SerifAgent(Agent):
     def replaceDictDef(self,think_agent_output:str)->dict[str,str]:
         return {
             "{{think_agent_output}}":think_agent_output,
-            "{{gptキャラ}}":self.replace_dict["gpt_character"],
+            "{{gptキャラ}}":self.replace_dict["gptキャラ"],
         }
 
     def __init__(self, agent_manager: AgentManager):
-        super().__init__(agent_manager, self.replaceDictDef(""))
-        self.name = "セリフエージェント"
+        super().__init__(agent_manager)
+        self.name = "発言エージェント"
+        self.request_template_name = "発言エージェントリクエストひな形"
         self.agent_setting = self.loadAgentSetting()
         self.event_queue = Queue()
         self.agent_manager = agent_manager
@@ -828,12 +836,13 @@ class SerifAgent(Agent):
         return JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",self.replace_dict)[self.name]
 
     def prepareQuery(self, input:str)->list[ChatGptApiUnit.MessageQuery]:
-        replace_dict = {"{{input}}":input}
+        self.replace_dict = self.replaceDictDef(input)
         self.agent_setting = self.loadAgentSetting()
-        query = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting,replace_dict)
+        query = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting,self.replace_dict)
         return query
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
         result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
