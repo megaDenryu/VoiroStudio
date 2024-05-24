@@ -1,0 +1,34 @@
+{
+  "include": ["src/**/*"], // チェックするファイルのパス
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "skipLibCheck": true, // node_modules 内のタイプチェックをスキップ
+    "target": "es2022", // Compile target
+    "lib": ["es2022", "dom"], // .ts ファイル内で利用可能な機能
+
+    /* Directory */
+    "rootDir": "./src",
+    "baseUrl": "./src",
+    "outDir": "dist",
+    // "paths": { "@/*": ["src/*"] },
+
+    /* Module */
+    "esModuleInterop": true,
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+
+    /* Import option */
+    "allowJs": true, // JavaScriptファイルもTypeScriptコンパイルする
+    "checkJs": true, // JavaScriptのファイルも型チェックを行う
+    "resolveJsonModule": true, //Allow import .json
+    "allowSyntheticDefaultImports": true,
+
+    /* strict */
+    "strict": true, // 厳格な型チェックを行う
+    "strictPropertyInitialization": false, // プロパティの初期化を厳格にチェックしない
+    "noUncheckedIndexedAccess": true,
+    "noImplicitAny": false, // anyのエラー報告を無効化
+  },
+}

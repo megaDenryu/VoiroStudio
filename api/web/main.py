@@ -111,6 +111,27 @@ async def create_id(websocket: WebSocket):
     await websocket.send_text(id)
 
 
+# この関数が @app.get("./") より上にあるので /app-ts/ はこっちで処理される
+@app.get("/app-ts/{path_param:path}")
+async def read_app_ts(path_param: str):
+    app_ts_dir = Path(__file__).parent.parent.parent / 'app-ts/dist'
+    print(str(app_ts_dir))
+
+    print(f"{path_param=}")
+    target = app_ts_dir / path_param
+    if path_param == "":
+        target = app_ts_dir / "index.html"
+    print(f"{target=}")
+
+    # ファイルが存在しない場合は404エラーを返す
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Content-Typeを取得
+    content_type, encoding = mimetypes.guess_type(str(target))
+
+    # ファイルを読み込み、Content-Typeとともにレスポンスとして返す
+    return FileResponse(str(target), media_type=content_type)
 
 @app.get("/{path_param:path}")
 async def read_root(path_param: str):
@@ -145,7 +166,7 @@ async def read_root(path_param: str):
     # ファイルを読み込み、Content-Typeとともにレスポンスとして返す
     return FileResponse(str(target), media_type=content_type)
 
-    
+
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint2(websocket: WebSocket, client_id: str):
