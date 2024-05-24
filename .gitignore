@@ -22,4 +22,5 @@ my-electron-app/node_modules/*
 /app/audio/*
 api/AppSettingJson/openai_api_key.json
 
-node_modules/*
+node_modules
+app-ts/dist

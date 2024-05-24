@@ -1,0 +1,71 @@
+root: true
+env:
+  browser: true
+  es2022: true
+
+extends:
+  - eslint:recommended
+  - plugin:@typescript-eslint/recommended-type-checked
+
+plugins:
+  - react
+  - react-hooks
+  - "@typescript-eslint"
+
+parserOptions:
+  ecmaVersion: latest
+  sourceType: module
+  project: true
+
+overrides: [
+  {
+    files: [src/**/*],
+    parserOptions: {
+      parser: "@typescript-eslint/parser"
+    },
+  }
+]
+
+ignorePatterns:
+  - .vscode/
+  - .eslintrc.js
+  # - ./package.json
+  # - ./package-lock.json
+  - node_modules/
+  - dist/
+  # - vite.config.ts
+
+rules:
+  semi: [error, always]
+  semi-spacing: [error, { after: true, before: false }]
+  semi-style: [error, last]
+  space-infix-ops: error
+  quotes: [error, double, { allowTemplateLiterals: true }]
+  prefer-const: warn
+  no-extra-semi: error
+  no-empty: off
+  no-constant-condition:
+    - error
+    - checkLoops: false
+  no-unexpected-multiline: error
+  no-unreachable: error
+  no-debugger: warn
+
+  react/jsx-uses-react: error
+  react/jsx-uses-vars: error
+  react/prop-types: off
+  react/react-in-jsx-scope: off
+  react/no-unknown-property: [error, { ignore: [css] }]
+  react-hooks/exhaustive-deps: error
+
+  "@typescript-eslint/no-explicit-any": warn
+  "@typescript-eslint/no-misused-promises": off
+  "@typescript-eslint/no-unsafe-assignment": warn
+  "@typescript-eslint/no-base-to-string": off
+  "@typescript-eslint/no-this-alias": off
+  "@typescript-eslint/no-unused-vars":
+    - warn
+    - argsIgnorePattern: ^_
+      varsIgnorePattern: ^_
+      caughtErrorsIgnorePattern: ^_
+  "@typescript-eslint/restrict-template-expressions": off
