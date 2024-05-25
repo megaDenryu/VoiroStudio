@@ -6,6 +6,8 @@ import Levenshtein
 from pprint import pprint
 from typing import TypeVar, TypedDict, get_type_hints, Dict, Any, Literal, get_origin
 import sys
+import unicodedata
+# from googletrans import Translator
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from api.Extend.ExtendSet import Interval
 T = TypeVar('T', bound=Dict)
@@ -498,7 +500,91 @@ class TimeExtend:
         now = TimeExtend()
         return now.toSecond() - time.toSecond()
 
+
+
+class TextConverter:
+    roman_japanese_categories = ['Lu', 'Ll', 'Lt', 'Lm', 'Lo']
+    
+    @staticmethod
+    def is_roman_or_japanese(character):
+        try:
+            # Unicodeカテゴリを取得
+            category = unicodedata.category(character)
+            # ローマ字または日本語のカテゴリに含まれているかチェック
+            return category in TextConverter.roman_japanese_categories
+        except ValueError:
+            # Unicode名がない文字は無視（削除）
+            return False
+    
+    @staticmethod
+    def convert_text(text):
+        new_text = ""
+        for char in text:
+            if TextConverter.is_roman_or_japanese(char):
+                new_text += char
+                print(new_text)
+            else:
+                try:
+                    # Unicodeの意味の文字列で変換
+                    new_text += unicodedata.name(char)
+                    print(new_text)
+                except ValueError:
+                    # ライブラリにない文字は削除
+                    new_text += "w"
+        return new_text
+    
+    @staticmethod
+    def convertUnicodeOnlyTextToText(text):
+        """
+        ,,や？や絵文字だけの文字列を変換します。日本語やローマ字などが入っていればそのまま返します。
+        """
+        new_text = ""
+        for char in text:
+            if TextConverter.is_roman_or_japanese(char):
+                ExtendFunc.ExtendPrint(new_text)
+                return text
+            else:
+                try:
+                    # Unicodeの意味の文字列で変換
+                    new_text += (unicodedata.name(char))
+                    ExtendFunc.ExtendPrint(new_text)
+                except ValueError:
+                    # ライブラリにない文字は削除
+                    new_text += "w"
+                    ExtendFunc.ExtendPrint(new_text)
+        return new_text
+    
+    @staticmethod
+    def TranslateEngToJapanese(word_to_translate):
+        
+
+        # 翻訳機能を使うための準備
+        translator = Translator()
+
+        # 英単語を日本語に翻訳
+        translated_word = translator.translate(word_to_translate, src='en', dest='ja').text
+
+        return translated_word # 出力: 例
+
+
+
+
+
 if __name__ == '__main__':
+    if False:
+        text = "example"
+        text  = TextConverter.TranslateEngToJapanese(text)
+        print(text)
+
+    if True:
+        """
+        TextConverterのテスト
+        """
+        input_text = " "#"ﾠ"
+        converted_text = TextConverter.convertUnicodeOnlyTextToText(input_text)
+        length = len(converted_text)
+        ExtendFunc.ExtendPrint(converted_text,length)  # 出力: Hello, 世界WHITE SMILING FACE!
+
     if False:
         api_dir = ExtendFunc.findTargetDirFromParents(__file__, 'api')
         test_json_dir = api_dir / "CharSettingJson/test.json"
@@ -541,7 +627,7 @@ if __name__ == '__main__':
         }
         corrected_data = ExtendFunc.correctDictToTypeDict(result, TypeDict)
         print(corrected_data)
-    elif True:
+    elif False:
         TypeDict = {
             "以前と今を合わせた周囲の状況の要約": str,
             "どのキャラがどのキャラに話しかけているか？または独り言か？": str,

@@ -28,6 +28,7 @@ class Epic:
             "現在の日付時刻": TimeExtend()
         }
         self.massage_history.append(history_object)
+        ExtendFunc.ExtendPrint("メッセージを追加しました")
         await self.OnMessageEvent.put(history_object)
 
     

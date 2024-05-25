@@ -142,6 +142,7 @@ class TransportedItem(BaseModel):
         arbitrary_types_allowed = True
 
 class EventReciever(Protocol):
+    name:str
     async def handleEvent(self, transported_item:TransportedItem):
         pass
 
@@ -358,7 +359,9 @@ class InputReciever():
             if self.runnnig == False:
                 return
             # epic.onMessageEventを監視する。メッセージが追加されれば3秒待って、また新しいメッセージが追加されればまた3秒待つ。３秒待ってもメッセージが追加されなければ次のエージェントに送る。
-            messages:list[MassageHistoryUnit] = [await self.epic.OnMessageEvent.get()]
+            message = await self.epic.OnMessageEvent.get()
+            ExtendFunc.ExtendPrint(message)
+            messages:list[MassageHistoryUnit] = [message]#[await self.epic.OnMessageEvent.get()]
             while not self.epic.OnMessageEvent.empty():
                 message = await self.epic.OnMessageEvent.get()
                 messages.append(message)
@@ -387,6 +390,7 @@ class InputReciever():
                 )
             # 送信後にメッセージスタックを解放
             self.message_stack = []
+            ExtendFunc.ExtendPrint(transported_item)
             await self.notify(transported_item)
             
     async def notify(self, data:TransportedItem):
@@ -898,7 +902,9 @@ class AgentEventManager:
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
                 return
             item = await notifier.event_queue.get()
+            ExtendFunc.ExtendPrint(item)
             await reciever.handleEvent(item)
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
 
 @dataclass
 class GPTAgent:

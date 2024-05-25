@@ -5,6 +5,8 @@ import json
 import time
 import re
 from pprint import pprint
+
+from api.Extend.ExtendFunc import ExtendFunc, TextConverter
 from .gpt import ChatGPT
 from .voiceroid_api import voicevox_human
 from .voiceroid_api import Coeiroink
@@ -158,6 +160,7 @@ class Human:
 
     def outputWaveFile(self,str:str):
         str = str.replace(" ","").replace("　","")
+        str = TextConverter.convertUnicodeOnlyTextToText(str)
         if cevio_human == type(self.human_Voice):
             print("cevioでwav出力します")
             self.human_Voice.outputWaveFile(str)
