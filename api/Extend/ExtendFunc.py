@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from pathlib import Path
 import json
 import os
@@ -7,7 +8,7 @@ from pprint import pprint
 from typing import TypeVar, TypedDict, get_type_hints, Dict, Any, Literal, get_origin
 import sys
 import unicodedata
-# from googletrans import Translator
+from googletrans import translate
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from api.Extend.ExtendSet import Interval
 T = TypeVar('T', bound=Dict)
@@ -503,18 +504,207 @@ class TimeExtend:
 
 
 class TextConverter:
-    roman_japanese_categories = ['Lu', 'Ll', 'Lt', 'Lm', 'Lo']
+    roman_japanese_categories = ['Lu', 'Ll', 'Lt', 'Lm', 'Lo','Nd']
+    hira_kata_kanji_number_categories = ['Hiragana', 'Katakana', 'Han','Nd']
+    hankaku_special_char = ["%", "!", "?", "(", ")", "[", "]", "{", "}", "<", ">", "=", "+", "-", "*", "/", "|", "&", "^", "~", "#", "@", ":", ";", ",", ".", "_", " ", "　"]
+    zenkaku_special_char = ["％", "！", "？", "（", "）", "［", "］", "｛", "｝", "＜", "＞", "＝", "＋", "－", "＊", "／", "｜", "＆", "＾", "～", "＃", "＠", "：", "；", "、", "。", "＿", "　"]
+    special_char_yomi = {
+    "%": "ぱーせんと",
+    "!": "びっくり",
+    "?": "はてな",
+    "(": "かっこ",
+    ")": "かっことじ",
+    "[": "だいかっこ",
+    "]": "だいかっことじ",
+    "{": "ちゅうかっこ",
+    "}": "ちゅうかっことじ",
+    "<": "しょうなり",
+    ">": "だいなり",
+    "=": "いこーる",
+    "+": "ぷらす",
+    "-": "まいなす",
+    "*": "かける",
+    "/": "わる",
+    "|": "ばー",
+    "&": "あんど",
+    "^": "はっと",
+    "~": "ちるだ",
+    "#": "しゃーぷ",
+    "@": "あっと",
+    ":": "ころん",
+    ";": "せみころん",
+    ",": "てん",
+    ".": "ぴりおど",
+    "_": "あんだーばー",
+    " ": " ",   # 半角スペース
+    "　": "　", # 全角スペース
+    "％": "ぱーせんと",
+    "！": "びっくり",
+    "？": "はてな",
+    "（": "かっこ",
+    "）": "かっことじ",
+    "［": "だいかっこ",
+    "］": "だいかっことじ",
+    "｛": "ちゅうかっこ",
+    "｝": "ちゅうかっことじ",
+    "＜": "しょうなり",
+    "＞": "だいなり",
+    "＝": "いこーる",
+    "＋": "ぷらす",
+    "－": "まいなす",
+    "＊": "かける",
+    "／": "わる",
+    "｜": "ばー",
+    "＆": "あんど",
+    "＾": "はっと",
+    "～": "ちるだ",
+    "＃": "しゃーぷ",
+    "＠": "あっと",
+    "：": "ころん",
+    "；": "せみころん",
+    "、": "てん",
+    "。": "ぴりおど",
+    "＿": "あんだーばー"
+}
+
+    @staticmethod
+    def checkCharacterDetailType(char):
+        if 'ぁ' <= char <= 'ん' or char == "ー":
+            return "ひらがな"
+        elif 'ァ' <= char <= 'ン':
+            return "全角カタカナ"
+        elif 'ｦ' <= char <= 'ﾟ':
+            return "半角カタカナ"
+        elif 'ａ' <= char <= 'ｚ' or 'Ａ' <= char <= 'Ｚ':
+            return "全角英字"
+        elif 'a' <= char <= 'z' or 'A' <= char <= 'Z':
+            return "半角英字"
+        elif '０' <= char <= '９':
+            return "全角数字"
+        elif '0' <= char <= '9':
+            return "半角数字"
+        elif '一' <= char <= '龥':
+            return "漢字"
+        elif char in TextConverter.hankaku_special_char or char in TextConverter.zenkaku_special_char:
+            return "特別記号"
+        elif unicodedata.category(char).startswith('P'):
+            return "記号"
+        elif unicodedata.category(char).startswith('So'):
+            return "絵文字"
+        else:
+            return "その他"
     
+    @staticmethod
+    def aggregatingType(detail_type:Literal["ひらがな","全角カタカナ","半角カタカナ","全角英字","半角英字","全角数字","半角数字","漢字","特別記号","記号","絵文字","その他"]):
+        if detail_type in ["ひらがな","全角カタカナ","半角カタカナ","全角数字","半角数字","漢字"]:
+            return "日本語"
+        elif detail_type in ["全角英字","半角英字"]:
+            return "英字"
+        elif detail_type in ["特別記号"]:
+            return "特別記号"
+        elif detail_type in ["記号","絵文字"]:
+            return "Unicode記号"
+        elif detail_type in ["その他"]:
+            return "その他"
+    @staticmethod
+    def checkCharacterType(chara:str):
+        return TextConverter.aggregatingType(TextConverter.checkCharacterDetailType(chara))
+            
+
+    @staticmethod
+    def convertReadableJapanaeseSentense(text):
+        """
+        ルビを振ります。
+        """
+        # 構造体のクラスを作成
+        @dataclass
+        class WordWithType:
+            word: str
+            word_type: Literal['日本語', '英字', '特別記号', 'Unicode記号', 'その他'] | None
+        
+
+        previous_char_type = None
+        char_type_continuous = False
+        split_text:list[WordWithType] = []
+        contituos_word:list[str] = []
+        for char in text:
+            # 文字の種類を取得
+            char_type = TextConverter.checkCharacterType(char)
+            if char_type == previous_char_type or char_type == "特別記号":
+                if char_type != "特別記号":
+                    previous_char_type = char_type
+                contituos_word.append(char)
+            else:
+                # contituos_wordを連結した文字列にしてsplit_textに追加
+                word = "".join(contituos_word)
+                word_with_type = WordWithType(word, previous_char_type)
+                split_text.append(word_with_type)
+                # contituos_wordを初期化
+                contituos_word = [char]
+                previous_char_type = char_type
+        else:
+            word = "".join(contituos_word)
+            word_with_type = WordWithType(word, char_type)
+            split_text.append(word_with_type)
+        ret_text_list:list[str] = []
+        pprint(split_text)
+        for element in split_text:
+            if element.word_type == "英字":
+                # 英字を翻訳
+                ret_text_list.append(TextConverter.TranslateEngToJapanese(element.word))
+            elif element.word_type == "特別記号":
+                # 記号を読み仮名に変換
+                ret_text_list.append(TextConverter.BulkConvertSpecialCharToYomi(element.word))
+            elif element.word_type == "Unicode記号":
+                ret_text_list.append(TextConverter.convertUnicodeOnlyTextToText(element.word))
+            elif element.word_type == "その他":
+                ret_text_list.append(TextConverter.TranslateAutoToJapanese(element.word))
+                ret_text_list.append("まる。")
+            elif element.word_type == "日本語":
+                ret_text_list.append(element.word)
+        return "".join(ret_text_list)
+    
+    @staticmethod
+    def BulkConvertSpecialCharToYomi(text:str):
+        """
+        文字列中の特別記号を読み仮名に変換します。
+
+        Parameters:
+        text (str): 変換対象の文字列
+
+        Returns:
+        str: 変換後の文字列
+        """
+        for char in text:
+            if char in TextConverter.hankaku_special_char or char in TextConverter.zenkaku_special_char:
+                text = text.replace(char, TextConverter.special_char_yomi[char])
+        return text
+
     @staticmethod
     def is_roman_or_japanese(character):
         try:
             # Unicodeカテゴリを取得
+            print(character)
             category = unicodedata.category(character)
+            print(category)
             # ローマ字または日本語のカテゴリに含まれているかチェック
             return category in TextConverter.roman_japanese_categories
         except ValueError:
             # Unicode名がない文字は無視（削除）
             return False
+        
+    @staticmethod
+    def isNumber(character):
+        try:
+            # Unicodeカテゴリを取得
+            category = unicodedata.category(character)
+            # ローマ字または日本語のカテゴリに含まれているかチェック
+            return category in ['Nd']
+        except ValueError:
+            # Unicode名がない文字は無視（削除）
+            return False
+        
+    
     
     @staticmethod
     def convert_text(text):
@@ -552,35 +742,71 @@ class TextConverter:
                     # ライブラリにない文字は削除
                     new_text += "w"
                     ExtendFunc.ExtendPrint(new_text)
-        return new_text
+        translate_text = TextConverter.TranslateEngToJapanese(new_text)
+        ret = TextConverter.convertUnicodeOnlyTextToText(translate_text)
+        return ret
     
     @staticmethod
     def TranslateEngToJapanese(word_to_translate):
-        
-
-        # 翻訳機能を使うための準備
-        translator = Translator()
-
         # 英単語を日本語に翻訳
-        translated_word = translator.translate(word_to_translate, src='en', dest='ja').text
-
+        translated_word = translate(word_to_translate, to_language='ja', from_language='en')
+        return translated_word
+    
+    @staticmethod
+    def TranslateAutoToJapanese(word_to_translate):
+        translated_word = translate(word_to_translate, to_language='ja')
         return translated_word # 出力: 例
-
+    @staticmethod
+    def translateEngWithJapanese(word_to_translate):
+        """
+        英語と日本語が混在した文章を翻訳します。
+        まず文章を日本語が連続してる部分と英語が連続してる部分に分けた配列を作成し、
+        英語部分を翻訳し、日本語部分と翻訳した英語部分を結合して返します。
+        """
+        
+        
+        # 翻訳後の文章を格納するリスト
+        translated_words = []
+        # 英語と日本語が連続している部分を格納するリスト
+        continuous_words = []
+        # 英語と日本語が連続している部分を判定するフラグ
+        is_continuous = False
+        # 英語と日本語が連続している部分を判定するための変数
+        continuous_word = ""
+        # 英語と日本語が連続している部分を判定
+        for char in word_to_translate:
+            # 文字が英語か日本語か数字かunicodeの記号か判定
+            print(char)
+        
+        # 英語を翻訳
+       
+        # 翻訳後の文章を結合
+       
 
 
 
 
 if __name__ == '__main__':
+    if True:
+        # text = "ل  تستطيع  مساعدتي  من  فضلك؟"
+        text = "うおーー"
+        bool = TextConverter.convertReadableJapanaeseSentense(text)
+        print(bool)
+        l = ["ad","ｄｗだ"]
+        #リストを連結して文字列にする
+        print("".join(l))
+
+        
     if False:
-        text = "example"
-        text  = TextConverter.TranslateEngToJapanese(text)
+        text = "translate to Japanese とか これなんか多分 英語を維持するんだよね"
+        text  = TextConverter.translateEngWithJapanese(text)
         print(text)
 
-    if True:
+    if False:
         """
         TextConverterのテスト
         """
-        input_text = " "#"ﾠ"
+        input_text = "ﾠ"
         converted_text = TextConverter.convertUnicodeOnlyTextToText(input_text)
         length = len(converted_text)
         ExtendFunc.ExtendPrint(converted_text,length)  # 出力: Hello, 世界WHITE SMILING FACE!
