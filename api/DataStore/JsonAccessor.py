@@ -2,13 +2,26 @@ from pprint import pprint
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent.parent))
-from api.Extend.ExtendFunc import ExtendFunc
+from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 import json
 import yaml
 
 class JsonAccessor:
     def __init__(self, json_path):
         pass
+
+    @staticmethod
+    def extendJsonLoad(loadString:str):
+        """
+        json文字列を読み込み、辞書型に変換します。できない場合は何かしらのjsonにして返します
+        """
+        try:
+            return json.loads(loadString)
+        except json.JSONDecodeError:
+            new_dict = {f"{TimeExtend()}":loadString, "エラー":"json形式でないため、文章のみを返します。"}
+            ExtendFunc.ExtendPrint("new_dict",new_dict)
+            JsonAccessor.saveLogJson("ErrorLog.json",new_dict)
+            return new_dict
     
     @staticmethod
     def loadAppSetting():
@@ -120,12 +133,23 @@ class JsonAccessor:
 
     @staticmethod
     def insertLogJsonToDict(file_name, input_dict):
+        if  isinstance(input_dict, str):
+            try:
+                input_dict = json.loads(input_dict)
+            except json.JSONDecodeError:
+                input_dict = {"文章":input_dict, "エラー":"json形式でないため、文章のみ保存しました。"}
+        now_time = TimeExtend()
+        save_dict = {
+            f"{now_time.date}":input_dict
+        }
+        pprint(save_dict)
         # 拡張子がついてるかチェックし、なければつける
         if not file_name.endswith(".json"):
             file_name += ".json"
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "LogJson" / file_name
         dict = ExtendFunc.loadJsonToDict(path)
-        dict.update(input_dict)
+        dict.update(save_dict)
+        pprint(dict)
         ExtendFunc.saveDictToJson(path, dict)
 
 if __name__ == "__main__":

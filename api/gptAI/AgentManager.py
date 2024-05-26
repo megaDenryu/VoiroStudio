@@ -43,7 +43,7 @@ class ChatGptApiUnit:
             return "テストモードです"
 
         response = await self.async_client.chat.completions.create (
-                model="gpt-4-turbo-preview",
+                model="gpt-4o",
                 messages=message_query,
                 response_format= { "type":"json_object" },
                 temperature=0.7
@@ -55,11 +55,12 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create (
-                model="gpt-4-turbo-preview",
+                model="gpt-4o",
                 messages=message_query,
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
+        pprint(response)
         return response.choices[0].message.content
     
 
@@ -292,7 +293,7 @@ class Agent:
     """
     replace_dict:dict[str,str] = {}
     def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
-        self._gpt_api_unit = ChatGptApiUnit(True)
+        self._gpt_api_unit = ChatGptApiUnit()
         ExtendFunc.ExtendPrint(replace_dict)
         self.replace_dict = replace_dict
 
@@ -430,6 +431,7 @@ class MicInputJudgeAgent(Agent):
 
     async def handleEvent(self, transported_item:TransportedItem):
         # マイク入力成功判定エージェントがマイク入力に成功しているか判定
+        ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
         if output.MicInputJudge_data["入力成功度合い"] <= 0.5:
             return
@@ -455,16 +457,18 @@ class MicInputJudgeAgent(Agent):
     
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
     
-    def correctResult(self,result: Dict[str, Any]) -> dict:
+    def correctResult(self,result: str) -> dict:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
-        return ExtendFunc.correctDictToTypeDict(result, self.typeMicInputJudgeAgentResponse(self.replace_dict))
+        # strからjsonLoadしてdictに変換
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeMicInputJudgeAgentResponse(self.replace_dict))
     
     def saveResult(self,result):
         # 必要ない
@@ -492,7 +496,7 @@ class SpeakerDistributeAgent(Agent):
         
 
     @staticmethod
-    def typeSpeakerDistributeAgentResponse(replace_dict: dict, chara_name_list: str):
+    def typeSpeakerDistributeAgentResponse(replace_dict: dict, chara_name_list: list[str]):
         TypeDict = {
             "次に発言するべきキャラクター": chara_name_list
         }
@@ -505,13 +509,20 @@ class SpeakerDistributeAgent(Agent):
 
     async def handleEvent(self, transported_item:TransportedItem):
         # 話者割り振りエージェントが会話を見て次に喋るべきキャラクターを推論
+        ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
         # 次に喋るべきキャラクターが自分でなければキャンセル
         if output.SpeakerDistribute_data["次に発言するべきキャラクター"] != self.agent_manager.chara_name:
+            next_chara = output.SpeakerDistribute_data["次に発言するべきキャラクター"]
+            ExtendFunc.ExtendPrint(f"結果は{next_chara}でした。{self.agent_manager.chara_name}は次に喋るべきキャラクターではありません")
             return
+        ExtendFunc.ExtendPrint(f"結果は{self.agent_manager.chara_name}でしたので喋ります。")
         # プレイヤーの追加発言があればキャンセル.追加発言があるかどうかの判定は最新メッセージの時間とoutput.timeを比較して行う
-        if self.epic.messageHistory[-1]['現在の日付時刻'].date != output.time:
+        if self.epic.messageHistory[-1]['現在の日付時刻'].date != output.time.date:
+            new_time = self.epic.messageHistory[-1]['現在の日付時刻'].date
+            ExtendFunc.ExtendPrint(f"{new_time}に追加発言があるため{output.time.date}の分はキャンセルします")
             return
+        ExtendFunc.ExtendPrint(f"{self.name}はすべて成功したので次のエージェントに行きます。{self.agent_manager.chara_name}が喋ります。")
         await self.notify(output)
 
     async def notify(self, data: TransportedItem):
@@ -531,29 +542,40 @@ class SpeakerDistributeAgent(Agent):
     
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
     
-    def correctResult(self,result: Dict[str, Any]) -> dict:
+    def correctResult(self,result: str) -> dict:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
-        return ExtendFunc.correctDictToTypeDict(result, self.typeSpeakerDistributeAgentResponse(self.replace_dict, self.createCharacterListStr()))
+        # strからjsonLoadしてdictに変換
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeSpeakerDistributeAgentResponse(self.replace_dict, self.createCharacterList()))
     
     def addIndoToTransportedItem(self,transported_item:TransportedItem, result:Dict[str, Any])->TransportedItem:
         transported_item.SpeakerDistribute_data = result
         return transported_item
 
-    def createCharacterListStr(self)->str:
+    def createCharacterList(self)->list[str]:
         """
-        キャラ名のリストを文字列で返す。例：['きりたん', 'ずんだもん', 'ゆかり','おね','あかり']
+        キャラ名のリストを返す。例：['きりたん', 'ずんだもん', 'ゆかり','おね','あかり']
         """
         chara_name_list = []
         for key in self.agent_manager.human_dict.keys():
             chara_name_list.append(key)
-        return str(chara_name_list)
+        ExtendFunc.ExtendPrint(chara_name_list)
+        return chara_name_list
+    def createCharacterListStr(self)->str:
+        """
+        キャラ名のリストを文字列で返す。例："['きりたん', 'ずんだもん', 'ゆかり','おね','あかり']"
+        """
+        ret = str(self.createCharacterList())
+        ExtendFunc.ExtendPrint(ret)
+        return ret
+    
 
 class ListeningAgent(Agent):
     
@@ -581,9 +603,10 @@ class ListeningAgent(Agent):
         self.agent_setting = self.loadAgentSetting()
         self.event_queue = Queue()
 
-    async def handleEvent(self, data:TransportedItem):
+    async def handleEvent(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
-        output = await self.run(data)
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
         if output.Listening_data["結論"] == "話を聞く":
             return
         await self.notify(output)
@@ -608,11 +631,13 @@ class ListeningAgent(Agent):
             raise ValueError("リクエストに失敗しました。")
         return result
     
-    def correctResult(self,result: Dict[str, Any]) -> dict:
+    def correctResult(self,result: str) -> dict:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
-        return ExtendFunc.correctDictToTypeDict(result, ThinkAgent.typeThinkAgentResponse(self.replace_dict))
+        # strからjsonLoadしてdictに変換
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, ThinkAgent.typeThinkAgentResponse(self.replace_dict))
     
     def addIndoToTransportedItem(self, transported_item: TransportedItem, result: Dict[str, Any]) -> TransportedItem:
         transported_item.Listening_data = result
@@ -637,7 +662,7 @@ class ThinkAgent(Agent,QueueNode):
             }
         return TypeDict
     
-    def replaceDictDef(self, tI:TransportedItem = None, previous_situation:str = "")->dict[str,str]:
+    def replaceDictDef(self, tI:TransportedItem | None = None, previous_situation:str = "")->dict[str,str]:
         # gpt_behavior = JsonAccessor.loadGPTBehaviorYaml(self.replace_dict["gpt_character"])
         gpt_behavior = JsonAccessor.loadGPTBehaviorYaml("一般")
         if tI is None:
@@ -680,9 +705,10 @@ class ThinkAgent(Agent,QueueNode):
         self.agent_setting = self.loadAgentSetting()
         self.event_queue = Queue()
 
-    async def handleEvent(self, data:TransportedItem):
+    async def handleEvent(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
-        output = await self.run(data)
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
         if output.Think_data["会話ステータス"] == "続きを言う":
             return
         
@@ -708,18 +734,20 @@ class ThinkAgent(Agent,QueueNode):
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
         
         
 
-    def correctResult(self,result: Dict[str, Any]) -> dict:
+    def correctResult(self,result: str) -> dict:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
-        return ExtendFunc.correctDictToTypeDict(result, ThinkAgent.typeThinkAgentResponse(self.replace_dict))
+        # strからjsonLoadしてdictに変換
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, ThinkAgent.typeThinkAgentResponse(self.replace_dict))
 
     def saveResult(self,result):
 
@@ -801,6 +829,7 @@ class SerifAgent(Agent):
 
     async def handleEvent(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
+        ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
         # 新たな発言があった場合はキャンセル
         # プレイヤーの追加発言があればキャンセル.追加発言があるかどうかの判定は最新メッセージの時間とoutput.timeを比較して行う
@@ -847,18 +876,20 @@ class SerifAgent(Agent):
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
         
         
 
-    def correctResult(self,result: Dict[str, Any]) -> dict:
+    def correctResult(self,result: str) -> dict:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
-        return ExtendFunc.correctDictToTypeDict(result, SerifAgent.typeSerifAgentResponse(self.replace_dict))
+        # strからjsonLoadしてdictに変換
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, SerifAgent.typeSerifAgentResponse(self.replace_dict))
     
     # 読み上げるための文章を取り出す
     def getSerifList(self,result: Dict[str, Any]) -> list[str]:
@@ -899,7 +930,9 @@ class AgentEventManager:
             await reciever.handleEvent(none_transported_data)
     async def setEventQueueArrow(self, notifier: QueueNotifier, reciever: EventReciever):
         while True:
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを処理しません")
                 return
             item = await notifier.event_queue.get()
             ExtendFunc.ExtendPrint(item)
@@ -950,4 +983,31 @@ if __name__ == "__main__":
         pprint(t, indent=4)
         bool = isinstance(t, dict)
         print(bool)
-    te6()
+
+    def te7():
+        gpt_unit = ChatGptApiUnit(True)
+        test_message_query:list[ChatGptApiUnit.MessageQuery] = [
+            {
+                "role":"system",
+                "content":""""
+                マイクによる音声認識での文章の入力は間違いや、発話の途中で認識が止まって聞き漏らしがあります。そこであなたには入力された文章が完全な物かを判断するエージェントとして動いてもらいます。
+         次の文章はマイク入力された文章ですが、入力成功度合いを成功1、失敗0として、0から1の間で答えてください。返答は以下のpythonで定義されるjson形式で答えてください。
+        ```
+        class MicInputJudgeAgentResponse(TypedDict):
+            理由: str
+            入力成功度合い: float
+        ```
+                """
+            },
+            {
+                "role":"user",
+                "content":"ほげほげ"
+            }
+        ]
+        test = gpt_unit.genereateResponseGPT4TurboJson(test_message_query)
+        print(test)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", test)
+        ExtendFunc.ExtendPrint(test)
+        
+    
+    te7()

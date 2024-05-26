@@ -14,6 +14,7 @@ from api.Extend.ExtendSet import Interval
 T = TypeVar('T', bound=Dict)
 
 class ExtendFunc:
+    
     @staticmethod
     def ExtendPrint(*args, **kwargs):
         """
