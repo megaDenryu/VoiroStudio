@@ -437,7 +437,7 @@ class MicInputJudgeAgent(Agent):
             return
         await self.notify(output)
 
-    async def notify(self, data):
+    async def notify(self, data:TransportedItem):
         # LLMが出力した成功か失敗かを通知
         await self.event_queue.put(data)
 
