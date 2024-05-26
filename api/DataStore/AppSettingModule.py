@@ -8,11 +8,17 @@ class PageMode(str, Enum):
     Chat = "Chat"
 
 
-class ConnectionStatus(pydantic.BaseModel):
+class ConnectionStatus:
     client_id: str
     ws: WebSocket
     page_mode: PageMode
     setting_mode: str
+    def __init__(self, client_id:str, ws:WebSocket, page_mode:PageMode, setting_mode:str):
+        self.client_id = client_id
+        self.ws = ws
+        self.page_mode = page_mode
+        self.setting_mode = setting_mode
+
 
 class AppSettingModule:
     def __init__(self):

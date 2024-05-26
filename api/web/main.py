@@ -1,16 +1,19 @@
-import sys
+import asyncio
 from pathlib import Path
 import os
 import random
+import sys
 sys.path.append('../..')
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
+from api.gptAI.AgentManager import AgentEventManager, AgentManager, GPTAgent, InputReciever
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
-from api.Extend.ExtendFunc import ExtendFunc
+from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.DataStore.AppSettingModule import AppSettingModule, PageMode
+from api.Epic.Epic import Epic
 
 from enum import Enum
 
@@ -49,7 +52,7 @@ client_ids: list[str] = []
 clients_ws:dict[str,WebSocket] = {}
 setting_module = AppSettingModule()
 #Humanクラスの生成されたインスタンスを登録する辞書を作成
-human_dict:dict = {}
+human_dict:dict[str,Human] = {}
 #Humanクラスの生成されたインスタンスをid順に登録する辞書を作成
 human_id_dict = []
 #使用してる合成音声の種類をカウントする辞書を作成
@@ -61,6 +64,10 @@ human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
+epic = Epic()
+gpt_agent_dict: dict[str,GPTAgent] = {}
+input_reciever = InputReciever(epic ,gpt_agent_dict, gpt_mode_dict)
+
 
 app_setting = JsonAccessor.loadAppSetting()
 pprint(app_setting)
@@ -104,6 +111,27 @@ async def create_id(websocket: WebSocket):
     await websocket.send_text(id)
 
 
+# この関数が @app.get("./") より上にあるので /app-ts/ はこっちで処理される
+@app.get("/app-ts/{path_param:path}")
+async def read_app_ts(path_param: str):
+    app_ts_dir = Path(__file__).parent.parent.parent / 'app-ts/dist'
+    print(str(app_ts_dir))
+
+    print(f"{path_param=}")
+    target = app_ts_dir / path_param
+    if path_param == "":
+        target = app_ts_dir / "index.html"
+    print(f"{target=}")
+
+    # ファイルが存在しない場合は404エラーを返す
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Content-Typeを取得
+    content_type, encoding = mimetypes.guess_type(str(target))
+
+    # ファイルを読み込み、Content-Typeとともにレスポンスとして返す
+    return FileResponse(str(target), media_type=content_type)
 
 @app.get("/{path_param:path}")
 async def read_root(path_param: str):
@@ -119,6 +147,9 @@ async def read_root(path_param: str):
     
     if path_param == "newHuman":
         target = app_dir / "index_Human2.html"
+
+    if path_param == "MultiHuman":
+        target = app_dir / "index_MultiHuman.html"
     
     if path_param == "settingPage":
         target = app_dir / "setting.html"
@@ -135,7 +166,7 @@ async def read_root(path_param: str):
     # ファイルを読み込み、Content-Typeとともにレスポンスとして返す
     return FileResponse(str(target), media_type=content_type)
 
-    
+
 
 @app.websocket("/ws/{client_id}")
 async def websocket_endpoint2(websocket: WebSocket, client_id: str):
@@ -212,6 +243,7 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                 human_ai:Human = human_dict[name]
                 print("yukarinetに投げます")
                 print(f"{input_dict=}")
+                await epic.appendMessage(input_dict)
                 print(f"{human_ai.char_name=}")
                 if "" != input_dict[human_ai.char_name]:
                     print(f"{input_dict[human_ai.char_name]=}")
@@ -442,6 +474,12 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
     await websocket.accept()
     char_name = Human.setCharName(front_name)
     print(f"{char_name}で{room_id}のニコ生コメント受信開始")
+    update_room_id_query = {
+        "ニコ生コメントレシーバー設定": {
+            "生放送URL":room_id
+        }
+    }
+    JsonAccessor.updateAppSettingJson(update_room_id_query)
     end_keyword = app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"]
     nikonama_comment_reciever = NicoNamaCommentReciever(room_id,end_keyword)
     nikonama_comment_reciever_list[char_name] = nikonama_comment_reciever
@@ -788,11 +826,79 @@ async def ws_gpt_mode(websocket: WebSocket):
                 gpt_mode_dict[name] = recieve_gpt_mode_dict[name]
             msg = f"gpt_modeの変更に成功しました。{gpt_mode_dict=}"
             print(msg)
+            if "individual_process0501dev" not in gpt_mode_dict.values():
+                print("individual_process0501devがないので終了します")
+                input_reciever.stopObserveEpic()
+                break
                 
             
     # セッションが切れた場合
     except WebSocketDisconnect:
         print("wsを切断:ws_gpt_mode")
+
+@app.websocket("/gpt_routine_test/{front_name}")
+async def ws_gpt_routine(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+    human_gpt_manager = AgentManager(chara_name, epic)
+    while True:
+        if gpt_mode_dict[chara_name] == "individual_process0501dev":
+            start_time_second = TimeExtend()
+            message_memory = human_gpt_manager.message_memory
+            latest_message_time = human_gpt_manager.latest_message_time
+            message = human_gpt_manager.joinMessageMemory(message_memory)
+            think_agent_response = human_gpt_manager.think_agent.run(message)
+            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+                continue
+            serif_agent_response = await human_gpt_manager.serif_agent.run(think_agent_response)
+            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+                continue
+            serif_list = human_gpt_manager.serif_agent.getSerifList(serif_agent_response)
+            for serif_unit in serif_agent_response:
+                send_data = human_gpt_manager.createSendData(serif_unit, human)
+                await websocket.send_json(send_data)
+                # 区分音声の再生が完了したかメッセージを貰う
+                end_play = await websocket.receive_json()
+                # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
+                if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+                    human_gpt_manager.modifyMemory()
+                    break
+            else:
+                # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
+                human_gpt_manager.message_memory = []
+
+@app.websocket("/gpt_routine/{front_name}")
+async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+    
+    
+    
+    agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket)
+    gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
+    gpt_agent_dict[chara_name] = gpt_agent
+
+    pipe = asyncio.gather(
+        input_reciever.runObserveEpic(),
+        agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
+    )
+
+
 
 
 
@@ -824,8 +930,8 @@ async def settingStore(websocket: WebSocket, setting_name: str, mode_name:PageMo
             if type(data) != dict:
                 print("データがdict型ではありません")
                 continue
-            new_setting = setting_module.setSetting(setting_name,mode_name,data)
-            await setting_module.notify(new_setting,setting_name)
+            new_setting = setting_module.setSetting(setting_name, mode_name, data, {})
+            await setting_module.notify(new_setting, setting_name)
 
     # セッションが切れた場合
     except WebSocketDisconnect:

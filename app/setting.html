@@ -1,0 +1,150 @@
+<!-- 
+    # 設定画面
+    ## 要件
+    サーバー側はすべてJsonで設定を保存するので
+    キー名と入力機能と送信機能が1対1で対応するようにする
+    
+    # 作るべきjsのノードオブジェクトとhtmlのノードオブジェクト
+    - 画面全体:レイヤー１:全ての機能ブロックを補完して追加、削除、更新、検索、可視不可視切り替えする機能を提供する
+    - 機能ブロック:レイヤー２:子オブジェクトを1まとめにして、機能を提供する。ブロックを
+    - キー名:レイヤー３:文字色の変更などの機能を提供する
+    - I入力機能:レイヤー３:入力機能を提供する
+        - テキストボックスの場合：
+    - 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+
+    # 設定項目
+    - 音量
+    - GPT設定
+    - 目パチ早さ
+    - ぴょこぴょこ速さ
+    - コメビュ設定
+        - 放送URL
+            - ニコニコ
+            - Youtube
+            - Twich
+        - コメビュON/OFF
+            - ニコニコ
+            - Youtube
+            - Twich
+    
+ -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>setting</title>
+    <link rel="stylesheet" href="./css/setting.css">
+    <link rel="shortcut icon" href="./favicon.ico" type="image/vnd.microsoft.icon">
+</head>
+<body>
+    はろー
+    <div class="setting_page">
+        <div class="function_blocks sample">
+            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+            <div class="key_name function_block_element">
+                キー名:レイヤー３:文字色の変更などの機能を提供する
+            </div>
+            <div class="input_function function_block_element">
+                I入力機能:レイヤー３:入力機能を提供する
+            </div>
+            <div class="send_function function_block_element">
+                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            </div>
+        </div>
+        <div class="function_blocks sample">
+            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+            <div class="key_name function_block_element">
+                音量
+            </div>
+            <div class="input_function function_block_element">
+                <!-- I入力機能:レイヤー３:入力機能を提供する -->
+                <input type="range" min="1" max="10" step="1" value="1" >
+            </div>
+            <div class="send_function function_block_element">
+                <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                <button id="btnJS2">送信</button>
+            </div>
+        </div>
+        <div class="function_blocks sample">
+            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+            <div class="key_name function_block_element">
+                GPT設定
+            </div>
+            <div class="input_function function_block_element">
+                I入力機能:レイヤー３:入力機能を提供する
+            </div>
+            <div class="send_function function_block_element">
+                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            </div>
+        </div>
+        <div class="function_blocks sample">
+            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+            <div class="key_name function_block_element">
+                目パチ早さ
+            </div>
+            <div class="input_function function_block_element">
+                I入力機能:レイヤー３:入力機能を提供する
+            </div>
+            <div class="send_function function_block_element">
+                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            </div>
+        </div>
+        <div class="function_blocks sample">
+            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+            <div class="key_name function_block_element">
+                ぴょこぴょこ速さ
+            </div>
+            <div class="input_function function_block_element">
+                I入力機能:レイヤー３:入力機能を提供する
+            </div>
+            <div class="send_function function_block_element">
+                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            </div>
+        </div>
+        <div class="function_blocks sample">
+            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+            <div class="key_name function_block_element">
+                コメビュ設定
+                <div class="function_blocks sample">
+                    <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                    <div class="key_name function_block_element">
+                        放送URL
+                    </div>
+                    <div class="input_function function_block_element">
+                        
+                    </div>
+                    <div class="send_function function_block_element">
+                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    </div>
+                </div>
+                <div class="function_blocks sample">
+                    <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                    <div class="key_name function_block_element">
+                        コメビュON/OFF
+                    </div>
+                    <div class="input_function function_block_element">
+                        I入力機能:レイヤー３:入力機能を提供する
+                    </div>
+                    <div class="send_function function_block_element">
+                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    </div>
+                </div>
+            </div>
+            <div class="input_function function_block_element">
+                I入力機能:レイヤー３:入力機能を提供する
+            </div>
+            <div class="send_function function_block_element">
+                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>
+
+
+
+
+<script src = "./js/BaseClass.js"></script>
+<script src = "./js/Setting.js"></script>

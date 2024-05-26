@@ -315,6 +315,9 @@ class AccordionItem{
      * @type {PatiMode} */
     pati_setting_mode;
 
+    /** @type {Document} */
+    html_doc;
+
     /**
      * 
      * @param {string} name_acordion           body_setting要素内のアコーディオンの名前は、対応する画像名と同じにする
@@ -334,7 +337,7 @@ class AccordionItem{
         this.statu_open_close = "close";
         this.accordion_content_handler_list = {};
         //accordion_sampleを複製
-        this.HTML_str_accordion_sample = `
+        const HTML_str_accordion_sample = `
         <li class = "accordion_item close layer ">
             <div class="accordion_item_name accordion_tab">
                 <div class="initial_display_object">
@@ -357,8 +360,7 @@ class AccordionItem{
             </ul>
         </li>
         `;
-        const parser = new DOMParser();
-        this.html_doc = parser.parseFromString(this.HTML_str_accordion_sample, "text/html");
+        this.html_doc = ElementCreater.createnewDocumentFromHTMLString(HTML_str_accordion_sample)
         //名前を設定
         this.setAccordionItemName(name_acordion);
         this.radio_mode = false;
@@ -1192,6 +1194,8 @@ class GPTSettingButtonManagerModel {
     /** @type {HTMLElement} */
     gpt_mode_accordion_open_close_button
 
+    /** @type {Record<string, ExtendedWebSocket>} */
+    human_gpt_routine_ws_dict = {};
 
     /**
      * 
@@ -1303,6 +1307,10 @@ class GPTSettingButtonManagerModel {
         this.radioChangeButtonView(mode);
         this.sendGPTSettingStatus(mode);
         this.sendGPTSettingStatus2Server(mode);
+        if (mode == "individual_process0501dev") {
+            alert("individual_process0501devがクリックされた")
+            this.startGptRoutine();
+        }
     }
 
     /**
@@ -1397,6 +1405,26 @@ class GPTSettingButtonManagerModel {
             console.log(event.data)
             ws_gpt_mode_sender.close();
         }
+    }
+    startGptRoutine() {
+        alert("startGptRoutineが呼ばれた")
+        const front_name = this.front_name;
+        let ws_gpt_routine = new ExtendedWebSocket(`ws://${localhost}:${port}/gpt_routine/${front_name}`);
+        ws_gpt_routine.onopen = (event) => {
+            console.log("gpt_routineが開かれた")
+        }
+        ws_gpt_routine.onclose = (event) => {
+            console.log("gpt_routineが閉じられた")
+        }
+        ws_gpt_routine.onmessage = (event) => {
+            console.log("gpt_routineからメッセージを受け取った")
+            console.log(event.data)
+            messageQueue.push(event);
+            console.log("messageQueue=",messageQueue,"messageQueueをpushしました","isProcessing=",isProcessing);
+            processMessages();
+            console.log("messageQueue=",messageQueue,"イベントを一つとりだした後のmessageQueueです");
+        }
+        this.human_gpt_routine_ws_dict[front_name] = ws_gpt_routine;
     }
 }
 
