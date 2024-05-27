@@ -3,6 +3,8 @@ env:
   browser: true
   es2022: true
 
+settings: { react: { version: detect} }
+
 extends:
   - eslint:recommended
   - plugin:@typescript-eslint/recommended-type-checked
@@ -17,23 +19,20 @@ parserOptions:
   sourceType: module
   project: true
 
-overrides: [
-  {
-    files: [src/**/*],
-    parserOptions: {
+overrides:
+  - files: [src/**/*]
+    parserOptions:
       parser: "@typescript-eslint/parser"
-    },
-  }
-]
 
 ignorePatterns:
   - .vscode/
   - .eslintrc.js
+  - eslint.config.js
   # - ./package.json
   # - ./package-lock.json
   - node_modules/
   - dist/
-  # - vite.config.ts
+  - vite.config.ts
 
 rules:
   semi: [error, always]

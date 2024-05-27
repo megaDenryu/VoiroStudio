@@ -121,6 +121,8 @@ async def read_app_ts(path_param: str):
     target = app_ts_dir / path_param
     if path_param == "":
         target = app_ts_dir / "index.html"
+    elif path_param == "option":
+        target = app_ts_dir / "option.html"
     print(f"{target=}")
 
     # ファイルが存在しない場合は404エラーを返す
