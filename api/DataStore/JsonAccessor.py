@@ -11,6 +11,10 @@ class JsonAccessor:
         pass
 
     @staticmethod
+    def dictToJsonString(input_dict:dict)->str:
+        return json.dumps(input_dict, indent=4, ensure_ascii=False)
+
+    @staticmethod
     def extendJsonLoad(loadString:str):
         """
         json文字列を読み込み、辞書型に変換します。できない場合は何かしらのjsonにして返します

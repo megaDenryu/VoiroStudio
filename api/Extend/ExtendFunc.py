@@ -329,11 +329,16 @@ class ExtendFunc:
         Returns:
         str: 置換後の文字列
         """
-        if replace_dict is None:
+        try:
+            if replace_dict is None:
+                return target
+            for key, value in replace_dict.items():
+                target = target.replace(key, value)
             return target
-        for key, value in replace_dict.items():
-            target = target.replace(key, value)
-        return target
+        except Exception as e:
+            print("target",target)
+            print("replace_dict",replace_dict)
+            raise e
     
     @staticmethod
     def replaceBulkStringRecursiveCollection(target: Any, replace_dict: Dict[str, str]) -> Any:
