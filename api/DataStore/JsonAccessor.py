@@ -146,14 +146,14 @@ class JsonAccessor:
         save_dict = {
             f"{now_time.date}":input_dict
         }
-        pprint(save_dict)
+        # ExtendFunc.ExtendPrint("save_dict",save_dict)
         # 拡張子がついてるかチェックし、なければつける
         if not file_name.endswith(".json"):
             file_name += ".json"
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "LogJson" / file_name
         dict = ExtendFunc.loadJsonToDict(path)
         dict.update(save_dict)
-        pprint(dict)
+        # ExtendFunc.ExtendPrint("dict",dict)
         ExtendFunc.saveDictToJson(path, dict)
 
 if __name__ == "__main__":

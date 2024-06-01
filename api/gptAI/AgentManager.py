@@ -139,6 +139,7 @@ class TransportedItem(BaseModel):
     Listening_data:Any
     Think_data:dict[str,str]
     Serif_data:Any
+    stop:bool = False
     class Config:
         arbitrary_types_allowed = True
 
@@ -215,7 +216,7 @@ class AgentManager:
     
     def loadReplaceDict(self,chara_name:str)->dict[str,str]:
         replace_dict = {
-            "gptキャラ":self.chara_name,
+            "gptキャラ":chara_name,
             "playerキャラ":"",
             "gptキャラのロール":"",
             "gptキャラの属性":""
@@ -256,16 +257,14 @@ class AgentManager:
         # self.memory_agent = MemoryAgent(replaced_dict)
         self.serif_agent:QueueNode = SerifAgent(self,self.chara_name)
         
-    
-
-
-    def createSendData(self, sentence:str, human:Human):
+    def createSendData(self, sentence:str, human:Human, chara_type:Literal["gpt","player"]):
         human.outputWaveFile(sentence)
         #wavデータを取得
         wav_info = human.human_Voice.output_wav_info_list
         send_data = {
             "sentence":sentence,
-            "wav_info":wav_info
+            "wav_info":wav_info,
+            "chara_type":chara_type
         }
         return send_data
         # #バイナリーをjson形式で送信
@@ -303,7 +302,7 @@ class Agent:
         result = await self.request(query)
         ExtendFunc.ExtendPrint(result)
         corrected_result = self.correctResult(result)
-        ExtendFunc.ExtendPrint(corrected_result)
+        # ExtendFunc.ExtendPrint(corrected_result)
         JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result)
         self.saveResult(result)
         self.clearMemory()
@@ -352,8 +351,26 @@ class InputReciever():
             self.runnnig = True
             await self.observeEpic()
     
-    def stopObserveEpic(self):
+    async def stopObserveEpic(self):
         self.runnnig = False
+        stop_object = MassageHistoryUnit(
+            message = MessageUnit({"エラー":"エージェントを停止しました"}),
+            現在の日付時刻 = TimeExtend(),
+            stop = True
+        )
+        await self.epic.OnMessageEvent.put(stop_object)
+        stop_ti = TransportedItem(
+            time = self.epic.getLatestMessage()['現在の日付時刻'], 
+            data = "",
+            recieve_messages = self.convertMessageHistoryToTransportedItemData(self.message_stack, 0, len(self.message_stack)),
+            MicInputJudge_data="",
+            SpeakerDistribute_data={},
+            Listening_data="",
+            Think_data={},
+            Serif_data="",
+            stop=True
+            )
+        await self.notify(stop_ti)
 
     async def observeEpic(self):
         while True:
@@ -361,6 +378,11 @@ class InputReciever():
                 return
             # epic.onMessageEventを監視する。メッセージが追加されれば3秒待って、また新しいメッセージが追加されればまた3秒待つ。３秒待ってもメッセージが追加されなければ次のエージェントに送る。
             message = await self.epic.OnMessageEvent.get()
+            
+            if self.runnnig == False:
+                # 上で待っている間にキャンセルされてたら終了
+                return
+
             ExtendFunc.ExtendPrint(message)
             messages:list[MassageHistoryUnit] = [message]#[await self.epic.OnMessageEvent.get()]
             while not self.epic.OnMessageEvent.empty():
@@ -384,9 +406,9 @@ class InputReciever():
                 data = "",
                 recieve_messages = self.convertMessageHistoryToTransportedItemData(self.message_stack, 0, len(self.message_stack)),
                 MicInputJudge_data="",
-                SpeakerDistribute_data="",
+                SpeakerDistribute_data={},
                 Listening_data="",
-                Think_data="",
+                Think_data={},
                 Serif_data=""
                 )
             # 送信後にメッセージスタックを解放
@@ -432,6 +454,9 @@ class MicInputJudgeAgent(Agent):
     async def handleEvent(self, transported_item:TransportedItem):
         # マイク入力成功判定エージェントがマイク入力に成功しているか判定
         ExtendFunc.ExtendPrint(self.name,transported_item)
+        if transported_item.stop:
+            await self.notify(transported_item)
+            return
         output = await self.run(transported_item)
         if output.MicInputJudge_data["入力成功度合い"] <= 0.5:
             return
@@ -442,7 +467,7 @@ class MicInputJudgeAgent(Agent):
         await self.event_queue.put(data)
 
     def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
-        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",self.replace_dict)
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})#self.replace_dict)
         return all_template_dict[self.name], all_template_dict[self.request_template_name]
     
     def prepareQuery(self, input:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
@@ -510,6 +535,9 @@ class SpeakerDistributeAgent(Agent):
     async def handleEvent(self, transported_item:TransportedItem):
         # 話者割り振りエージェントが会話を見て次に喋るべきキャラクターを推論
         ExtendFunc.ExtendPrint(self.name,transported_item)
+        if transported_item.stop:
+            await self.notify(transported_item)
+            return
         output = await self.run(transported_item)
         # 次に喋るべきキャラクターが自分でなければキャンセル
         if output.SpeakerDistribute_data["次に発言するべきキャラクター"] != self.agent_manager.chara_name:
@@ -530,7 +558,7 @@ class SpeakerDistributeAgent(Agent):
         await self.event_queue.put(data)
 
     def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
-        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",self.replace_dict)
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})#self.replace_dict)
         return all_template_dict[self.name], all_template_dict[self.request_template_name]
     
     def prepareQuery(self, input:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
@@ -649,17 +677,17 @@ class ThinkAgent(Agent,QueueNode):
     speak_or_silent:Literal["話す","傾聴思考"] = "傾聴思考"
 
     @staticmethod
-    def typeThinkAgentResponse(replace_dict: dict):
+    def typeThinkAgentResponse(replace_dict: dict, chara_name:str)->dict[str,str]:
         TypeDict = {
             "以前と今を合わせた周囲の状況の要約": str,
             "どのキャラがどのキャラに話しかけているか？または独り言か？": str,
             "他のキャラの会話ステータス": {str:['質問', '愚痴', 'ボケ', 'ツッコミ', 'ジョーク', '励まし', '慰め', '共感', '否定', '肯定', '感嘆表現', '愛情表現']},
             "ロール": ['アシスタント', 'キャラクターなりきり'],
             "あなたの属性": ['赤ちゃん', '大工', '彼女', '看護師', '嫁', '先生', '同僚', '先輩', '上司', 'ママ', 'パパ'],
-            "{{gptキャラ}}のこれからの感情": ['喜', '怒', '悲', '楽', '好き', '嫌い', '疲れ', '混乱', '疑問', 'ツンツン', 'デレデレ', '否定', '肯定', '催眠'],
-            "{{gptキャラ}}のこれからの会話ステータス": ['傾聴', '質問', '教える', 'ボケる', '突っ込む', '嘲笑', '感嘆表現', '愛憎表現', '続きを言う'],
+            f"{chara_name}のこれからの感情": ['喜', '怒', '悲', '楽', '好き', '嫌い', '疲れ', '混乱', '疑問', 'ツンツン', 'デレデレ', '否定', '肯定', '催眠'],
+            f"{chara_name}のこれからの会話ステータス": ['傾聴', '質問', '教える', 'ボケる', '突っ込む', '嘲笑', '感嘆表現', '愛憎表現', '続きを言う'],
             "今まで起きたことの要約": str,
-            "{{gptキャラ}}の次の行動を見据えた心内セリフと思考": str
+            f"{chara_name}の次の行動を見据えた心内セリフと思考": str
             }
         return TypeDict
     
@@ -670,8 +698,8 @@ class ThinkAgent(Agent,QueueNode):
         if tI == None:
             ExtendFunc.ExtendPrint("tIがNoneです")
             return {
-                "{{gptキャラ}}":self.replace_dict["gptキャラ"],
-                "{{playerキャラ}}":self.replace_dict["playerキャラ"],
+                "{{gptキャラ}}":self.chara_name,
+                "{{playerキャラ}}":"ゆかり",
                 "{{前の状況}}":previous_situation,
                 "{{input}}":"",
                 "{{gptキャラのロール}}":gpt_behavior["gptキャラのロール"],
@@ -684,8 +712,8 @@ class ThinkAgent(Agent,QueueNode):
         
         # キャラのロールや属性は別のキャラクター設定ymlから取得する
         relace_dict = {
-            "{{gptキャラ}}":self.replace_dict["gptキャラ"],
-            "{{playerキャラ}}":self.replace_dict["playerキャラ"],
+            "{{gptキャラ}}":self.chara_name,
+            "{{playerキャラ}}":"",
             "{{前の状況}}":previous_situation,
             "{{input}}":input,
             "{{gptキャラのロール}}":gpt_behavior["gptキャラのロール"],
@@ -699,8 +727,8 @@ class ThinkAgent(Agent,QueueNode):
         if "次に発言するべきキャラクター" not in tI.SpeakerDistribute_data:
             ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターがありません")
             return "傾聴思考"
-        ExtendFunc.ExtendPrint(self.replace_dict["gptキャラ"])
-        if tI.SpeakerDistribute_data["次に発言するべきキャラクター"] == self.replace_dict["gptキャラ"]:
+        ExtendFunc.ExtendPrint(self.chara_name)
+        if tI.SpeakerDistribute_data["次に発言するべきキャラクター"] == self.chara_name:
             ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターが自分です")
             return "話す"
         ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターが自分ではありません")
@@ -710,12 +738,18 @@ class ThinkAgent(Agent,QueueNode):
         super().__init__(agent_manager, replace_dict)
         self.name = "思考エージェント"
         self.request_template_name = "思考エージェントリクエストひな形"
+        self.chara_name = agent_manager.chara_name
         self.agent_setting = self.loadAgentSetting()
         self.event_queue = Queue()
 
     async def handleEvent(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
+
+        if transported_item.stop:
+            await self.notify(transported_item)
+            return
+
         output = await self.run(transported_item)
         if self.speak_or_silent == "傾聴思考":
             return
@@ -735,14 +769,14 @@ class ThinkAgent(Agent,QueueNode):
 
     def prepareQuery(self, tI:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
         self.replace_dict = self.replaceDictDef(tI, self.previous_situation)
-        ExtendFunc.ExtendPrint(self.replace_dict)
+        # ExtendFunc.ExtendPrint(self.replace_dict)
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
         replaced_setting = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting,self.replace_dict)
-        ExtendFunc.ExtendPrint(replaced_setting)
+        # ExtendFunc.ExtendPrint(replaced_setting)
         replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template,self.replace_dict)
-        ExtendFunc.ExtendPrint(replaced_template)
+        # ExtendFunc.ExtendPrint(replaced_template)
         query = replaced_setting + replaced_template
-        ExtendFunc.ExtendPrint(query)
+        # ExtendFunc.ExtendPrint(query)
         return query
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
@@ -760,7 +794,7 @@ class ThinkAgent(Agent,QueueNode):
         """
         # strからjsonLoadしてdictに変換
         jsonnized_result = JsonAccessor.extendJsonLoad(result)
-        return ExtendFunc.correctDictToTypeDict(jsonnized_result, ThinkAgent.typeThinkAgentResponse(self.replace_dict))
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, ThinkAgent.typeThinkAgentResponse(self.replace_dict, self.chara_name))
 
     def saveResult(self,result):
 
@@ -823,8 +857,7 @@ class SerifAgent(Agent):
     @staticmethod
     def typeSerifAgentResponse(replace_dict: dict, chara_name:str):
         TypeDict = {
-                f'{chara_name}の発言': str,
-                'あなたの発言も踏まえた現在の全体状況': str,
+                f'{chara_name}の発言': str
             }
         return TypeDict
     
@@ -856,10 +889,15 @@ class SerifAgent(Agent):
     async def handleEvent(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
+
+        if transported_item.stop:
+            await self.notify(transported_item)
+            return
+
         output = await self.run(transported_item)
         # 新たな発言があった場合はキャンセル
         # プレイヤーの追加発言があればキャンセル.追加発言があるかどうかの判定は最新メッセージの時間とoutput.timeを比較して行う
-        if self.epic.messageHistory[-1]['現在の日付時刻'] != output.time:
+        if self.epic.getLatestMessage()['現在の日付時刻'] != output.time:
             ExtendFunc.ExtendPrint(f"{self.epic.messageHistory[-1]['現在の日付時刻']}に追加発言があるため{output.time}の分はキャンセルします")
             return
         ExtendFunc.ExtendPrint(f"{self.name}はすべて成功したので次のエージェントに行きます。{self.chara_name}が喋ります。")
@@ -867,13 +905,13 @@ class SerifAgent(Agent):
         # 思考エージェントにメッセージを送る
         serif_list = self.getSerifList(output.Serif_data)
         for serif in serif_list:
-            send_data = self.agent_manager.createSendData(serif, self.agent_manager.human_dict[self.agent_manager.chara_name])
+            send_data = self.agent_manager.createSendData(serif, self.agent_manager.human_dict[self.agent_manager.chara_name],"gpt")
             await self.agent_manager.websocket.send_json(send_data)
             await self.saveSuccesSerifToMemory(serif)
             # 区分音声の再生が完了したかメッセージを貰う
             end_play_data = await self.agent_manager.websocket.receive_json()
             # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
-            if self.epic.messageHistory[-1]['現在の日付時刻'].date != output.time:
+            if self.epic.getLatestMessage()['現在の日付時刻'] != output.time:
                 return
         else:
             # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
@@ -881,7 +919,7 @@ class SerifAgent(Agent):
     
     async def saveSuccesSerifToMemory(self,serif:str):
         # InputRecieverのメッセージスタックに追加するために、epic経由でメッセージを追加する
-        await self.epic.appendMessage({self.replace_dict["gptキャラ"]:serif})
+        await self.epic.appendMessage({self.chara_name:serif})
     
     def saveFailSerifToMemory(self,serif:str):
         # thinkエージェントに失敗したセリフの情報を保存
@@ -920,7 +958,7 @@ class SerifAgent(Agent):
     
     # 読み上げるための文章を取り出す
     def getSerifList(self,result: Dict[str, Any]) -> list[str]:
-        serif = result[f'{self.replace_dict["gpt_character"]}の発言']
+        serif = result[f'{self.chara_name}の発言']
         return re.split(r'\. |\? |\。|\, |、 |\n', serif)
 
     def saveResult(self,result):
@@ -953,9 +991,9 @@ class AgentEventManager:
                 data=None,
                 recieve_messages="",
                 MicInputJudge_data=None,
-                SpeakerDistribute_data=None,
+                SpeakerDistribute_data={},
                 Listening_data=None,
-                Think_data=None,
+                Think_data={},
                 Serif_data=None
                 )
             await reciever.handleEvent(none_transported_data)
@@ -963,7 +1001,7 @@ class AgentEventManager:
         while True:
             ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
-                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを処理しません")
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
                 return
             item = await notifier.event_queue.get()
             ExtendFunc.ExtendPrint(item)
@@ -1043,6 +1081,7 @@ if __name__ == "__main__":
     def te8():
         a = {"a":"b","c":"d"}
         print("a" not in a)
+
         
     
     te8()

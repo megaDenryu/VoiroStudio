@@ -828,7 +828,7 @@ async def ws_gpt_mode(websocket: WebSocket):
             print(msg)
             if "individual_process0501dev" not in gpt_mode_dict.values():
                 print("individual_process0501devがないので終了します")
-                input_reciever.stopObserveEpic()
+                await input_reciever.stopObserveEpic()
                 break
                 
             
@@ -897,6 +897,10 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
         agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
     )
+
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
 
 
 

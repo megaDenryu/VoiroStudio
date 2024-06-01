@@ -802,7 +802,7 @@ async function receiveConversationData(event) {
         }
     }
 
-    //gptかの音声だった場合は終了を通知。
+    //gptからの音声だった場合は終了を通知。
     // todo gptかどうかの判定や名前の取得や通知するjsonの中身がまだ仮置きなので、後で修正する。
     if (true) {
         const front_name = "One_chan"

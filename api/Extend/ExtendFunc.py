@@ -276,31 +276,6 @@ class ExtendFunc:
 
                 print("key",key)
                 corrected_data[key] = correctData(result[key], TypeDict[key])
-                # if TypeDict[key] == str:
-                #     corrected_data[key] = str(result[key])
-                # elif isinstance(TypeDict[key], list) == True:
-                #     if result[key] in TypeDict[key]:
-                #         corrected_data[key] = result[key]
-                #     else:
-                #         corrected_data[key] = TypeDict[key][0]
-                # elif type(TypeDict[key]) == list[list[str]]:
-                #     for type_dict in TypeDict[key]:
-                #         if result[key] in type_dict:
-                #             corrected_data[key] = result[key]
-                #         else:
-                #             corrected_data[key] = type_dict[0]
-                # elif isinstance(TypeDict[key], Interval) == True:
-                #     # 結果をfloatに変換
-                #     result[key] = float(result[key])
-                #     # 変換できたかチェックし、できなかった場合はstartに変換
-                #     if result[key] == float(result[key]):
-                #         if result[key] in TypeDict[key]:
-                #             corrected_data[key] = result[key]
-                #         else:
-                #             corrected_data[key] = TypeDict[key].start
-                
-                # else:
-                #     print("key",type(TypeDict[key]))
 
             else:
                 print("key",key, "がresultに存在しません")
@@ -314,7 +289,7 @@ class ExtendFunc:
                     corrected_data[key] = TypeDict[key][0][0]
                 elif isinstance(TypeDict[key], Interval):
                     corrected_data[key] = TypeDict[key].start
-        ExtendFunc.ExtendPrint("corrected_data",corrected_data)
+        # ExtendFunc.ExtendPrint("corrected_data",corrected_data)
         return corrected_data
     
     @staticmethod
