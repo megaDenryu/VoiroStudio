@@ -33,8 +33,17 @@ class Epic:
             }
             return tmp_message
         return self.massage_history[-1]
+    
+    def appendMessage(self, message: dict[str,str]):
+        history_object:MassageHistoryUnit = {
+            "message": MessageUnit(message),
+            "現在の日付時刻": TimeExtend(),
+            "stop": False
+        }
+        self.massage_history.append(history_object)
+        ExtendFunc.ExtendPrint("メッセージを追加しました")
 
-    async def appendMessage(self, message: dict[str,str]):
+    async def appendMessageAndNotify(self, message: dict[str,str]):
         print("epicでメッセージが来た",message)
         history_object:MassageHistoryUnit = {
             "message": MessageUnit(message),

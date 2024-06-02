@@ -142,6 +142,7 @@ class JsonAccessor:
                 input_dict = json.loads(input_dict)
             except json.JSONDecodeError:
                 input_dict = {"文章":input_dict, "エラー":"json形式でないため、文章のみ保存しました。"}
+        
         now_time = TimeExtend()
         save_dict = {
             f"{now_time.date}":input_dict

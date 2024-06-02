@@ -743,20 +743,31 @@ async function receiveConversationData(event) {
         const textPromise = execText(sentence,human_tab)
 
         //音声を再生
-        const /**@type {WavInfo[]} */ wav_info  = obj["audio_data"];
+        const /**@type {WavInfo[]} */ wav_info  = obj["wav_info"];
         const audioPromise = execAudioList(wav_info,audio_group)
 
         // 両方の処理が終わるのを待つ
         await Promise.all([textPromise, audioPromise]);
 
         //gptからの音声だった場合は終了を通知。
-        const front_name = "One_chan"
+        const front_name = getNthKeyFromObject(sentence, 0)
         const message_box = message_box_manager.getMessageBoxByFrontName(front_name);
         if (message_box) {
             const human_gpt_routine_ws = message_box.gpt_setting_button_manager_model.human_gpt_routine_ws_dict[front_name];
             human_gpt_routine_ws.sendJson({ "start_stop": "stop" });
         }
         
+    } else if("chara_type" in obj && obj["chara_type"] == "player") {
+        //文章を表示
+        const /**@type {Record<String,string>} */ sentence = obj["sentence"];
+        const textPromise = execText(sentence,human_tab)
+
+        //音声を再生
+        const /**@type {WavInfo[]} */ wav_info  = obj["wav_info"];
+        const audioPromise = execAudioList(wav_info,audio_group)
+
+        // 両方の処理が終わるのを待つ
+        await Promise.all([textPromise, audioPromise]);
     } else {
         if (0 in obj && "wav_data" in obj[0]) {
             //wavファイルが送られてきたときの処理。

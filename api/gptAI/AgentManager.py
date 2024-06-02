@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+import json
 from pprint import pprint
 from pathlib import Path
 from fastapi import WebSocket
@@ -275,7 +276,7 @@ class AgentManager:
             wav_info:list[WavInfo]
             chara_type:Literal["gpt","player"]
 
-        send_data:SendData = {
+        send_data = {
             "sentence":sentence_info,
             "wav_info":wav_info,
             "chara_type":chara_type
@@ -317,9 +318,9 @@ class Agent:
 
     async def run(self,transported_item: TransportedItem)->TransportedItem:
         query = self.prepareQuery(transported_item)
-        ExtendFunc.ExtendPrint(query)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query)
         result = await self.request(query)
-        ExtendFunc.ExtendPrint(result)
+        # ExtendFunc.ExtendPrint(result)
         corrected_result = self.correctResult(result)
         # ExtendFunc.ExtendPrint(corrected_result)
         JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result)
@@ -413,11 +414,19 @@ class InputReciever():
             if not self.epic.OnMessageEvent.empty():
                 continue
 
+            agent_stop = False
             for agent in self.gpt_agent_dict.values():
                 # 全てのエージェントを確認
+                last_speskers = self.message_stack[-1]["message"].speakers
+                ExtendFunc.ExtendPrint(f"{agent.manager.chara_name}が{last_speskers}にあるか確認します")
                 if agent.manager.chara_name in self.message_stack[-1]["message"].speakers:
                     # メッセージスタックの最後のメッセージがこのエージェントが送ったメッセージであれば送信しない
-                    continue
+                    ExtendFunc.ExtendPrint(f"{agent.manager.chara_name}が最後に送ったメッセージがあったので次のエージェントには送信しませんでした。")
+                    agent_stop = True
+            
+            if agent_stop:
+                continue
+                    
             # ここで次のエージェントに送る
             last = len(self.message_stack)
             transported_item:TransportedItem = TransportedItem(
@@ -718,7 +727,7 @@ class ThinkAgent(Agent,QueueNode):
             ExtendFunc.ExtendPrint("tIがNoneです")
             return {
                 "{{gptキャラ}}":self.chara_name,
-                "{{playerキャラ}}":"ゆかり",
+                "{{Playerキャラ}}":"ゆかり",
                 "{{前の状況}}":previous_situation,
                 "{{input}}":"",
                 "{{gptキャラのロール}}":gpt_behavior["gptキャラのロール"],
@@ -732,7 +741,7 @@ class ThinkAgent(Agent,QueueNode):
         # キャラのロールや属性は別のキャラクター設定ymlから取得する
         relace_dict = {
             "{{gptキャラ}}":self.chara_name,
-            "{{playerキャラ}}":"",
+            "{{Playerキャラ}}":"ゆかり",
             "{{前の状況}}":previous_situation,
             "{{input}}":input,
             "{{gptキャラのロール}}":gpt_behavior["gptキャラのロール"],
@@ -884,12 +893,14 @@ class SerifAgent(Agent):
         return {
             "{{think_agent_output}}":think_agent_output,
             "{{gptキャラ}}":self.chara_name,
+            "{{Playerキャラ}}":"ゆかり"
         }
     
     def loadReplaceDict(self,chara_name:str)->dict[str,str]:
         replace_dict = {
             "{{think_agent_output}}":"なし",
-            "{{gptキャラ}}":self.chara_name
+            "{{gptキャラ}}":self.chara_name,
+            "{{Playerキャラ}}":"ゆかり"
         }
         
         return replace_dict
@@ -925,10 +936,11 @@ class SerifAgent(Agent):
         serif_list = self.getSerifList(output.Serif_data)
         for serif in serif_list:
             send_data = self.agent_manager.createSendData(serif, self.agent_manager.human_dict[self.agent_manager.chara_name],"gpt")
-            await self.agent_manager.websocket.send_json(send_data)
+            await self.agent_manager.websocket.send_json(json.dumps(send_data))
             await self.saveSuccesSerifToMemory(serif)
             # 区分音声の再生が完了したかメッセージを貰う
             end_play_data = await self.agent_manager.websocket.receive_json()
+            ExtendFunc.ExtendPrint(end_play_data)
             # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
             if self.epic.getLatestMessage()['現在の日付時刻'] != output.time:
                 return
@@ -938,7 +950,7 @@ class SerifAgent(Agent):
     
     async def saveSuccesSerifToMemory(self,serif:str):
         # InputRecieverのメッセージスタックに追加するために、epic経由でメッセージを追加する
-        await self.epic.appendMessage({self.chara_name:serif})
+        await self.epic.appendMessageAndNotify({self.chara_name:serif})
     
     def saveFailSerifToMemory(self,serif:str):
         # thinkエージェントに失敗したセリフの情報を保存
@@ -950,14 +962,22 @@ class SerifAgent(Agent):
         await self.event_queue.put(data)
     
 
-    def loadAgentSetting(self)->list[ChatGptApiUnit.MessageQuery]:
-        return JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})[self.name]#self.replace_dict)[self.name]
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        # return JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})[self.name]#self.replace_dict)[self.name]
+
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})#self.replace_dict)
+        ExtendFunc.ExtendPrint(all_template_dict)
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+
 
     def prepareQuery(self, ti:TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
         input = JsonAccessor.dictToJsonString(ti.Think_data)
         self.replace_dict = self.replaceDictDef(input)
-        self.agent_setting = self.loadAgentSetting()
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
         query = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting,self.replace_dict)
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template,self.replace_dict)
+        query = query + replaced_template
+
         return query
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
@@ -1101,6 +1121,13 @@ if __name__ == "__main__":
         a = {"a":"b","c":"d"}
         print("a" not in a)
 
+    def te9():
+        dict_a = {
+            "a":0,
+            "c":2
+        }
         
+        print(dict_a.keys())
+        print("a" in dict_a.keys())
     
-    te8()
+    te9()

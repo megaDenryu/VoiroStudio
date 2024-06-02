@@ -243,18 +243,18 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                 human_ai:Human = human_dict[name]
                 print("yukarinetに投げます")
                 print(f"{input_dict=}")
-                await epic.appendMessage(input_dict)
+                await epic.appendMessageAndNotify(input_dict)
                 print(f"{human_ai.char_name=}")
                 if "" != input_dict[human_ai.char_name]:
                     print(f"{input_dict[human_ai.char_name]=}")
-                    # 文章をまず返答
-                    json_data = json.dumps(message, ensure_ascii=False)
-                    print(f"{json_data=}を送信します")
-                    try:
-                        await notifier.push(json_data)
-                    except Exception as e:
-                        print(e)
-                        await websocket.send_json(json_data)
+                    # # 文章をまず返答
+                    # json_data = json.dumps(message, ensure_ascii=False)
+                    # print(f"{json_data=}を送信します")
+                    # try:
+                    #     await notifier.push(json_data)
+                    # except Exception as e:
+                    #     print(e)
+                    #     await websocket.send_json(json_data)
                     
                     
                     for sentence in Human.parseSentenseList(input_dict[human_ai.char_name]):
@@ -265,8 +265,14 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                         #wavデータを取得
                         wav_info = human_ai.human_Voice.output_wav_info_list
                         #バイナリーをjson形式で送信
+                        send_data = {
+                            "sentence":{human_ai.front_name:sentence},
+                            "wav_info":wav_info,
+                            "chara_type":"player"
+                        }
                         print(f"{human_ai.char_name}のwavデータを送信します")
-                        await websocket.send_json(json.dumps(wav_info))
+                        # await websocket.send_json(json.dumps(wav_info))
+                        await websocket.send_json(json.dumps(send_data))
 
             sentence_dict4sedn_gpt:str = json_data
             #human_dict_keysの順番にhuman_dictの値を取り出し、それぞれのインスタンスのgenerate_textを実行
