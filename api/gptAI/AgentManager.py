@@ -260,12 +260,31 @@ class AgentManager:
     def createSendData(self, sentence:str, human:Human, chara_type:Literal["gpt","player"]):
         human.outputWaveFile(sentence)
         #wavデータを取得
-        wav_info = human.human_Voice.output_wav_info_list
-        send_data = {
-            "sentence":sentence,
+        wav_info:list["WavInfo"] = human.human_Voice.output_wav_info_list
+        sentence_info = {human.front_name:sentence}
+
+        class WavInfo(BaseModel):
+            path:str
+            wav_data:str
+            phoneme_time:list[str]
+            phoneme_str:list[list[str]]
+            char_name:str
+            voice_system_name:str
+        class SendData(BaseModel):
+            sentence:dict[str,str]
+            wav_info:list[WavInfo]
+            chara_type:Literal["gpt","player"]
+
+        send_data:SendData = {
+            "sentence":sentence_info,
             "wav_info":wav_info,
             "chara_type":chara_type
         }
+        # send_data = SendData(
+        #     sentence = sentence_info,
+        #     wav_info = wav_info,
+        #     chara_type = chara_type
+        # )
         return send_data
         # #バイナリーをjson形式で送信
         # print(f"{human_ai.char_name}のwavデータを送信します")
