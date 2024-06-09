@@ -754,7 +754,7 @@ async function receiveConversationData(event) {
         const message_box = message_box_manager.getMessageBoxByFrontName(front_name);
         if (message_box) {
             const human_gpt_routine_ws = message_box.gpt_setting_button_manager_model.human_gpt_routine_ws_dict[front_name];
-            human_gpt_routine_ws.sendJson({ "start_stop": "stop" });
+            human_gpt_routine_ws.sendJson({ "gpt_voice_complete": "complete" });
         }
         
     } else if("chara_type" in obj && obj["chara_type"] == "player") {

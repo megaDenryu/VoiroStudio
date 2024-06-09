@@ -6,7 +6,7 @@ from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 class MessageUnit:
     def __init__(self, message: dict[str,str]):
         self.message = message
-        self.speakers = message.keys()
+        self.speakers = list(message.keys())
 
 class MassageHistoryUnit(TypedDict):
     message: MessageUnit

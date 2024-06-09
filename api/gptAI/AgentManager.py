@@ -185,11 +185,17 @@ Human→AgentManager→Agent→AgentRoutine
 
 class AgentManager:
     _message_memory:list[MassageHistoryUnit] = []
+    input_reciever:"InputReciever"
+    speaker_distribute_agent:"SpeakerDistributeAgent"
+    mic_input_check_agent:"MicInputJudgeAgent"
+    think_agent:"ThinkAgent"
+    serif_agent:"SerifAgent"
     def __init__(
             self,chara_name:str, 
             epic:Epic, 
             human_dict:dict[str,Human], 
-            websocket:WebSocket
+            websocket:WebSocket,
+            input_reciever:"InputReciever",
             ):
         self.chara_name:str = chara_name
         self.epic = epic
@@ -199,6 +205,7 @@ class AgentManager:
         self.replace_dict = self.loadReplaceDict(self.chara_name)
         self.prepareAgents(self.replace_dict)
         self.websocket = websocket
+        self.input_reciever = input_reciever
 
     @property
     def message_memory(self) -> list[MassageHistoryUnit]:
@@ -251,12 +258,12 @@ class AgentManager:
         return TimeExtend.nowSecond() - time
 
     def prepareAgents(self,replaced_dict:dict):
-        self.mic_input_check_agent:QueueNode = MicInputJudgeAgent(self)
-        self.speaker_distribute_agent:QueueNode = SpeakerDistributeAgent(self)
+        self.mic_input_check_agent = MicInputJudgeAgent(self)
+        self.speaker_distribute_agent = SpeakerDistributeAgent(self)
         # self.listening_agent = ListeningAgent(self)
         self.think_agent = ThinkAgent(self,replaced_dict)
         # self.memory_agent = MemoryAgent(replaced_dict)
-        self.serif_agent:QueueNode = SerifAgent(self,self.chara_name)
+        self.serif_agent = SerifAgent(self,self.chara_name)
         
     def createSendData(self, sentence:str, human:Human, chara_type:Literal["gpt","player"]):
         human.outputWaveFile(sentence)
@@ -301,6 +308,10 @@ class AgentManager:
     def loadCharaSetting(self):
         pass
 
+    def clearInputRecieverMessageStack(self, time:TimeExtend):
+        self.input_reciever.clearMessageStack(time)
+        
+
 
 
 class Agent:
@@ -312,6 +323,7 @@ class Agent:
     """
     replace_dict:dict[str,str] = {}
     def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
+        self.agent_manager = agent_manager
         self._gpt_api_unit = ChatGptApiUnit()
         ExtendFunc.ExtendPrint(replace_dict)
         self.replace_dict = replace_dict
@@ -404,12 +416,11 @@ class InputReciever():
                 return
 
             ExtendFunc.ExtendPrint(message)
-            messages:list[MassageHistoryUnit] = [message]#[await self.epic.OnMessageEvent.get()]
+            self.appendMessageToStack(message)
             while not self.epic.OnMessageEvent.empty():
                 message = await self.epic.OnMessageEvent.get()
-                messages.append(message)
+                self.appendMessageToStack(message)
             # メッセージが追加されたらメッセージスタックに追加。送信したら解放する。
-            self.message_stack += messages
             await asyncio.sleep(3)
             if not self.epic.OnMessageEvent.empty():
                 continue
@@ -439,8 +450,6 @@ class InputReciever():
                 Think_data={},
                 Serif_data=""
                 )
-            # 送信後にメッセージスタックを解放
-            self.message_stack = []
             ExtendFunc.ExtendPrint(transported_item)
             await self.notify(transported_item)
             
@@ -451,12 +460,48 @@ class InputReciever():
         # x秒非同期に待つ
         await asyncio.sleep(3)
         # 次が来てるかどうかをチェック。
+
     @staticmethod
     def convertMessageHistoryToTransportedItemData(message_history:list[MassageHistoryUnit], start_index:int, end_index:int)->str:
+        """
+        message_historyをstart_indexからend_indexまでのメッセージを連結して文字列に変換して返す
+        """
         ret_string = ""
         for i in range(start_index, end_index):
             ret_string = f"{ret_string}{ExtendFunc.dictToStr(message_history[i]['message'].message)}"
         return ret_string
+    
+    def appendMessageToStack(self, message:MassageHistoryUnit):
+        self.message_stack.append(message)
+    
+    def judgeClearMessageStack(self)->bool:
+        """
+        thinkAgentに各セリフがたどり着くまでは送り続ける。thinkAgentにたどり着いたらメッセージスタックを解放する。
+        """
+        return True
+    
+    def addMessageStack(self, messages:list[MassageHistoryUnit]):
+        self.message_stack += messages
+    
+    def clearMessageStack(self, time:TimeExtend):
+        """
+        timeより以前のメッセージは削除する
+        """
+        num = self.getMessageNumFromTime(time)
+        if num is None:
+            return
+        else:
+            if num == len(self.message_stack) - 1:
+                self.message_stack = []
+            else:
+                self.message_stack = self.message_stack[num+1:]
+
+    def getMessageNumFromTime(self, time:TimeExtend):
+        length = len(self.message_stack)
+        for i in range(length-1, -1, -1):
+            if self.message_stack[i]['現在の日付時刻'] < time:
+                return i
+        return None
 
 class MicInputJudgeAgent(Agent):
     @staticmethod
@@ -478,6 +523,20 @@ class MicInputJudgeAgent(Agent):
         self.request_template_name = "マイク入力成否判定エージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
         self.event_queue = Queue()
+    
+    async def run(self,transported_item: TransportedItem)->TransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query)
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result)
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addIndoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
 
     async def handleEvent(self, transported_item:TransportedItem):
         # マイク入力成功判定エージェントがマイク入力に成功しているか判定
@@ -704,6 +763,14 @@ class ThinkAgent(Agent,QueueNode):
     _previous_situation:list[str] = []
     speak_or_silent:Literal["話す","傾聴思考"] = "傾聴思考"
 
+    def __init__(self, agent_manager: AgentManager, replace_dict: dict):
+        super().__init__(agent_manager, replace_dict)
+        self.name = "思考エージェント"
+        self.request_template_name = "思考エージェントリクエストひな形"
+        self.chara_name = agent_manager.chara_name
+        self.agent_setting = self.loadAgentSetting()
+        self.event_queue = Queue()
+
     @staticmethod
     def typeThinkAgentResponse(replace_dict: dict, chara_name:str)->dict[str,str]:
         TypeDict = {
@@ -761,14 +828,20 @@ class ThinkAgent(Agent,QueueNode):
             return "話す"
         ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターが自分ではありません")
         return "傾聴思考"
-
-    def __init__(self, agent_manager: AgentManager, replace_dict: dict):
-        super().__init__(agent_manager, replace_dict)
-        self.name = "思考エージェント"
-        self.request_template_name = "思考エージェントリクエストひな形"
-        self.chara_name = agent_manager.chara_name
-        self.agent_setting = self.loadAgentSetting()
-        self.event_queue = Queue()
+    
+    async def run(self,transported_item: TransportedItem)->TransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query)
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result)
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addIndoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
 
     async def handleEvent(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
@@ -781,6 +854,9 @@ class ThinkAgent(Agent,QueueNode):
         output = await self.run(transported_item)
         if self.speak_or_silent == "傾聴思考":
             return
+        
+        latest_message_time:TimeExtend = output.time
+        self.notifyReceivedMessageTimeToInputReciever(latest_message_time)
         
 
         await self.notify(output)
@@ -809,7 +885,7 @@ class ThinkAgent(Agent,QueueNode):
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query) #asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
@@ -877,6 +953,10 @@ class ThinkAgent(Agent,QueueNode):
             fail_sentence = f"{fail_sentence}\n{fail_serif}"
         
         self.fail_serif = fail_sentence
+
+    def notifyReceivedMessageTimeToInputReciever(self, time:TimeExtend):
+        # input_recieverのmessage_stackを解放するために、受信に成功したメッセージの時間を通知する
+        self.agent_manager.clearInputRecieverMessageStack(time)
         
 class SerifAgent(Agent):
     # class SerifAgentResponse(TypedDict):
@@ -936,25 +1016,57 @@ class SerifAgent(Agent):
         serif_list = self.getSerifList(output.Serif_data)
         for serif in serif_list:
             send_data = self.agent_manager.createSendData(serif, self.agent_manager.human_dict[self.agent_manager.chara_name],"gpt")
-            await self.agent_manager.websocket.send_json(json.dumps(send_data))
-            await self.saveSuccesSerifToMemory(serif)
-            # 区分音声の再生が完了したかメッセージを貰う
-            end_play_data = await self.agent_manager.websocket.receive_json()
-            ExtendFunc.ExtendPrint(end_play_data)
+            # await self.agent_manager.websocket.send_json(json.dumps(send_data))
+            # await self.saveSuccesSerifToMemory(serif)
+            # # 区分音声の再生が完了したかメッセージを貰う
+            # end_play_data = await self.agent_manager.websocket.receive_json()
+            # 同時に実行するコルーチンをリストにまとめます
+            tasks = [
+                self.agent_manager.websocket.send_json(json.dumps(send_data)),
+                self.saveSuccesSerifToMemory(serif),
+                self.agent_manager.websocket.receive_json()
+            ]
+
+            # asyncio.gatherを使用して全てのコルーチンが終了するのを待ちます
+            results = await asyncio.gather(*tasks)
+
+            # resultsには各コルーチンの結果が格納されています
+            end_play_data = results[2]
+            ExtendFunc.ExtendPrint(end_play_data) # { "gpt_voice_complete": "complete" }という形式でメッセージが送られてくる
             # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
-            if self.epic.getLatestMessage()['現在の日付時刻'] != output.time:
+            if self.judgeNextSerifSend(output) == False:
+                ExtendFunc.ExtendPrint("次の音声を送らない")
+                now_index = serif_list.index(serif)
+                fail_serifs = serif_list[now_index+1:]
+                self.saveFailSerifToMemory(fail_serifs)
                 return
+            
         else:
             # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
             pass
     
+    def judgeNextSerifSend(self,ti: TransportedItem)->bool:
+        # output.time以降のメッセージリストのspeakerを列挙して自分以外がいればFalseを返す
+        judge_time = ti.time
+        # 反転しているのは最新のメッセージから見ていくため
+        for message_unit in self.epic.messageHistory[::-1]:
+            ExtendFunc.ExtendPrint(f"{message_unit['現在の日付時刻']} <= {judge_time} を確認")
+            if message_unit['現在の日付時刻'] <= judge_time:
+                ExtendFunc.ExtendPrint(f"{message_unit['現在の日付時刻']} <= {judge_time} なのでTrueを返します")
+                return True
+            ExtendFunc.ExtendPrint(f"{self.chara_name}が{message_unit['message'].speakers}に入っているか確認")
+            if self.chara_name not in message_unit["message"].speakers:
+                ExtendFunc.ExtendPrint(f"{self.chara_name}が{message_unit['message'].speakers}に入っていないためFalseを返します")
+                return False
+        return True
+
     async def saveSuccesSerifToMemory(self,serif:str):
         # InputRecieverのメッセージスタックに追加するために、epic経由でメッセージを追加する
         await self.epic.appendMessageAndNotify({self.chara_name:serif})
     
-    def saveFailSerifToMemory(self,serif:str):
-        # thinkエージェントに失敗したセリフの情報を保存
-        self.agent_manager.think_agent.failSerifFeedBack([serif])
+    def saveFailSerifToMemory(self,serifs:list[str]):
+        # 失敗したセリフの情報をthinkエージェントに保存
+        self.agent_manager.think_agent.failSerifFeedBack(serifs)
 
 
     async def notify(self, data):
@@ -982,7 +1094,7 @@ class SerifAgent(Agent):
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query) #asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result    
