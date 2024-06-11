@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 from api.Extend.ExtendSet import Interval
 from api.gptAI.Human import Human
 # from api.gptAI.AgenetResponseJsonType import ThinkAgentResponse
-from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
+from api.Extend.ExtendFunc import ExtendFunc, RandomExtend, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.Epic.Epic import Epic, MassageHistoryUnit, MessageUnit
 from typing import Literal, Protocol, TypedDict
@@ -610,6 +610,7 @@ class SpeakerDistributeAgent(Agent):
     @staticmethod
     def typeSpeakerDistributeAgentResponse(replace_dict: dict, chara_name_list: list[str]):
         TypeDict = {
+            "理由考察":str,
             "次に発言するべきキャラクター": chara_name_list
         }
         return TypeDict
@@ -626,6 +627,14 @@ class SpeakerDistributeAgent(Agent):
             await self.notify(transported_item)
             return
         output = await self.run(transported_item)
+        # ランダムかどうかを判定
+        if output.SpeakerDistribute_data["次に発言するべきキャラクター"] == "ランダム":
+            ExtendFunc.ExtendPrint("次に喋るべきキャラクターがランダムだったのでサイコロを振ります")
+            # 0~1の乱数を生成
+            if RandomExtend.random0to1() > 0.5:
+                # 0.5以上ならランダムでないキャラクターに変更
+                output.SpeakerDistribute_data["次に発言するべきキャラクター"] = self.agent_manager.chara_name
+
         # 次に喋るべきキャラクターが自分でなければキャンセル
         if output.SpeakerDistribute_data["次に発言するべきキャラクター"] != self.agent_manager.chara_name:
             next_chara = output.SpeakerDistribute_data["次に発言するべきキャラクター"]
@@ -678,7 +687,7 @@ class SpeakerDistributeAgent(Agent):
         """
         キャラ名のリストを返す。例：['きりたん', 'ずんだもん', 'ゆかり','おね','あかり']
         """
-        chara_name_list = []
+        chara_name_list = ["ランダム"]
         for key in self.agent_manager.human_dict.keys():
             chara_name_list.append(key)
         ExtendFunc.ExtendPrint(chara_name_list)
@@ -885,7 +894,8 @@ class ThinkAgent(Agent,QueueNode):
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query) #asyncGenereateResponseGPT3Turbojson(query)
+        #result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result
@@ -1094,7 +1104,8 @@ class SerifAgent(Agent):
 
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
-        result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query) #asyncGenereateResponseGPT3Turbojson(query)
+        #result = await self._gpt_api_unit.asyncGenereateResponseGPT4TurboJson(query)
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
         if result is None:
             raise ValueError("リクエストに失敗しました。")
         return result    

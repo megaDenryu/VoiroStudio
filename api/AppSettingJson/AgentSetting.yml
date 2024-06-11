@@ -58,12 +58,13 @@
       次に発言するべきキャラクターをリストの中から選んでください。返答方法は以下のpythonで型定義されたjson形式でお願いします。
       ```
       class SpeakerDistributeAgentResponse(TypedDict):
+          理由考察:str
           次に発言するべきキャラクター: Literal['きりたん', 'ずんだもん', 'ゆかり','おね','あかり','ランダム']
       ```
   - role: assistant
     content: |-
       {
-          "理由": 特定の人に話題が振られているわけではないのでランダムに選びます。",
+          "理由考察": 特定の人に話題が振られているわけではないのでランダムに選びます。",
           "次に発言するべきキャラクター": "ランダム"
       }
   - role: user
@@ -77,13 +78,13 @@
       次に発言するべきキャラクターをリストの中から選んでください。返答方法は以下のpythonで型定義されたjson形式でお願いします。
       ```
       class SpeakerDistributeAgentResponse(TypedDict):
-          理由:str
+          理由考察:str
           次に発言するべきキャラクター: Literal['きりたん', 'ずんだもん', 'ゆかり','おね','あかり']
       ```
   - role: assistant
     content: |-
       {
-          "理由": "文意が通じていないため",
+          "理由考察": "文意が通じていないため",
           "次に発言するべきキャラクター": "ずん子"
       }
 発言者振り分けエージェントリクエストひな形:
@@ -96,7 +97,7 @@
       次に発言するべきキャラクターをリストの中から選んでください。返答方法は以下のpythonで型定義されたjson形式でお願いします。
       ```
       class SpeakerDistributeAgentResponse(TypedDict):
-          理由:str
+          理由考察:str
           次に発言するべきキャラクター: Literal{{character_list}}
       ```
 

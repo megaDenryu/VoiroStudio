@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 import os
+import random
 import typing
 import Levenshtein
 from pprint import pprint
@@ -762,6 +763,11 @@ class TextConverter:
         # 英語を翻訳
        
         # 翻訳後の文章を結合
+
+class RandomExtend:
+    @staticmethod
+    def random0to1():
+        return random.random()
        
 
 
