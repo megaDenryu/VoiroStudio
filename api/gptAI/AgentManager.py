@@ -135,8 +135,8 @@ class TransportedItem(BaseModel):
     time:TimeExtend
     data:Any
     recieve_messages:str
-    MicInputJudge_data:Any
-    SpeakerDistribute_data:dict[str,str]
+    MicInputJudge_data:"MicInputJudgeAgent.MicInputJudgeAgentResponse"
+    SpeakerDistribute_data:"SpeakerDistributeAgent.SpeakerDistributeAgentResponse" #dict[str,str]
     Listening_data:Any
     Think_data:dict[str,str]
     Serif_data:Any
@@ -148,6 +148,14 @@ class EventReciever(Protocol):
     name:str
     async def handleEvent(self, transported_item:TransportedItem):
         pass
+class EventRecieverWaitFor(Protocol):
+    name:str
+    async def handleEvent(self, transported_item:TransportedItem):
+        pass
+    def timeOutSec(self)->float: # type: ignore
+        pass
+    def timeOutItem(self)->TransportedItem: # type: ignore
+        pass
 
 class EventNotifier(Protocol):
     event:Event
@@ -157,6 +165,15 @@ class EventNotifier(Protocol):
 class QueueNotifier(Protocol):
     event_queue:Queue[TransportedItem]
     async def notify(self, data:TransportedItem):
+        pass
+
+class QueueNotifierWaitFor(Protocol):
+    event_queue:Queue[TransportedItem]
+    async def notify(self, data:TransportedItem):
+        pass
+    def timeOutSec(self)->float: # type: ignore
+        pass
+    def timeOutItem(self)->TransportedItem: # type: ignore
         pass
 
 class EventNode(EventReciever,EventNotifier,Protocol):
@@ -504,6 +521,10 @@ class InputReciever():
         return None
 
 class MicInputJudgeAgent(Agent):
+    class MicInputJudgeAgentResponse(TypedDict):
+        理由:str
+        入力成功度合い:float
+
     @staticmethod
     def typeMicInputJudgeAgentResponse(replace_dict: dict):
         TypeDict = {
@@ -574,7 +595,7 @@ class MicInputJudgeAgent(Agent):
             raise ValueError("リクエストに失敗しました。")
         return result
     
-    def correctResult(self,result: str) -> dict:
+    def correctResult(self,result: str) -> MicInputJudgeAgentResponse:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
@@ -606,7 +627,9 @@ class SpeakerDistributeAgent(Agent):
         self.epic:Epic = agent_manager.epic
         super().__init__(agent_manager)
         
-
+    class SpeakerDistributeAgentResponse(TypedDict):
+        理由考察:str
+        次に発言するべきキャラクター:str
     @staticmethod
     def typeSpeakerDistributeAgentResponse(replace_dict: dict, chara_name_list: list[str]):
         TypeDict = {
@@ -967,6 +990,28 @@ class ThinkAgent(Agent,QueueNode):
     def notifyReceivedMessageTimeToInputReciever(self, time:TimeExtend):
         # input_recieverのmessage_stackを解放するために、受信に成功したメッセージの時間を通知する
         self.agent_manager.clearInputRecieverMessageStack(time)
+
+    def timeOutSec(self)->float:
+        """
+        黙ってとお願いされてる場合など、エージェントの状態によってタイムアウト時間を変える
+        """
+        return 60
+    
+    def timeOutItem(self):
+        """
+        このtiは自分自身で受け取るので
+        """
+        return TransportedItem(
+            time = TimeExtend(),
+            data = None,
+            recieve_messages = "",
+            MicInputJudge_data = {"理由":"タイムアウト","入力成功度合い":0.0},
+            SpeakerDistribute_data = {"次に発言するべきキャラクター":self.chara_name , "理由考察":"タイムアウト"},
+            Listening_data = "",
+            Think_data = {},
+            Serif_data = {},
+            stop = False
+        )
         
 class SerifAgent(Agent):
     # class SerifAgentResponse(TypedDict):
@@ -1166,6 +1211,21 @@ class AgentEventManager:
                 ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
                 return
             item = await notifier.event_queue.get()
+            ExtendFunc.ExtendPrint(item)
+            await reciever.handleEvent(item)
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
+    
+    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier, reciever: EventRecieverWaitFor):
+        while True:
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
+            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
+                return
+            try:
+                item = await asyncio.wait_for(notifier.event_queue.get(), timeout=reciever.timeOutSec())
+            except asyncio.TimeoutError:
+                ExtendFunc.ExtendPrint(f"{reciever.name}イベントがタイムアウトしました")
+                item = reciever.timeOutItem()
             ExtendFunc.ExtendPrint(item)
             await reciever.handleEvent(item)
             ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
