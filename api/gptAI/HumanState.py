@@ -32,19 +32,12 @@ class HumanState:
             "腹": normal,
             "腰": normal,
             "尻": normal,
-            "足": normal,
-            "脚": normal,
+            "太もも": normal,
             "膝": normal,
             "足首": normal,
             "足の裏": normal,
             "つま先": normal,
-            "全身": normal
         }
 
-if __name__ == '__main__':
-    fruits:dict[Literal['apple', 'banana', 'cherry'], int] = {}
-    key = input("key:")
-    value = int(input("value:"))
-    fruits[key] = value
-    print(json.dumps(fruits, indent=4))
+
 
