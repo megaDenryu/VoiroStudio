@@ -939,7 +939,13 @@ async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
     await pipe
     ExtendFunc.ExtendPrint("gpt_routine終了")
 
-
+class Item(BaseModel):
+    type: str
+    data: str
+@app.post("/ShortCut")
+async def receive_data(item: Item):
+    print("ShortCut")
+    pprint(item)
 
 
 
