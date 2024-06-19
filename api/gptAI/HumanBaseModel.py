@@ -17,3 +17,10 @@ class HumanEmotion(BaseModel):
 class BodypartState(BaseModel):
     health_state:str #健康状態。健康、痛い、筋肉痛、疲れ、痺れ、かゆい、熱い　など
     health_point:float #各パーツのヘルスポイント。0~100の間で表現。0になるとその部位は使えなくなる。時間がたつと回復する。低くなるほど使いたくなくなる。
+
+
+class MemoryUnit(BaseModel):
+    type:str
+    title:str
+    #要約
+    summary:str

@@ -20,6 +20,7 @@ from typing import Literal, Protocol, TypedDict
 from typing import Any, Dict, get_type_hints, get_origin
 from pydantic import BaseModel, validator
 
+
 class ChatGptApiUnit:
     """
     責務:APIにリクエストを送り、結果を受け取るだけ。クエリの調整は行わない。
@@ -131,12 +132,21 @@ class ChatGptApiUnit:
                 temperature=0.7
             )
         return response.choices[0].message.content
+    
+class MicInputJudgeAgentResponse(TypedDict):
+    理由:str
+    入力成功度合い:float
+
+class SpeakerDistributeAgentResponse(TypedDict):
+    理由考察:str
+    次に発言するべきキャラクター:str
+    
 class TransportedItem(BaseModel):
     time:TimeExtend
     data:Any
     recieve_messages:str
-    MicInputJudge_data:"MicInputJudgeAgent.MicInputJudgeAgentResponse"
-    SpeakerDistribute_data:"SpeakerDistributeAgent.SpeakerDistributeAgentResponse" #dict[str,str]
+    MicInputJudge_data:MicInputJudgeAgentResponse 
+    SpeakerDistribute_data:SpeakerDistributeAgentResponse #dict[str,str]
     Listening_data:Any
     Think_data:dict[str,str]
     Serif_data:Any
@@ -207,6 +217,7 @@ class AgentManager:
     mic_input_check_agent:"MicInputJudgeAgent"
     think_agent:"ThinkAgent"
     serif_agent:"SerifAgent"
+    GPTModeSetting:dict[str,str] = {}
     def __init__(
             self,chara_name:str, 
             epic:Epic, 
@@ -223,6 +234,7 @@ class AgentManager:
         self.prepareAgents(self.replace_dict)
         self.websocket = websocket
         self.input_reciever = input_reciever
+        self.GPTModeSetting = JsonAccessor.loadAppSetting()["GPT設定"]
 
     @property
     def message_memory(self) -> list[MassageHistoryUnit]:
@@ -329,8 +341,6 @@ class AgentManager:
         self.input_reciever.clearMessageStack(time)
         
 
-
-
 class Agent:
     """
     エージェントの基底クラス。
@@ -412,8 +422,8 @@ class InputReciever():
             time = self.epic.getLatestMessage()['現在の日付時刻'], 
             data = "",
             recieve_messages = self.convertMessageHistoryToTransportedItemData(self.message_stack, 0, len(self.message_stack)),
-            MicInputJudge_data="",
-            SpeakerDistribute_data={},
+            MicInputJudge_data= MicInputJudgeAgentResponse(理由="", 入力成功度合い=0.0),
+            SpeakerDistribute_data = SpeakerDistributeAgentResponse(理由考察="", 次に発言するべきキャラクター=""),
             Listening_data="",
             Think_data={},
             Serif_data="",
@@ -461,8 +471,8 @@ class InputReciever():
                 time = self.epic.messageHistory[-1]['現在の日付時刻'], 
                 data = "",
                 recieve_messages = self.convertMessageHistoryToTransportedItemData(self.message_stack, 0, len(self.message_stack)),
-                MicInputJudge_data="",
-                SpeakerDistribute_data={},
+                MicInputJudge_data= MicInputJudgeAgentResponse(理由="", 入力成功度合い=0.0),
+                SpeakerDistribute_data = SpeakerDistributeAgentResponse(理由考察="", 次に発言するべきキャラクター=""),
                 Listening_data="",
                 Think_data={},
                 Serif_data=""
@@ -520,11 +530,8 @@ class InputReciever():
                 return i
         return None
 
-class MicInputJudgeAgent(Agent):
-    class MicInputJudgeAgentResponse(TypedDict):
-        理由:str
-        入力成功度合い:float
 
+class MicInputJudgeAgent(Agent):
     @staticmethod
     def typeMicInputJudgeAgentResponse(replace_dict: dict):
         TypeDict = {
@@ -601,7 +608,8 @@ class MicInputJudgeAgent(Agent):
         """
         # strからjsonLoadしてdictに変換
         jsonnized_result = JsonAccessor.extendJsonLoad(result)
-        return ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeMicInputJudgeAgentResponse(self.replace_dict))
+        res = ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeMicInputJudgeAgentResponse(self.replace_dict))
+        return MicInputJudgeAgentResponse(入力成功度合い=res["入力成功度合い"], 理由=res["理由"])
     
     def saveResult(self,result):
         # 必要ない
@@ -611,11 +619,10 @@ class MicInputJudgeAgent(Agent):
         # 必要ない
         pass
 
-    def addIndoToTransportedItem(self,transported_item:TransportedItem, result:Dict[str, Any])->TransportedItem:
+    def addIndoToTransportedItem(self,transported_item:TransportedItem, result:MicInputJudgeAgentResponse)->TransportedItem:
         transported_item.MicInputJudge_data = result
         return transported_item
     
-
 class SpeakerDistributeAgent(Agent):
     def __init__(self, agent_manager: AgentManager):
         self.name = "発言者振り分けエージェント"
@@ -627,9 +634,6 @@ class SpeakerDistributeAgent(Agent):
         self.epic:Epic = agent_manager.epic
         super().__init__(agent_manager)
         
-    class SpeakerDistributeAgentResponse(TypedDict):
-        理由考察:str
-        次に発言するべきキャラクター:str
     @staticmethod
     def typeSpeakerDistributeAgentResponse(replace_dict: dict, chara_name_list: list[str]):
         TypeDict = {
@@ -649,7 +653,11 @@ class SpeakerDistributeAgent(Agent):
         if transported_item.stop:
             await self.notify(transported_item)
             return
-        output = await self.run(transported_item)
+        if self.agent_manager.GPTModeSetting["SpeakerDistributeAgentのmode"] == "全部通す":
+            transported_item.SpeakerDistribute_data = {"理由考察":"全部通す" ,"次に発言するべきキャラクター":self.agent_manager.chara_name}
+            output = transported_item
+        else:
+            output = await self.run(transported_item)
         # ランダムかどうかを判定
         if output.SpeakerDistribute_data["次に発言するべきキャラクター"] == "ランダム":
             ExtendFunc.ExtendPrint("次に喋るべきキャラクターがランダムだったのでサイコロを振ります")
@@ -694,15 +702,16 @@ class SpeakerDistributeAgent(Agent):
             raise ValueError("リクエストに失敗しました。")
         return result
     
-    def correctResult(self,result: str) -> dict:
+    def correctResult(self,result: str) -> SpeakerDistributeAgentResponse:
         """
         resultがThinkAgentResponseの型になるように矯正する
         """
         # strからjsonLoadしてdictに変換
         jsonnized_result = JsonAccessor.extendJsonLoad(result)
-        return ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeSpeakerDistributeAgentResponse(self.replace_dict, self.createCharacterList()))
+        res = ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeSpeakerDistributeAgentResponse(self.replace_dict, self.createCharacterList()))
+        return SpeakerDistributeAgentResponse(次に発言するべきキャラクター=res["次に発言するべきキャラクター"], 理由考察=res["理由考察"])
     
-    def addIndoToTransportedItem(self,transported_item:TransportedItem, result:Dict[str, Any])->TransportedItem:
+    def addIndoToTransportedItem(self,transported_item:TransportedItem, result:SpeakerDistributeAgentResponse)->TransportedItem:
         transported_item.SpeakerDistribute_data = result
         return transported_item
 
@@ -784,7 +793,7 @@ class ListeningAgent(Agent):
         """
         # strからjsonLoadしてdictに変換
         jsonnized_result = JsonAccessor.extendJsonLoad(result)
-        return ExtendFunc.correctDictToTypeDict(jsonnized_result, ThinkAgent.typeThinkAgentResponse(self.replace_dict))
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, ThinkAgent.typeThinkAgentResponse(self.replace_dict, self.agent_manager.chara_name))
     
     def addIndoToTransportedItem(self, transported_item: TransportedItem, result: Dict[str, Any]) -> TransportedItem:
         transported_item.Listening_data = result
@@ -793,7 +802,7 @@ class ListeningAgent(Agent):
 
 class ThinkAgent(Agent,QueueNode):
     _previous_situation:list[str] = []
-    speak_or_silent:Literal["話す","傾聴思考"] = "傾聴思考"
+    speak_or_silent:Literal["話す","傾聴思考","独り言orつっこみorボケを話す"] = "傾聴思考"
 
     def __init__(self, agent_manager: AgentManager, replace_dict: dict):
         super().__init__(agent_manager, replace_dict)
@@ -835,7 +844,7 @@ class ThinkAgent(Agent,QueueNode):
             }
         ExtendFunc.ExtendPrint("tIがNoneではありません")
         input = tI.recieve_messages
-        self.speak_or_silent:Literal["話す","傾聴思考"] = self.speakOrSilent(tI)
+        self.speak_or_silent:Literal["話す","傾聴思考","独り言orつっこみorボケを話す"] = self.speakOrSilent(tI)
         
         # キャラのロールや属性は別のキャラクター設定ymlから取得する
         relace_dict = {
@@ -850,12 +859,15 @@ class ThinkAgent(Agent,QueueNode):
 
         return relace_dict
     
-    def speakOrSilent(self, tI:TransportedItem)->Literal["話す","傾聴思考"]:
+    def speakOrSilent(self, tI:TransportedItem)->Literal["話す","傾聴思考","独り言orつっこみorボケを話す"]:
         if "次に発言するべきキャラクター" not in tI.SpeakerDistribute_data:
             ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターがありません")
             return "傾聴思考"
         ExtendFunc.ExtendPrint(self.chara_name)
         if tI.SpeakerDistribute_data["次に発言するべきキャラクター"] == self.chara_name:
+            if tI.SpeakerDistribute_data["理由考察"] == "タイムアウト":
+                ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターが自分で、タイムアウトを検知したので独り言を話します")
+                return "独り言orつっこみorボケを話す"
             ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターが自分です")
             return "話す"
         ExtendFunc.ExtendPrint("SpeakerDistribute_dataに次に発言するべきキャラクターが自分ではありません")
@@ -1001,10 +1013,12 @@ class ThinkAgent(Agent,QueueNode):
         """
         このtiは自分自身で受け取るので
         """
+        ir = self.agent_manager.input_reciever
+        rm = ir.convertMessageHistoryToTransportedItemData(ir.message_stack, 0, len(ir.message_stack))
         return TransportedItem(
             time = TimeExtend(),
             data = None,
-            recieve_messages = "",
+            recieve_messages = rm,
             MicInputJudge_data = {"理由":"タイムアウト","入力成功度合い":0.0},
             SpeakerDistribute_data = {"次に発言するべきキャラクター":self.chara_name , "理由考察":"タイムアウト"},
             Listening_data = "",
@@ -1197,8 +1211,8 @@ class AgentEventManager:
                 time=TimeExtend(), 
                 data=None,
                 recieve_messages="",
-                MicInputJudge_data=None,
-                SpeakerDistribute_data={},
+                MicInputJudge_data = MicInputJudgeAgentResponse(理由="タイムアウト",入力成功度合い=0.0),
+                SpeakerDistribute_data = SpeakerDistributeAgentResponse(次に発言するべきキャラクター="ゆかり",理由考察="タイムアウト"),
                 Listening_data=None,
                 Think_data={},
                 Serif_data=None

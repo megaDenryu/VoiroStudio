@@ -1,6 +1,6 @@
 import json
 from typing import Literal
-from api.gptAI.HumanBaseModel import BodypartState, HumanName
+from api.gptAI.HumanBaseModel import BodypartState, HumanName, MemoryUnit
 from api.gptAI.HumanBaseModel import HumanEmotion
 
 
@@ -38,6 +38,10 @@ class HumanState:
             "足の裏": normal,
             "つま先": normal,
         }
+        self.isConversation = False
 
+class HumanMemory:
+    def __init__(self):
+        self.memory:list[MemoryUnit] = []
 
 
