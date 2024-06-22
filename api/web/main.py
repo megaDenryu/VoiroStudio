@@ -930,6 +930,7 @@ async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.serif_agent),
         agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )

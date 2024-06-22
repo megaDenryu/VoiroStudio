@@ -609,6 +609,7 @@ class TextConverter:
         char_type_continuous = False
         split_text:list[WordWithType] = []
         contituos_word:list[str] = []
+        char_type = None
         for char in text:
             # 文字の種類を取得
             char_type = TextConverter.checkCharacterType(char)
@@ -625,6 +626,9 @@ class TextConverter:
                 contituos_word = [char]
                 previous_char_type = char_type
         else:
+            if char_type == None:
+                char_type = "日本語"
+                contituos_word = ["あ"]
             word = "".join(contituos_word)
             word_with_type = WordWithType(word, char_type)
             split_text.append(word_with_type)
