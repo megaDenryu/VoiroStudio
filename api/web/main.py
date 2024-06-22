@@ -922,7 +922,7 @@ async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
     
     
     agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
-    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
     gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
     gpt_agent_dict[chara_name] = gpt_agent
 
@@ -930,7 +930,7 @@ async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
     )
@@ -938,6 +938,7 @@ async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
     # pipeが完了したら通知
     await pipe
     ExtendFunc.ExtendPrint("gpt_routine終了")
+
 
 class Item(BaseModel):
     type: str
