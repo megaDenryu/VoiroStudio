@@ -227,7 +227,7 @@
           "結論": "話を聞く"
       }
 傾聴エージェントリクエストひな形:
-  - role: user
+  - role: userexplo
     content: |-
       {{input}}
     
@@ -420,7 +420,10 @@
   - role: user
     content: |-
       {{think_agent_output}}
-      {{gptキャラ}}は上のような思考をしました。これに基づいて{{gptキャラ}}のセリフを生成してください。
+      {{gptキャラ}}は上のような思考をしました。
+      
+      {{思考停止セリフの場合}}
+      これに基づいて{{gptキャラ}}のセリフを生成してください。
       ```
       class AgentResponse(TypedDict):
           {{gptキャラ}}の発言: str

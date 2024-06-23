@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import os
 import random
+import re
 import typing
 import Levenshtein
 from pprint import pprint
@@ -177,6 +178,26 @@ class ExtendFunc:
         if not isinstance(ret_dict, dict):
             raise ValueError(f"{file_path} は辞書形式ではありません。")
         return ret_dict
+    
+    """
+    json文字列とそうでない文字列が混在した文字列からjson文字列を抽出して辞書にして返します。
+    """
+    @staticmethod
+    def extractjson(input_str):
+        # JSON文字列を抽出する正規表現パターン
+        pattern = r'\{.*?\}'
+        matches = re.findall(pattern, input_str, re.DOTALL)
+        
+        json_dicts = []
+        for match in matches:
+            try:
+                # JSON文字列をPythonの辞書に変換
+                json_dict = json.loads(match)
+                json_dicts.append(json_dict)
+            except json.JSONDecodeError:
+                continue
+        
+        return json_dicts
 
     @staticmethod
     def closestBoolean(target:str, str_list: list) -> str:

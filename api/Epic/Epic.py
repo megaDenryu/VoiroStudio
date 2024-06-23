@@ -4,6 +4,8 @@ from api.DataStore.JsonAccessor import JsonAccessor
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 
 class MessageUnit:
+    message: dict[str,str]
+    speakers: list[str]
     def __init__(self, message: dict[str,str]):
         self.message = message
         self.speakers = list(message.keys())
@@ -27,10 +29,11 @@ class Epic:
             message = {
                 "エラー":"メッセージが存在しません"
             }
-            tmp_message = {
-            "message": MessageUnit(message),
-            "現在の日付時刻": TimeExtend()
-            }
+            tmp_message = MassageHistoryUnit(
+                message = MessageUnit(message),
+                現在の日付時刻 = TimeExtend(),
+                stop = False
+            )
             return tmp_message
         return self.massage_history[-1]
     

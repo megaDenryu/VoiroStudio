@@ -136,7 +136,7 @@ class JsonAccessor:
         ExtendFunc.saveDictToJson(path, input_dict)
 
     @staticmethod
-    def insertLogJsonToDict(file_name, input_dict):
+    def insertLogJsonToDict(file_name, input_dict, data_name:str = ""):
         if  isinstance(input_dict, str):
             try:
                 input_dict = json.loads(input_dict)
@@ -145,7 +145,7 @@ class JsonAccessor:
         
         now_time = TimeExtend()
         save_dict = {
-            f"{now_time.date}":input_dict
+            f"{now_time.date} : {data_name}":input_dict
         }
         # ExtendFunc.ExtendPrint("save_dict",save_dict)
         # 拡張子がついてるかチェックし、なければつける
