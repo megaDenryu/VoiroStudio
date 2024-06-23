@@ -878,8 +878,8 @@ async def ws_gpt_routine(websocket: WebSocket, front_name: str):
                 # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
                 human_gpt_manager.message_memory = []
 
-@app.websocket("/gpt_routine/{front_name}")
-async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
+@app.websocket("/gpt_routine2/{front_name}")
+async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
     print("gpt_routineコネクションします")
     await websocket.accept()
@@ -909,8 +909,8 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     ExtendFunc.ExtendPrint("gpt_routine終了")
 
 
-@app.websocket("/gpt_routine2/{front_name}")
-async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
+@app.websocket("/gpt_routine/{front_name}")
+async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
     print("gpt_routineコネクションします")
     await websocket.accept()
@@ -930,9 +930,9 @@ async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.serif_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
         agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
     )
 
