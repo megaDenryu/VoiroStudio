@@ -25,7 +25,7 @@ except ImportError:
     print("AIVoiceHuman module could not be imported. Please ensure the required application is installed.")
 
 class Human:
-    def __init__(self,front_name,voiceroid_dict, corresponding_websocket:WebSocket, prompt_setteing_num:str = "キャラ個別システム設定") -> None:
+    def __init__(self,front_name:str ,voiceroid_dict, corresponding_websocket:WebSocket, prompt_setteing_num:str = "キャラ個別システム設定") -> None:
         """
         @param front_name: フロントで入力してウインドウに表示されてる名前
         @param voiceroid_dict: 使用してる合成音声の種類をカウントする辞書。{"cevio":0,"voicevox":0,"AIVOICE":0}。cevioやAIVOICEの起動管理に使用。
@@ -40,7 +40,7 @@ class Human:
 
         self.voice_mode = "wav出力"
         #フロントで入力してウインドウに表示されてる名前
-        self.front_name = front_name
+        self.front_name:str = front_name
         #ボイスロイドの名前
         self.char_name = self.setCharName(front_name)
         print(f"char_name:{self.char_name}")
@@ -325,6 +325,9 @@ class Human:
         文章を分割してリストにする
         """
         sentence_list = re.split('[。、]', sentense)
+        # 空白を削除
+        sentence_list = list(filter(lambda x: x != "", sentence_list))
+        ExtendFunc.ExtendPrint(sentence_list)
         return sentence_list
     
     @staticmethod

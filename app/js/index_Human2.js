@@ -718,105 +718,166 @@ function receiveMessage(event) {
     }
 }
 
+/**
+ * @typedef {Object} WavInfo
+ * @property {string} path - wavファイルのパス
+ * @property {string} wav_data - wavファイルのデータ（Base64形式）
+ * @property {string} phoneme_time - 音素の開始時間と終了時間の情報
+ * @property {string} phoneme_str - 音素の情報
+ * @property {string} char_name - キャラの名前
+ * @property {string} voice_system_name - 音声合成のシステムの名前
+ */
+
 //gptで生成された会話データを受信したときのイベント関数
 async function receiveConversationData(event) {
+    // console.log(typeof(event.data))
+    // alert(event.data)
     var human_tab = document.getElementsByClassName('human_tab');
-    const obj = JSON.parse(JSON.parse(event.data));
+    let obj = JSON.parse(JSON.parse(event.data));
     console.log("メッセージを受信")
     console.log(obj)
     var audio_group = document.getElementsByClassName("audio_group")[0]
-    if (0 in obj && "wav_data" in obj[0]) {
-        //wavファイルが送られてきたときの処理。
-        //複数のwavファイルが送られてくるのでaudio_groupに追加していく。
-        console.log(obj)
-        
-        for await(let item of obj){
-            console.log("audio準備開始")
-            audio_group = await execAudio(item,audio_group);
-            console.log(item["char_name"]+`音源再生終了`)
-        }
-        console.log("全て再生終了")
+    if ("chara_type" in obj && obj["chara_type"] == "gpt") {
+        //文章を表示
+        const /**@type {Record<String,string>} */ sentence = obj["sentence"];
+        const textPromise = execText(sentence,human_tab)
 
-    }
-    else {
-        //テキストが送られてきたときの処理
-        for(let i=1; i<human_tab.length;i++){
-            //human_tabの中のhuman_nameを取得
-            var message = document.createElement('li')
-            //human_nameを取得
-            var name = human_tab[i].getElementsByClassName("human_name")[0].innerText
-            //message_colを取得
-            var message_col = human_tab[i].getElementsByClassName("message_col")[0]
-            //messageを作成
-            if(obj.hasOwnProperty(name)){
-                if(typeof obj[name] == "object"){
-                    console.log("上を通った")
-                    for(var key in obj[name]){
-                        if (key == "感情"){
-                            str = `${key}:${JSON.stringify(obj[name][key])}\n\n`
-                        }else{
-                            str = `${key}:${obj[name][key]}\n\n`
-                        }
-                        
-                        var content = document.createTextNode(str)
-                        message.appendChild(content)
-                    }
-                }else{
-                    console.log("下を通った")
-                    console.log("obj[name]=",obj[name])
-                    var content = document.createTextNode(obj[name])
-                    message.appendChild(content)
-                }
-                
-            
-                //class = "subtitle"を取得してinnerTextをmessageに変更
-                var subtitle = human_tab[i].getElementsByClassName("subtitle")[0]
-                subtitle.innerText = obj[name]
-                console.log("subtitle.innerText=",subtitle.innerText)
+        //音声を再生
+        const /**@type {WavInfo[]} */ wav_info  = obj["wav_info"];
+        const audioPromise = execAudioList(wav_info,audio_group)
 
-                //class = "message"を追加
-                message.classList.add("message")
-                message_col.appendChild(message)
-                
-                //mode_integrateのmessage_colにも追加
-                var message_col_integrate = document.getElementsByClassName("message_col mode_integrate")[0]
-                var message_integrate = message.cloneNode(true)
-                message_integrate.classList.add("message_integrate")
-                //message_integrateに番号情報を追加。後で位置の再調整に使う。
-                message_integrate.setAttribute("data-tab_num",i)
-                //message_integrateの横のmarginに使う値
-                const base_margin = 6
-                //message_integrateの横位置を調整
-                message_integrate.style.marginLeft = `${100 / (human_tab.length-1) * (i-1) + base_margin / (human_tab.length-1)}%`
-                //message_integrateのwidthを調整
-                message_integrate.style.width = `${100 / (human_tab.length-1) - base_margin / (human_tab.length-1) * 2}%`
+        // 両方の処理が終わるのを待つ
+        await Promise.all([textPromise, audioPromise]);
 
-                message_col_integrate.appendChild(message_integrate)
-                //一番下にスクロール
-                message_col.scrollTop = message_col.scrollHeight;
-                message_col_integrate.scrollTop = message_col_integrate.scrollHeight;
-            }
-
-            
-            //humans_list.ONE_chan.changeTail()
-        }
-    }
-
-    //gptかの音声だった場合は終了を通知。
-    // todo gptかどうかの判定や名前の取得や通知するjsonの中身がまだ仮置きなので、後で修正する。
-    if (true) {
-        const front_name = "One_chan"
+        //gptからの音声だった場合は終了を通知。
+        const front_name = getNthKeyFromObject(sentence, 0)
         const message_box = message_box_manager.getMessageBoxByFrontName(front_name);
         if (message_box) {
             const human_gpt_routine_ws = message_box.gpt_setting_button_manager_model.human_gpt_routine_ws_dict[front_name];
-            human_gpt_routine_ws.sendJson({ "start_stop": "stop" });
+            human_gpt_routine_ws.sendJson({ "gpt_voice_complete": "complete" });
         }
         
+    } else if("chara_type" in obj && obj["chara_type"] == "player") {
+        //文章を表示
+        const /**@type {Record<String,string>} */ sentence = obj["sentence"];
+        const textPromise = execText(sentence,human_tab)
 
+        //音声を再生
+        const /**@type {WavInfo[]} */ wav_info  = obj["wav_info"];
+        const audioPromise = execAudioList(wav_info,audio_group)
+
+        // 両方の処理が終わるのを待つ
+        await Promise.all([textPromise, audioPromise]);
+    } else {
+        if (0 in obj && "wav_data" in obj[0]) {
+            //wavファイルが送られてきたときの処理。
+            //複数のwavファイルが送られてくるのでaudio_groupに追加していく。
+            await execAudioList(obj,audio_group)
+        }
+        else {
+            await execText(obj,human_tab)
+        }
     }
+    
 
 }
 
+/**
+ * //テキストが送られてきたときの処理
+ * @param {Record<string,string>} obj
+ * @param {HTMLCollectionOf<Element>} human_tab
+ */
+async function execText(obj,human_tab) {
+    console.log(obj)
+    for(let i=1; i<human_tab.length;i++){
+        //human_tabの中のhuman_nameを取得
+        let message = document.createElement('li')
+        //human_nameを取得
+        let name = human_tab[i].getElementsByClassName("human_name")[0].innerText
+        //message_colを取得
+        let message_col = human_tab[i].getElementsByClassName("message_col")[0]
+
+        let str = ""
+        //messageを作成
+        if(obj.hasOwnProperty(name)){
+            if(typeof obj[name] == "object"){
+                console.log("上を通った")
+                for(let key in obj[name]){
+                    if (key == "感情"){
+                        str = `${key}:${JSON.stringify(obj[name][key])}\n\n`
+                    }else{
+                        str = `${key}:${obj[name][key]}\n\n`
+                    }
+                    
+                    let content = document.createTextNode(str)
+                    message.appendChild(content)
+                }
+            }else{
+                console.log("下を通った")
+                console.log("obj[name]=",obj[name])
+                let content = document.createTextNode(obj[name])
+                message.appendChild(content)
+            }
+            
+        
+            //class = "subtitle"を取得してinnerTextをmessageに変更
+            let subtitle = human_tab[i].getElementsByClassName("subtitle")[0]
+            subtitle.innerText = obj[name]
+            console.log("subtitle.innerText=",subtitle.innerText)
+
+            //class = "message"を追加
+            message.classList.add("message")
+            message_col.appendChild(message)
+            
+            //mode_integrateのmessage_colにも追加
+            let message_col_integrate = document.getElementsByClassName("message_col mode_integrate")[0]
+            let message_integrate = message.cloneNode(true)
+            message_integrate.classList.add("message_integrate")
+            //message_integrateに番号情報を追加。後で位置の再調整に使う。
+            message_integrate.setAttribute("data-tab_num",i)
+            //message_integrateの横のmarginに使う値
+            const base_margin = 6
+            //message_integrateの横位置を調整
+            message_integrate.style.marginLeft = `${100 / (human_tab.length-1) * (i-1) + base_margin / (human_tab.length-1)}%`
+            //message_integrateのwidthを調整
+            message_integrate.style.width = `${100 / (human_tab.length-1) - base_margin / (human_tab.length-1) * 2}%`
+
+            message_col_integrate.appendChild(message_integrate)
+            //一番下にスクロール
+            message_col.scrollTop = message_col.scrollHeight;
+            message_col_integrate.scrollTop = message_col_integrate.scrollHeight;
+        }
+
+        
+        //humans_list.ONE_chan.changeTail()
+    }
+}
+
+
+
+/**
+ * @param {WavInfo[]} obj 
+ * @param {Element} audio_group 
+ */
+async function execAudioList(obj,audio_group) {
+    console.log(obj)
+        
+    for await(let item of obj){
+        console.log("audio準備開始")
+        audio_group = await execAudio(item,audio_group);
+        console.log(item["char_name"]+`音源再生終了`)
+    }
+    console.log("全て再生終了")
+}
+
+
+/**
+ * 
+ * @param {WavInfo} obj 
+ * @param {Element} audio_group 
+ * @param {Number} maxAudioElements 
+ * @returns 
+ */
 async function execAudio(obj,audio_group, maxAudioElements = 100) {
     //wavファイルをバイナリー形式で開き、base64エンコードした文字列を取得
     var wav_binary = obj["wav_data"]

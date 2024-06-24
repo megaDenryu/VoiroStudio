@@ -243,18 +243,18 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                 human_ai:Human = human_dict[name]
                 print("yukarinetに投げます")
                 print(f"{input_dict=}")
-                await epic.appendMessage(input_dict)
+                await epic.appendMessageAndNotify(input_dict)
                 print(f"{human_ai.char_name=}")
                 if "" != input_dict[human_ai.char_name]:
                     print(f"{input_dict[human_ai.char_name]=}")
-                    # 文章をまず返答
-                    json_data = json.dumps(message, ensure_ascii=False)
-                    print(f"{json_data=}を送信します")
-                    try:
-                        await notifier.push(json_data)
-                    except Exception as e:
-                        print(e)
-                        await websocket.send_json(json_data)
+                    # # 文章をまず返答
+                    # json_data = json.dumps(message, ensure_ascii=False)
+                    # print(f"{json_data=}を送信します")
+                    # try:
+                    #     await notifier.push(json_data)
+                    # except Exception as e:
+                    #     print(e)
+                    #     await websocket.send_json(json_data)
                     
                     
                     for sentence in Human.parseSentenseList(input_dict[human_ai.char_name]):
@@ -265,8 +265,14 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                         #wavデータを取得
                         wav_info = human_ai.human_Voice.output_wav_info_list
                         #バイナリーをjson形式で送信
+                        send_data = {
+                            "sentence":{human_ai.front_name:sentence},
+                            "wav_info":wav_info,
+                            "chara_type":"player"
+                        }
                         print(f"{human_ai.char_name}のwavデータを送信します")
-                        await websocket.send_json(json.dumps(wav_info))
+                        # await websocket.send_json(json.dumps(wav_info))
+                        await websocket.send_json(json.dumps(send_data))
 
             sentence_dict4sedn_gpt:str = json_data
             #human_dict_keysの順番にhuman_dictの値を取り出し、それぞれのインスタンスのgenerate_textを実行
@@ -828,7 +834,7 @@ async def ws_gpt_mode(websocket: WebSocket):
             print(msg)
             if "individual_process0501dev" not in gpt_mode_dict.values():
                 print("individual_process0501devがないので終了します")
-                input_reciever.stopObserveEpic()
+                await input_reciever.stopObserveEpic()
                 break
                 
             
@@ -872,6 +878,37 @@ async def ws_gpt_routine(websocket: WebSocket, front_name: str):
                 # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
                 human_gpt_manager.message_memory = []
 
+@app.websocket("/gpt_routine2/{front_name}")
+async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+    
+    
+    
+    agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
+    gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
+    gpt_agent_dict[chara_name] = gpt_agent
+
+    pipe = asyncio.gather(
+        input_reciever.runObserveEpic(),
+        agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
+    )
+
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
+
+
 @app.websocket("/gpt_routine/{front_name}")
 async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
@@ -885,7 +922,7 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     
     
     agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
-    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
     gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
     gpt_agent_dict[chara_name] = gpt_agent
 
@@ -893,12 +930,24 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
+        agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
     )
 
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
 
+
+class Item(BaseModel):
+    type: str
+    data: str
+@app.post("/ShortCut")
+async def receive_data(item: Item):
+    print("ShortCut")
+    pprint(item)
 
 
 

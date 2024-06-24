@@ -328,6 +328,7 @@ class voicevox_human:
                 print("lab_data取得完了")
                 wav_data = self.wav2base64(self.getVoiceWav(query))
                 print("wav_data取得完了")
+
                 wav_info = {
                     "path":wav_path,
                     "wav_data":wav_data,

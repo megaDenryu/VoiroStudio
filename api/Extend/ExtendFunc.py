@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 import os
+import random
+import re
 import typing
 import Levenshtein
 from pprint import pprint
@@ -176,6 +178,26 @@ class ExtendFunc:
         if not isinstance(ret_dict, dict):
             raise ValueError(f"{file_path} は辞書形式ではありません。")
         return ret_dict
+    
+    """
+    json文字列とそうでない文字列が混在した文字列からjson文字列を抽出して辞書にして返します。
+    """
+    @staticmethod
+    def extractjson(input_str):
+        # JSON文字列を抽出する正規表現パターン
+        pattern = r'\{.*?\}'
+        matches = re.findall(pattern, input_str, re.DOTALL)
+        
+        json_dicts = []
+        for match in matches:
+            try:
+                # JSON文字列をPythonの辞書に変換
+                json_dict = json.loads(match)
+                json_dicts.append(json_dict)
+            except json.JSONDecodeError:
+                continue
+        
+        return json_dicts
 
     @staticmethod
     def closestBoolean(target:str, str_list: list) -> str:
@@ -276,31 +298,6 @@ class ExtendFunc:
 
                 print("key",key)
                 corrected_data[key] = correctData(result[key], TypeDict[key])
-                # if TypeDict[key] == str:
-                #     corrected_data[key] = str(result[key])
-                # elif isinstance(TypeDict[key], list) == True:
-                #     if result[key] in TypeDict[key]:
-                #         corrected_data[key] = result[key]
-                #     else:
-                #         corrected_data[key] = TypeDict[key][0]
-                # elif type(TypeDict[key]) == list[list[str]]:
-                #     for type_dict in TypeDict[key]:
-                #         if result[key] in type_dict:
-                #             corrected_data[key] = result[key]
-                #         else:
-                #             corrected_data[key] = type_dict[0]
-                # elif isinstance(TypeDict[key], Interval) == True:
-                #     # 結果をfloatに変換
-                #     result[key] = float(result[key])
-                #     # 変換できたかチェックし、できなかった場合はstartに変換
-                #     if result[key] == float(result[key]):
-                #         if result[key] in TypeDict[key]:
-                #             corrected_data[key] = result[key]
-                #         else:
-                #             corrected_data[key] = TypeDict[key].start
-                
-                # else:
-                #     print("key",type(TypeDict[key]))
 
             else:
                 print("key",key, "がresultに存在しません")
@@ -314,7 +311,7 @@ class ExtendFunc:
                     corrected_data[key] = TypeDict[key][0][0]
                 elif isinstance(TypeDict[key], Interval):
                     corrected_data[key] = TypeDict[key].start
-        ExtendFunc.ExtendPrint("corrected_data",corrected_data)
+        # ExtendFunc.ExtendPrint("corrected_data",corrected_data)
         return corrected_data
     
     @staticmethod
@@ -329,11 +326,16 @@ class ExtendFunc:
         Returns:
         str: 置換後の文字列
         """
-        if replace_dict is None:
+        try:
+            if replace_dict is None:
+                return target
+            for key, value in replace_dict.items():
+                target = target.replace(key, value)
             return target
-        for key, value in replace_dict.items():
-            target = target.replace(key, value)
-        return target
+        except Exception as e:
+            print("target",target)
+            print("replace_dict",replace_dict)
+            raise e
     
     @staticmethod
     def replaceBulkStringRecursiveCollection(target: Any, replace_dict: Dict[str, str]) -> Any:
@@ -628,6 +630,7 @@ class TextConverter:
         char_type_continuous = False
         split_text:list[WordWithType] = []
         contituos_word:list[str] = []
+        char_type = None
         for char in text:
             # 文字の種類を取得
             char_type = TextConverter.checkCharacterType(char)
@@ -644,6 +647,9 @@ class TextConverter:
                 contituos_word = [char]
                 previous_char_type = char_type
         else:
+            if char_type == None:
+                char_type = "日本語"
+                contituos_word = ["あ"]
             word = "".join(contituos_word)
             word_with_type = WordWithType(word, char_type)
             split_text.append(word_with_type)
@@ -782,6 +788,11 @@ class TextConverter:
         # 英語を翻訳
        
         # 翻訳後の文章を結合
+
+class RandomExtend:
+    @staticmethod
+    def random0to1():
+        return random.random()
        
 
 
