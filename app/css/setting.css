@@ -1,15 +1,53 @@
-.function_blocks {
+/* バックグラウンドデザインは全体を覆う*/
+.back_groung_design {
+    background-color: rgb(255, 226, 242);
+    z-index: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+}
+
+.back_groung_design.grid_line {
+    /* グリッド線を追加 */
+    width: 100%;
+    height: 100%;
+    background-image: linear-gradient(0deg, rgba(255, 245, 245, 0.928) 3px, transparent 5px),
+                    linear-gradient(90deg, rgba(255, 245, 245, 0.928) 3px, transparent 5px);
+    background-size: 50px 50px;
+}
+
+.setting_page {
+    z-index: 100;
+    position: absolute;
+    /*中央ぞろえにする*/
+    transform: translate(0.5%,10%);
+
+    width: 99%;
+    height: 10%;
+    display: flex;
+    flex-flow: column;
+}
+
+.folder {
+    flex: 1;
+    border: 1px solid #000;
+    width: 100%;
+    background-color: #a9ffec;
+
+}
+
+.function_block {
+    flex: 1;
     display: flex;
     /* 四角形を作る*/
     border: 1px solid #000;
     width: 100%;
-    height: 100%;
     background-color: #ffa9a9;
     /* border-radius: 50%; */
     /* clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);  */
 }
 
-.function_blocks.sample{
+.function_block.sample{
     /* display: none; */
     
     
@@ -19,6 +57,6 @@
     flex: 1;
     border: 1px solid #000;
     width: 100%;
-    height: 100%;
     background-color: #ecffa9;
 }
+

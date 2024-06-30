@@ -6,6 +6,7 @@
     
     # 作るべきjsのノードオブジェクトとhtmlのノードオブジェクト
     - 画面全体:レイヤー１:全ての機能ブロックを補完して追加、削除、更新、検索、可視不可視切り替えする機能を提供する
+    - フォルダ:レイヤー1.5:機能ブロックやフォルダをまとめて管理する機能を提供する
     - 機能ブロック:レイヤー２:子オブジェクトを1まとめにして、機能を提供する。ブロックを
     - キー名:レイヤー３:文字色の変更などの機能を提供する
     - I入力機能:レイヤー３:入力機能を提供する
@@ -38,9 +39,12 @@
     <link rel="shortcut icon" href="./favicon.ico" type="image/vnd.microsoft.icon">
 </head>
 <body>
-    はろー
+    <div class="back_groung_design">
+        <div class="grid_line"></div>
+
+    </div>
     <div class="setting_page">
-        <div class="function_blocks sample">
+        <div class="function_block sample">
             <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
             <div class="key_name function_block_element">
                 キー名:レイヤー３:文字色の変更などの機能を提供する
@@ -52,7 +56,7 @@
                 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
             </div>
         </div>
-        <div class="function_blocks sample">
+        <div class="function_block sample">
             <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
             <div class="key_name function_block_element">
                 音量
@@ -66,7 +70,7 @@
                 <button id="btnJS2">送信</button>
             </div>
         </div>
-        <div class="function_blocks sample">
+        <div class="function_block sample">
             <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
             <div class="key_name function_block_element">
                 GPT設定
@@ -78,7 +82,7 @@
                 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
             </div>
         </div>
-        <div class="function_blocks sample">
+        <div class="function_block sample">
             <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
             <div class="key_name function_block_element">
                 目パチ早さ
@@ -90,7 +94,7 @@
                 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
             </div>
         </div>
-        <div class="function_blocks sample">
+        <div class="function_block sample">
             <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
             <div class="key_name function_block_element">
                 ぴょこぴょこ速さ
@@ -102,42 +106,37 @@
                 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
             </div>
         </div>
-        <div class="function_blocks sample">
-            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-            <div class="key_name function_block_element">
+        <div class="folder">
+            <div class="folder_name">
                 コメビュ設定
-                <div class="function_blocks sample">
-                    <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-                    <div class="key_name function_block_element">
-                        放送URL
-                    </div>
-                    <div class="input_function function_block_element">
-                        
-                    </div>
-                    <div class="send_function function_block_element">
-                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
-                    </div>
+            </div>
+            <div class="function_block sample">
+                <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                <div class="key_name function_block_element">
+                    放送URL
                 </div>
-                <div class="function_blocks sample">
-                    <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-                    <div class="key_name function_block_element">
-                        コメビュON/OFF
-                    </div>
-                    <div class="input_function function_block_element">
-                        I入力機能:レイヤー３:入力機能を提供する
-                    </div>
-                    <div class="send_function function_block_element">
-                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
-                    </div>
+                <div class="input_function function_block_element">
+                    
+                </div>
+                <div class="send_function function_block_element">
+                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
                 </div>
             </div>
-            <div class="input_function function_block_element">
-                I入力機能:レイヤー３:入力機能を提供する
+            <div class="function_block sample">
+                <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                <div class="key_name function_block_element">
+                    コメビュON/OFF
+                </div>
+                <div class="input_function function_block_element">
+                    I入力機能:レイヤー３:入力機能を提供する
+                </div>
+                <div class="send_function function_block_element">
+                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                </div>
             </div>
-            <div class="send_function function_block_element">
-                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
-            </div>
+
         </div>
+        
 
     </div>
 </body>

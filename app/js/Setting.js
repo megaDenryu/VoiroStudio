@@ -50,8 +50,5 @@ class RectangleFrame {
         this.size = size;
         this.html = this.createHtml();
     }
-
-
-    
     
 }
