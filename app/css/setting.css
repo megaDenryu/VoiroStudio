@@ -5,24 +5,50 @@
     position: absolute;
     width: 100%;
     height: 100%;
+    background-image: linear-gradient(0deg, rgba(255, 250, 240, 0.671) 1px, transparent 2px),
+                    linear-gradient(90deg, rgba(255, 246, 228, 0.671) 1px, transparent 2px);
+    background-size: 50px 50px;
+    border-radius:0 30% 30% 0; /* 上半分を丸くする */
 }
 
-.back_groung_design.grid_line {
-    /* グリッド線を追加 */
-    width: 100%;
+.grid_line {
+    /* background-color: rgb(255, 226, 242); */
+    background-color: rgb(255, 238, 202);
+    z-index: 1;
+    position: absolute;
+    left : 0%;
+    top: 50%;
+    width: 90%;
     height: 100%;
-    background-image: linear-gradient(0deg, rgba(255, 245, 245, 0.928) 3px, transparent 5px),
-                    linear-gradient(90deg, rgba(255, 245, 245, 0.928) 3px, transparent 5px);
+    background-image: linear-gradient(0deg, rgba(255, 223, 163, 0.671) 1px, transparent 2px),
+                    linear-gradient(90deg, rgba(255, 223, 163, 0.671) 1px, transparent 2px);
     background-size: 50px 50px;
+    border-radius:10% 10% 10% 0; /* 上半分を丸くする */
+    overflow: hidden;
 }
+
+.grid_line::after {
+    content: "";
+    position: absolute;
+    top: 0%; /* 半円の位置を調整 */
+    left: 75%; /* 半円の位置を調整 */
+    transform: translate(-50%, -50%); /* 中心に配置 */
+    width: 100vw; /* 半円の幅 */
+    height: 50vw; /* 半円の高さ（幅の半分） */
+    background-color: rgb(255, 255, 255);/* 半円の色 */
+    border-radius: 0 0 50% 50% ; /* 上半分を丸くする */
+}
+
+
 
 .setting_page {
     z-index: 100;
     position: absolute;
     /*中央ぞろえにする*/
     transform: translate(0.5%,10%);
-
-    width: 99%;
+    top: 10%;
+    left: 5%;
+    width: 70%;
     height: 10%;
     display: flex;
     flex-flow: column;
