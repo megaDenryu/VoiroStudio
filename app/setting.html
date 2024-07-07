@@ -49,6 +49,11 @@
     <title>setting</title>
     <link rel="stylesheet" href="./css/setting.css">
     <link rel="shortcut icon" href="./favicon.ico" type="image/vnd.microsoft.icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Potta+One&display=swap" rel="stylesheet">
+    <!-- <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Kaisei+Decol&family=Reggae+One&display=swap" rel="stylesheet"> -->
+    <link href="https://fonts.googleapis.com/css2?family=DotGothic16&family=Kaisei+Decol&family=Kosugi&family=Reggae+One&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="back_groung_design">
@@ -57,8 +62,7 @@
 
     </div>
     <div class="setting_page">
-        <div class="function_block sample">
-            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+        <!-- <div class="function_block sample">
             <div class="key_name function_block_element">
                 キー名:レイヤー３:文字色の変更などの機能を提供する
             </div>
@@ -68,55 +72,120 @@
             <div class="send_function function_block_element">
                 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
             </div>
-        </div>
-        <div class="function_block sample">
-            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-            <div class="key_name function_block_element">
+        </div> -->
+        <div class="folder">
+            <div class="folder_name kosugi_maru_regular">
                 音量
             </div>
-            <div class="input_function function_block_element">
-                <!-- I入力機能:レイヤー３:入力機能を提供する -->
-                <input type="range" min="1" max="10" step="1" value="1" >
-            </div>
-            <div class="send_function function_block_element">
-                <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
-                <button id="btnJS2">送信</button>
+            <div class="function_block sample">
+                <div class="key_name function_block_element">
+                    音量
+                </div>
+                <div class="input_function function_block_element">
+                    <!-- I入力機能:レイヤー３:入力機能を提供する -->
+                    <input type="range" min="1" max="10" step="1" value="1" >
+                </div>
+                <div class="send_function function_block_element">
+                    <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button id="btnJS2">送信</button>
+                </div>
             </div>
         </div>
-        <div class="function_block sample">
-            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-            <div class="key_name function_block_element">
+        <div class="folder">
+            <div class="folder_name">
                 GPT設定
             </div>
-            <div class="input_function function_block_element">
-                I入力機能:レイヤー３:入力機能を提供する
+            <div class="folder">
+                <div class="folder_name">
+                    一般
+                </div>
+                <div class="function_block sample">
+                    <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                    <div class="key_name function_block_element">
+                        apiキー
+                    </div>
+                    <div class="input_function function_block_element">
+                        I入力機能:レイヤー３:入力機能を提供する
+                    </div>
+                    <div class="send_function function_block_element">
+                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    </div>
+                </div>
+                <div class="function_block sample">
+                    <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                    <div class="key_name function_block_element">
+                        エージェント配置
+                    </div>
+                    <div class="input_function function_block_element">
+                        I入力機能:レイヤー３:入力機能を提供する
+                    </div>
+                    <div class="send_function function_block_element">
+                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    </div>
+                </div>
             </div>
-            <div class="send_function function_block_element">
-                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            <div class="folder">
+                <div class="folder_name">
+                    キャラクター別
+                </div>
+                <div class="folder">
+                    <div class="folder_name">
+                        プロンプトモデル選択
+                    </div>
+                    <div class="function_block sample">
+                        <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                        <div class="key_name function_block_element">
+                            プロンプトモデル名
+                        </div>
+                        <div class="input_function function_block_element">
+                            I入力機能:レイヤー３:入力機能を提供する
+                        </div>
+                        <div class="send_function function_block_element">
+                            送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                        </div>
+                    </div>
+                    <div class="function_block sample">
+                        <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                        <div class="key_name function_block_element">
+                            プロンプト入力/表示欄
+                        </div>
+                        <div class="input_function function_block_element">
+                            I入力機能:レイヤー３:入力機能を提供する
+                        </div>
+                        <div class="send_function function_block_element">
+                            送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="function_block sample">
-            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-            <div class="key_name function_block_element">
-                目パチ早さ
+        <div class="folder">
+            <div class="folder_name">
+                目パチ耳ぴょこ早さ
             </div>
-            <div class="input_function function_block_element">
-                I入力機能:レイヤー３:入力機能を提供する
+            <div class="function_block sample">
+                <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                <div class="key_name function_block_element">
+                    目パチ早さ
+                </div>
+                <div class="input_function function_block_element">
+                    I入力機能:レイヤー３:入力機能を提供する
+                </div>
+                <div class="send_function function_block_element">
+                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                </div>
             </div>
-            <div class="send_function function_block_element">
-                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
-            </div>
-        </div>
-        <div class="function_block sample">
-            <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
-            <div class="key_name function_block_element">
-                ぴょこぴょこ速さ
-            </div>
-            <div class="input_function function_block_element">
-                I入力機能:レイヤー３:入力機能を提供する
-            </div>
-            <div class="send_function function_block_element">
-                送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+            <div class="function_block sample">
+                <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                <div class="key_name function_block_element">
+                    ぴょこぴょこ速さ
+                </div>
+                <div class="input_function function_block_element">
+                    I入力機能:レイヤー３:入力機能を提供する
+                </div>
+                <div class="send_function function_block_element">
+                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                </div>
             </div>
         </div>
         <div class="folder">
@@ -149,7 +218,16 @@
             </div>
 
         </div>
-        
+        <div class="folder">
+            <div class="folder_name">
+                声調整機能
+            </div>
+        </div>
+        <div class="folder">
+            <div class="folder_name">
+                フォント
+            </div>
+        </div>
 
     </div>
 </body>

@@ -54,23 +54,60 @@
     flex-flow: column;
 }
 
-.folder {
-    flex: 1;
-    border: 1px solid #000;
-    width: 100%;
-    background-color: #a9ffec;
+  
 
+.folder_name {
+    margin-top: 1vh;
+    margin-left: 1vw;
+    /* フォント */
+    font-family: "Potta One", system-ui;
+    /* フォントサイズ */
+    font-size: 2.5vh;
+    /* 文字色 */
+    color: #003618;
 }
 
-.function_block {
+.folder {
+    flex: 1;
+    border: 1px solid #35353573;
+    width: 100%;
+    /* background-color: rgba(120, 183, 254, 0.5);#a9ffec; */
+    margin-top: 1%;
+    border-radius: 2vh;
+    background: rgb(2,0,36);
+    background: linear-gradient(90deg, rgba(237,154,170,0.5) 0%, rgba(255, 255, 255, 0.452) 6%, rgba(108,106,190,0.01) 11%, rgba(0, 213, 255, 0.729) 100%);
+    /* background: linear-gradient(90deg, rgba(2,0,36,1) 0%, rgba(237,154,170,1) 0%, rgba(108,106,190,0.01) 17%, rgba(0,212,255,1) 100%); */
+}
+
+
+.folder .folder{
+    background-color: rgba(151, 199, 254, 0.661);
+    /* インデントをする */
+    margin-left: 5%;
+    margin-top: 1%;
+    margin-bottom: 1%;
+    /* transform:translate(0%, 2vh) rotate(1deg); */
+}
+
+.folder .folder .folder{
+    background-color: rgba(188, 220, 255, 0.921);
+    /* インデントをする */
+    margin-left: 3%;
+    margin-top: 1%;
+    border-radius: 1.5vh;
+}
+
+.folder .function_block {
     flex: 1;
     display: flex;
     /* 四角形を作る*/
-    border: 1px solid #000;
+    /* border: 1px solid #000; */
     width: 100%;
-    background-color: #ffa9a9;
+    /* background-color: #ffffff; */
     /* border-radius: 50%; */
     /* clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);  */
+    margin-left: 1%;
+    margin: 1%;
 }
 
 .function_block.sample{
@@ -83,6 +120,7 @@
     flex: 1;
     border: 1px solid #000;
     width: 100%;
-    background-color: #ecffa9;
+    background-color: #fffffff2;
+    margin-left: 1vw;
 }
 

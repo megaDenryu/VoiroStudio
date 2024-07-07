@@ -1,0 +1,34 @@
+.potta_one_regular {
+    font-family: "Potta One", system-ui;
+    font-weight: 10;
+    font-style: normal;
+  }
+
+.kaisei_decol_regular {
+font-family: "Kaisei Decol", serif;
+font-weight: 400;
+font-style: normal;
+}
+
+.kosugi_maru_regular {
+    font-family: "Kosugi Maru", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+}  
+
+.dotgothic16_regular {
+    font-family: "DotGothic16", sans-serif;
+    font-weight: 400;
+    font-style: normal;
+  }
+
+.reggae_one_regular {
+    font-family: "Reggae One", system-ui;
+    font-weight: 400;
+    font-style: normal;
+  }
+  
+
+.custom_font {
+    font-size: 3vh;
+}
