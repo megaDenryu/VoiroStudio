@@ -4,6 +4,7 @@ import os
 import random
 import sys
 sys.path.append('../..')
+from api.comment_reciver.TwitchCommentReciever import TwitchBot, TwitchMessageUnit
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
@@ -64,6 +65,7 @@ human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
+twitchBotList:dict[str,TwitchBot] = {}
 epic = Epic()
 gpt_agent_dict: dict[str,GPTAgent] = {}
 input_reciever = InputReciever(epic ,gpt_agent_dict, gpt_mode_dict)
@@ -552,6 +554,51 @@ async def getYoutubeComment(websocket: WebSocket, video_id: str, front_name: str
         if char_name in YoutubeCommentReciever_list:
             YoutubeCommentReciever_list[char_name].stop()
             del YoutubeCommentReciever_list[char_name]
+
+@app.post("/RunTwitchCommentReceiver/{video_id}/{front_name}")
+async def runTwitchCommentReceiver(video_id:str, front_name: str):
+    char_name = Human.setCharName(front_name)
+    print(f"{char_name}でTwitchコメント受信開始")
+    TWTITCH_ACCESS_TOKEN = TwitchBot.getAccessToken()
+    twitchBot = TwitchBot(video_id, TWTITCH_ACCESS_TOKEN)
+    twitchBotList[char_name] = twitchBot
+    twitchBot.run()
+    return {"message":"Twitchコメント受信開始"}
+
+@app.post("/StopTwitchCommentReceiver/{front_name}")
+async def stopTwitchCommentReceiver(front_name:str):
+    print("Twitchコメント受信停止")
+    chara_name = Human.setCharName(front_name)
+    await twitchBotList[chara_name].stop()
+    twitchBotList.pop(chara_name)
+
+@app.websocket("/TwitchCommentReceiver/{video_id}/{front_name}")
+async def twitchCommentReceiver(websocket: WebSocket, video_id: str, front_name: str):
+    print("TwitchCommentReceiver")
+    await websocket.accept()
+    char_name = Human.setCharName(front_name)
+    message_queue:asyncio.Queue[TwitchMessageUnit] = twitchBotList[char_name].message_queue
+    nulvm = NiconamaUserLinkVoiceroidModule()
+    try:
+        while True and char_name in twitchBotList:
+            comment = {}
+            messageUnit:TwitchMessageUnit = await message_queue.get()
+            message = messageUnit.message
+            listener = messageUnit.listner_name
+            if "@" in message or "＠" in message:
+                print("ユーザーIDとキャラ名を紐づけます")
+                char_name = nulvm.registerNikonamaUserIdToCharaName(message,listener)
+            comment["char_name"] = nulvm.getCharaNameByNikonamaUser(listener)
+            comment["comment"] = message
+            ExtendFunc.ExtendPrint(comment)
+            await websocket.send_text(json.dumps(comment))
+    except WebSocketDisconnect:
+        ExtendFunc.ExtendPrint(f"WebSocket が切断されました。 for {char_name} and {video_id}")
+
+
+
+            
+
 
 @app.websocket("/InputPokemon")
 async def inputPokemon(websocket: WebSocket):

@@ -1,5 +1,7 @@
 ///@ts-check
 
+const { promises } = require("fs");
+
 /**
  * 
  * @param {HTMLElement} human_tab_elm 
@@ -491,6 +493,36 @@ class MessageBox {
                 console.log("コメント受信停止を送信")
                 this.ws_youtube_comment_reciver.sendJson({ "start_stop": "stop" });
             }
+        } else if (message.includes("https://www.twitch.tv/")) {
+            //twitchのコメントを受信する
+            const video_id = message.split("https://www.twitch.tv/")[1];
+            console.log(video_id)
+            //Postを送信してRunTwitchCommentReceiverを実行
+            var connectPromise = new Promise((resolve, reject) => {
+                fetch(`http://${localhost}:${port}/RunTwitchCommentReceiver`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ video_id: video_id, front_name: front_name })
+                })
+            });
+            connectPromise.then(() => {
+
+                //websocketを開く
+                this.ws_twitch_comment_reciver = new ExtendedWebSocket(`ws://${localhost}:${port}/TwitchCommentReceiver/${video_id}/${front_name}`);
+                this.ws_twitch_comment_reciver.onmessage = this.receiveYoutubeLiveComment.bind(this);
+                //接続を完了するまで待つ
+                this.ws_twitch_comment_reciver.onopen = () => {
+                    //開始メッセージを送信
+                    // @ts-ignore
+                    this.ws_twitch_comment_reciver.sendJson({ "start_stop": "start" });
+                }
+
+                //メッセージボックスの中身を削除
+                this.message_box_elm.value = "";
+                //focusを戻す
+                this.message_box_elm.focus();
+            })
+
         }
         else if (message.includes("背景オン:") || message.includes("GBmode:") || message.includes("MBmode:") || message.includes("BBmode:")) {
             this.human_window.changeBackgroundMode(message);
