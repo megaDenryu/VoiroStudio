@@ -554,27 +554,39 @@ async def getYoutubeComment(websocket: WebSocket, video_id: str, front_name: str
         if char_name in YoutubeCommentReciever_list:
             YoutubeCommentReciever_list[char_name].stop()
             del YoutubeCommentReciever_list[char_name]
+class TwitchCommentReceiver(BaseModel):
+    video_id: str
+    front_name: str
 
-@app.post("/RunTwitchCommentReceiver/{video_id}/{front_name}")
-async def runTwitchCommentReceiver(video_id:str, front_name: str):
+@app.post("/RunTwitchCommentReceiver")
+async def runTwitchCommentReceiver(req:TwitchCommentReceiver):
+    ExtendFunc.ExtendPrint("ツイッチ開始")
+    ExtendFunc.ExtendPrint(req)
+    video_id = req.video_id
+    front_name = req.front_name
     char_name = Human.setCharName(front_name)
     print(f"{char_name}でTwitchコメント受信開始")
     TWTITCH_ACCESS_TOKEN = TwitchBot.getAccessToken()
     twitchBot = TwitchBot(video_id, TWTITCH_ACCESS_TOKEN)
     twitchBotList[char_name] = twitchBot
     twitchBot.run()
-    return {"message":"Twitchコメント受信開始"}
+    # return {"message":"Twitchコメント受信開始"}
 
-@app.post("/StopTwitchCommentReceiver/{front_name}")
-async def stopTwitchCommentReceiver(front_name:str):
+class StopTwitchCommentReceiver(BaseModel):
+    front_name: str
+
+@app.post("/StopTwitchCommentReceiver")
+async def stopTwitchCommentReceiver(req:StopTwitchCommentReceiver):
     print("Twitchコメント受信停止")
+    front_name = req.front_name
     chara_name = Human.setCharName(front_name)
     await twitchBotList[chara_name].stop()
     twitchBotList.pop(chara_name)
+    return {"message":"Twitchコメント受信停止"}
 
 @app.websocket("/TwitchCommentReceiver/{video_id}/{front_name}")
 async def twitchCommentReceiver(websocket: WebSocket, video_id: str, front_name: str):
-    print("TwitchCommentReceiver")
+    ExtendFunc.ExtendPrint("TwitchCommentReceiver")
     await websocket.accept()
     char_name = Human.setCharName(front_name)
     message_queue:asyncio.Queue[TwitchMessageUnit] = twitchBotList[char_name].message_queue

@@ -1,6 +1,6 @@
 ///@ts-check
 
-const { promises } = require("fs");
+// const { promises } = require("fs");
 
 /**
  * 
@@ -435,7 +435,11 @@ class MessageBox {
         //メッセージボックスの高さが変更されたときに、他のメッセージボックスの高さも変更するようにする
         this.message_box_elm.addEventListener('mousedown', this.startObsereve.bind(this));
         this.message_box_elm.addEventListener('mouseup', this.endObsereve.bind(this));
-        this.ELM_send_button.onclick = this.execContentInputMessage.bind(this);
+        
+        this.ELM_send_button.onclick = async (event) => {
+            await this.execContentInputMessage();
+        };
+        this.execContentInputMessage = this.execContentInputMessage.bind(this);
     }
     startObsereve() {
         this.message_box_manager.observe_target_num = this.manage_num;
@@ -445,7 +449,7 @@ class MessageBox {
         this.message_box_manager.observe_target_num = -1;
         this.message_box_manager.resizeObserver.unobserve(this.message_box_elm);
     }
-    execContentInputMessage() {
+    async execContentInputMessage() {
         const front_name = this.front_name;
         const message = this.message_box_elm.value;
         //messageに「コメビュモード:{room_id}」と入力されている場合
@@ -496,33 +500,41 @@ class MessageBox {
         } else if (message.includes("https://www.twitch.tv/")) {
             //twitchのコメントを受信する
             const video_id = message.split("https://www.twitch.tv/")[1];
-            console.log(video_id)
+            console.log(video_id,front_name)
             //Postを送信してRunTwitchCommentReceiverを実行
-            var connectPromise = new Promise((resolve, reject) => {
-                fetch(`http://${localhost}:${port}/RunTwitchCommentReceiver`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ video_id: video_id, front_name: front_name })
-                })
+            await fetch(`http://${localhost}:${port}/RunTwitchCommentReceiver`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ video_id: video_id, front_name: front_name })
             });
-            connectPromise.then(() => {
+            
+            await new Promise(resolve => setTimeout(resolve, 3000));
 
-                //websocketを開く
-                this.ws_twitch_comment_reciver = new ExtendedWebSocket(`ws://${localhost}:${port}/TwitchCommentReceiver/${video_id}/${front_name}`);
-                this.ws_twitch_comment_reciver.onmessage = this.receiveYoutubeLiveComment.bind(this);
-                //接続を完了するまで待つ
-                this.ws_twitch_comment_reciver.onopen = () => {
-                    //開始メッセージを送信
-                    // @ts-ignore
-                    this.ws_twitch_comment_reciver.sendJson({ "start_stop": "start" });
-                }
+            //websocketを開く
+            this.ws_twitch_comment_reciver = new ExtendedWebSocket(`ws://${localhost}:${port}/TwitchCommentReceiver/${video_id}/${front_name}`);
+            this.ws_twitch_comment_reciver.onmessage = this.receiveNikoNamaComment.bind(this);
+            //接続を完了するまで待つ
+            this.ws_twitch_comment_reciver.onopen = () => {
+                //開始メッセージを送信
+                // @ts-ignore
+                this.ws_twitch_comment_reciver.sendJson({ "start_stop": "start" });
+            }
 
-                //メッセージボックスの中身を削除
-                this.message_box_elm.value = "";
-                //focusを戻す
-                this.message_box_elm.focus();
-            })
-
+            //メッセージボックスの中身を削除
+            this.message_box_elm.value = "";
+            //focusを戻す
+            this.message_box_elm.focus();
+            
+        }
+        else if (message.includes("ツイッチコメント停止:")) {
+            console.log("コメント受信停止します")
+            fetch(`http://${localhost}:${port}/StopTwitchCommentReceiver`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ front_name: front_name })
+            }).then(response => {
+                console.log(response)
+            });
         }
         else if (message.includes("背景オン:") || message.includes("GBmode:") || message.includes("MBmode:") || message.includes("BBmode:")) {
             this.human_window.changeBackgroundMode(message);

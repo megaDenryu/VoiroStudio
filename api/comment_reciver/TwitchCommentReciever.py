@@ -36,7 +36,16 @@ class TwitchBot(commands.Bot):
     #チャンネルにログイン
     def run(self):
         super().run()
-    
+
+    async def async_run(self):
+        try:
+            await self.connect()  # Use await instead of creating a task
+        except KeyboardInterrupt:
+            pass
+        finally:
+            if not self._closing.is_set():
+                await self.close()
+        
     
 
     #チャンネルからログアウト
@@ -77,10 +86,11 @@ class TwitchBot(commands.Bot):
             return
         
         message_dict = self.generateDictFromMessageRawData(message.raw_data)
-        # ExtendFunc.ExtendPrint(f"メッセージを受信しました。: {message.content}")
-        # ExtendFunc.ExtendPrint(message_dict)
+        ExtendFunc.ExtendPrint(f"メッセージを受信しました。: {message.content}")
+        ExtendFunc.ExtendPrint(message_dict)
         listener_name = message_dict["display-name"]
         message_unit = TwitchMessageUnit(str(message.content), listener_name)
+        ExtendFunc.ExtendPrint(message_unit)
         await self.message_queue.put(message_unit)
         
 
@@ -106,7 +116,7 @@ class TwitchBot(commands.Bot):
         return JsonAccessor.loadTwitchAccessToken()
 
 if __name__ == "__main__":
-    name = "hyakuto0"
+    name = "rokkaman"
     key = "eftnrfpk0d5cf9yj7yodf6b3u6wxpz"
-    bot = Bot(name,key)
+    bot = TwitchBot(name,key)
     bot.run()
