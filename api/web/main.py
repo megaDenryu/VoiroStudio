@@ -595,15 +595,19 @@ async def twitchCommentReceiver(websocket: WebSocket, video_id: str, front_name:
         while True and char_name in twitchBotList:
             comment = {}
             messageUnit:TwitchMessageUnit = await message_queue.get()
+            ExtendFunc.ExtendPrint(f"messageUnit:{messageUnit}")
             message = messageUnit.message
             listener = messageUnit.listner_name
+            ExtendFunc.ExtendPrint(f"message:{message}")
             if "@" in message or "＠" in message:
                 print("ユーザーIDとキャラ名を紐づけます")
-                char_name = nulvm.registerNikonamaUserIdToCharaName(message,listener)
+                registered_char_name = nulvm.registerNikonamaUserIdToCharaName(message,listener)
             comment["char_name"] = nulvm.getCharaNameByNikonamaUser(listener)
             comment["comment"] = message
             ExtendFunc.ExtendPrint(comment)
             await websocket.send_text(json.dumps(comment))
+            ExtendFunc.ExtendPrint("ツイッチ受信コメントをクライアントに送信完了")
+        ExtendFunc.ExtendPrint("TwitchCommentReceiver終了")
     except WebSocketDisconnect:
         ExtendFunc.ExtendPrint(f"WebSocket が切断されました。 for {char_name} and {video_id}")
 

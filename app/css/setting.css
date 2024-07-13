@@ -118,9 +118,21 @@
 
 .key_name, .input_function, .send_function {
     flex: 1;
-    border: 1px solid #000;
+    border: 1px solid #6b6b6b71;
     width: 100%;
-    background-color: #fffffff2;
+    /* background-color: #fffffff2; */
     margin-left: 1vw;
+    text-align: center;
+    border-radius: 10%;
+    color: rgba(103, 0, 103, 0.538);
+    font-family: "Reggae One", sans-serif;
 }
 
+.tekiyou_button{
+    color: purple;
+    font-family: "Reggae One", sans-serif;
+}
+
+.input_function.function_block_element.SoundVolume {
+
+}

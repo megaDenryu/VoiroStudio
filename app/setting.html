@@ -78,16 +78,16 @@
                 音量
             </div>
             <div class="function_block sample">
-                <div class="key_name function_block_element">
+                <div class="key_name function_block_element SoundVolume">
                     音量
                 </div>
-                <div class="input_function function_block_element">
+                <div class="input_function function_block_element SoundVolume">
                     <!-- I入力機能:レイヤー３:入力機能を提供する -->
                     <input type="range" min="1" max="10" step="1" value="1" >
                 </div>
                 <div class="send_function function_block_element">
                     <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
-                    <button id="btnJS2">送信</button>
+                    <button class="tekiyou_button">適用</button>
                 </div>
             </div>
         </div>
@@ -105,10 +105,11 @@
                         apiキー
                     </div>
                     <div class="input_function function_block_element">
-                        I入力機能:レイヤー３:入力機能を提供する
+                        <input type="text" name="api_key" >
                     </div>
                     <div class="send_function function_block_element">
-                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                        <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="tekiyou_button">適用</button>
                     </div>
                 </div>
                 <div class="function_block sample">
@@ -120,7 +121,8 @@
                         I入力機能:レイヤー３:入力機能を提供する
                     </div>
                     <div class="send_function function_block_element">
-                        送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                        <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="tekiyou_button">適用</button>
                     </div>
                 </div>
             </div>
@@ -141,7 +143,8 @@
                             I入力機能:レイヤー３:入力機能を提供する
                         </div>
                         <div class="send_function function_block_element">
-                            送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                            <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                            <button class="tekiyou_button">適用</button>
                         </div>
                     </div>
                     <div class="function_block sample">
@@ -153,7 +156,8 @@
                             I入力機能:レイヤー３:入力機能を提供する
                         </div>
                         <div class="send_function function_block_element">
-                            送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                            <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                            <button class="tekiyou_button">適用</button>
                         </div>
                     </div>
                 </div>
@@ -172,7 +176,8 @@
                     I入力機能:レイヤー３:入力機能を提供する
                 </div>
                 <div class="send_function function_block_element">
-                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="tekiyou_button">適用</button>
                 </div>
             </div>
             <div class="function_block sample">
@@ -184,7 +189,8 @@
                     I入力機能:レイヤー３:入力機能を提供する
                 </div>
                 <div class="send_function function_block_element">
-                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="tekiyou_button">適用</button>
                 </div>
             </div>
         </div>
@@ -195,25 +201,40 @@
             <div class="function_block sample">
                 <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
                 <div class="key_name function_block_element">
-                    放送URL
+                    ニコニコ
                 </div>
                 <div class="input_function function_block_element">
-                    
+                    <input type="text" name="niconico" placeholder="ニコニコの放送URLを入力">
                 </div>
                 <div class="send_function function_block_element">
-                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="commetn_OnOff_button">On/Off</button>
                 </div>
             </div>
             <div class="function_block sample">
                 <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
                 <div class="key_name function_block_element">
-                    コメビュON/OFF
+                    YouTube
                 </div>
                 <div class="input_function function_block_element">
-                    I入力機能:レイヤー３:入力機能を提供する
+                    <input type="text" name="YouTube" placeholder="YouTubeの放送URLを入力">
                 </div>
                 <div class="send_function function_block_element">
-                    送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する
+                    <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="commetn_OnOff_button">On/Off</button>
+                </div>
+            </div>
+            <div class="function_block sample">
+                <!-- Add, remove, update, search, and toggle visibility of all function blocks -->
+                <div class="key_name function_block_element">
+                    Twich
+                </div>
+                <div class="input_function function_block_element">
+                    <input type="text" name="Twich" placeholder="Twichの放送URLを入力">
+                </div>
+                <div class="send_function function_block_element">
+                    <!-- 送信機能:レイヤー３:Jsonにしてサーバーに送信する機能を提供する -->
+                    <button class="commetn_OnOff_button">On/Off</button>
                 </div>
             </div>
 
