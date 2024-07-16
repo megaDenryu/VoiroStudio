@@ -1,8 +1,8 @@
 import asyncio
-from pathlib import Path
 import os
 import random
 import sys
+from pathlib import Path
 sys.path.append('../..')
 from api.comment_reciver.TwitchCommentReciever import TwitchBot, TwitchMessageUnit
 from api.gptAI.gpt import ChatGPT
@@ -15,6 +15,7 @@ from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.DataStore.AppSettingModule import AppSettingModule, PageMode
 from api.Epic.Epic import Epic
+from api.DataStore.Memo import Memo
 
 from enum import Enum
 
@@ -69,6 +70,7 @@ twitchBotList:dict[str,TwitchBot] = {}
 epic = Epic()
 gpt_agent_dict: dict[str,GPTAgent] = {}
 input_reciever = InputReciever(epic ,gpt_agent_dict, gpt_mode_dict)
+diary = Memo()
 
 
 app_setting = JsonAccessor.loadAppSetting()
@@ -275,6 +277,8 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                         print(f"{human_ai.char_name}のwavデータを送信します")
                         # await websocket.send_json(json.dumps(wav_info))
                         await websocket.send_json(json.dumps(send_data))
+                    # daiaryに保存
+                    diary.insertTodayMemo(input_dict[human_ai.char_name])
 
             sentence_dict4sedn_gpt:str = json_data
             #human_dict_keysの順番にhuman_dictの値を取り出し、それぞれのインスタンスのgenerate_textを実行

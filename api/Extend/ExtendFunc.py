@@ -468,6 +468,16 @@ class TimeExtend:
         }
     
     @staticmethod
+    def nowDate() -> str:
+        """
+        現在の日付を取得します。
+
+        Returns:
+        str: 現在の日付(例：2024-05-04)
+        """
+        return str(datetime.date.today())
+    
+    @staticmethod
     def DateTimeDictToSecond(dateTimeDict: dict) -> int:
         """
         日付と時刻の辞書を秒数に変換します。
