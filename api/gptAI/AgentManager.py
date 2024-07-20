@@ -170,6 +170,23 @@ class TransportedItem(BaseModel):
             stop = False
         )
 
+class GeneralTransportedItem(BaseModel):
+    usage_purpose:str
+
+
+class TaskBrekingDownConversationUnit(BaseModel):
+    speaker:str
+    message:str
+class TaskBreakingDownTransportedItem(GeneralTransportedItem):
+    usage_purpose = "タスク分解"
+    problem:str
+    comlete_breaking_down_task:bool
+    conversation:list[TaskBrekingDownConversationUnit]
+    breaking_downed_task:str
+
+
+
+
 class EventReciever(Protocol):
     name:str
     async def handleEvent(self, transported_item:TransportedItem):
@@ -1340,6 +1357,71 @@ class NonThinkingSerifAgent(Agent):
     def addInfoToTransportedItem(self,transported_item:TransportedItem, result:Dict[str, str])->TransportedItem:
         transported_item.NonThinkingSerif_data = result
         return transported_item
+    
+
+
+class ThinkingProcessModule:
+    replace_dict:dict[str,str] = {}
+    name:str
+    def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
+        self.agent_manager = agent_manager
+        self._gpt_api_unit = ChatGptApiUnit()
+        ExtendFunc.ExtendPrint(replace_dict)
+        self.replace_dict = replace_dict
+        self.event_queue_dict:dict[EventReciever,Queue[TransportedItem]] = {}
+
+    async def run(self,transported_item: TransportedItem)->TransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def appendReciever(self,reciever:EventReciever):
+        self.event_queue_dict[reciever] = Queue[TransportedItem]()
+        return self.event_queue_dict[reciever]
+    
+    async def notify(self, data:TransportedItem):
+        # LLMが出力した成功か失敗かを通知
+        task = []
+        for event_queue in self.event_queue_dict.values():
+            task.append(event_queue.put(data))
+        await asyncio.gather(*task)
+    
+    @abstractmethod
+    def prepareQuery(self,input: TransportedItem)->list[ChatGptApiUnit.MessageQuery]:
+        pass
+
+    @abstractmethod
+    async def request(self,query:list[ChatGptApiUnit.MessageQuery])->str:
+        """
+        ここはjsonになっていようといまいとstrで返し、correctResultで型を矯正する
+        """
+        pass
+
+    @abstractmethod
+    def correctResult(self,result:str)->Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def saveResult(self,result):
+        pass
+
+    @abstractmethod
+    def clearMemory(self):
+        pass
+
+    @abstractmethod
+    def addInfoToTransportedItem(self,transported_item:TransportedItem, result:Dict[str, Any])->TransportedItem:
+        pass
+        
 
 class AgentEventManager:
     def __init__(self, chara_name:str, gpt_mode_dict:dict[str,str]):
@@ -1427,8 +1509,8 @@ class AgentEventManager:
                     #両方とも同じならそのまま
                     pass
         return ti
-        
-        
+
+
 
 
 @dataclass
