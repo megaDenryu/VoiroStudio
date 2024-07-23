@@ -46,7 +46,7 @@ class ChatGptApiUnit:
 
         response = await self.async_client.chat.completions.create (
                 model="gpt-4o",
-                messages=message_query,
+                messages=message_query, # type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -58,7 +58,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = self.client.chat.completions.create (
                 model="gpt-4o",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -72,7 +72,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
                 model="gpt-4o",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -82,7 +82,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = self.client.chat.completions.create(
                 model="gpt-4o",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -94,7 +94,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -105,7 +105,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -118,7 +118,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -128,7 +128,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -1611,40 +1611,7 @@ class GPTAgent:
     
     
 if __name__ == "__main__":
-    def te1():
-        test = MicInputJudgeAgent()
-        query = test.prepareQuery("ポケモンは{{input}}")
-        pprint(query, indent=4)
-
-    def te2():
-        test = MicInputJudgeAgent()
-        task = tasks.create_task(test.run("ほげほげほげ"))
-
-    def te3():
-        
-        message_history:list[MassageHistoryUnit] = []
-        for i in range(10):
-            message_history_unit = MassageHistoryUnit(
-                message = {f"ゆかり{i}":f"ほげほげほげ{i}"},
-                現在の日付時刻 = TimeExtend()
-            )
-            message_history.append(message_history_unit)
-
-        te = InputReciever.convertMessageHistoryToTransportedItemData(message_history, 6, len(message_history))
-        print(te)
-    def te4():
-        a = ["あ","い","う","え","お"]
-        for string in str(a):
-            print(string)
-    def te5():
-        print(JsonAccessor.loadGPTBehaviorYaml("一般"))
-
-    def te6():
-        a = ThinkAgent.typeThinkAgentResponse({"gpt_character":"ゆかり"})
-        t = a["他のキャラの会話ステータス"]
-        pprint(t, indent=4)
-        bool = isinstance(t, dict)
-        print(bool)
+    
 
     def te7():
         gpt_unit = ChatGptApiUnit(True)
