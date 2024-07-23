@@ -79,6 +79,17 @@ class JsonAccessor:
         return openai_api_key
     
     @staticmethod
+    def loadTwitchAccessToken():
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/openai_api_key.json"
+        #もしファイルが存在しない場合はファイルを作成
+        if not path.exists():
+            with open(path, mode='w') as f:
+                json.dump({"twitch_access_token":""}, f, indent=4)
+        twitch_access_token = ExtendFunc.loadJsonToDict(path)["twitch_access_token"]
+        # print("twitch_access_token:",twitch_access_token)
+        return twitch_access_token
+
+    @staticmethod
     def loadCharSettingYamlAsString()->str:
         """
         CharSetting.ymlを読み込み、その内容を文字列として返します。

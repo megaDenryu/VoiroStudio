@@ -1,9 +1,10 @@
 import asyncio
-from pathlib import Path
 import os
 import random
 import sys
+from pathlib import Path
 sys.path.append('../..')
+from api.comment_reciver.TwitchCommentReciever import TwitchBot, TwitchMessageUnit
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
@@ -14,6 +15,7 @@ from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.DataStore.AppSettingModule import AppSettingModule, PageMode
 from api.Epic.Epic import Epic
+from api.DataStore.Memo import Memo
 
 from enum import Enum
 
@@ -64,9 +66,11 @@ human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
+twitchBotList:dict[str,TwitchBot] = {}
 epic = Epic()
 gpt_agent_dict: dict[str,GPTAgent] = {}
 input_reciever = InputReciever(epic ,gpt_agent_dict, gpt_mode_dict)
+diary = Memo()
 
 
 app_setting = JsonAccessor.loadAppSetting()
@@ -273,6 +277,8 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                         print(f"{human_ai.char_name}のwavデータを送信します")
                         # await websocket.send_json(json.dumps(wav_info))
                         await websocket.send_json(json.dumps(send_data))
+                    # daiaryに保存
+                    diary.insertTodayMemo(input_dict[human_ai.char_name])
 
             sentence_dict4sedn_gpt:str = json_data
             #human_dict_keysの順番にhuman_dictの値を取り出し、それぞれのインスタンスのgenerate_textを実行
@@ -552,6 +558,67 @@ async def getYoutubeComment(websocket: WebSocket, video_id: str, front_name: str
         if char_name in YoutubeCommentReciever_list:
             YoutubeCommentReciever_list[char_name].stop()
             del YoutubeCommentReciever_list[char_name]
+class TwitchCommentReceiver(BaseModel):
+    video_id: str
+    front_name: str
+
+@app.post("/RunTwitchCommentReceiver")
+async def runTwitchCommentReceiver(req:TwitchCommentReceiver):
+    ExtendFunc.ExtendPrint("ツイッチ開始")
+    ExtendFunc.ExtendPrint(req)
+    video_id = req.video_id
+    front_name = req.front_name
+    char_name = Human.setCharName(front_name)
+    print(f"{char_name}でTwitchコメント受信開始")
+    TWTITCH_ACCESS_TOKEN = TwitchBot.getAccessToken()
+    twitchBot = TwitchBot(video_id, TWTITCH_ACCESS_TOKEN)
+    twitchBotList[char_name] = twitchBot
+    twitchBot.run()
+    # return {"message":"Twitchコメント受信開始"}
+
+class StopTwitchCommentReceiver(BaseModel):
+    front_name: str
+
+@app.post("/StopTwitchCommentReceiver")
+async def stopTwitchCommentReceiver(req:StopTwitchCommentReceiver):
+    print("Twitchコメント受信停止")
+    front_name = req.front_name
+    chara_name = Human.setCharName(front_name)
+    await twitchBotList[chara_name].stop()
+    twitchBotList.pop(chara_name)
+    return {"message":"Twitchコメント受信停止"}
+
+@app.websocket("/TwitchCommentReceiver/{video_id}/{front_name}")
+async def twitchCommentReceiver(websocket: WebSocket, video_id: str, front_name: str):
+    ExtendFunc.ExtendPrint("TwitchCommentReceiver")
+    await websocket.accept()
+    char_name = Human.setCharName(front_name)
+    message_queue:asyncio.Queue[TwitchMessageUnit] = twitchBotList[char_name].message_queue
+    nulvm = NiconamaUserLinkVoiceroidModule()
+    try:
+        while True and char_name in twitchBotList:
+            comment = {}
+            messageUnit:TwitchMessageUnit = await message_queue.get()
+            ExtendFunc.ExtendPrint(f"messageUnit:{messageUnit}")
+            message = messageUnit.message
+            listener = messageUnit.listner_name
+            ExtendFunc.ExtendPrint(f"message:{message}")
+            if "@" in message or "＠" in message:
+                print("ユーザーIDとキャラ名を紐づけます")
+                registered_char_name = nulvm.registerNikonamaUserIdToCharaName(message,listener)
+            comment["char_name"] = nulvm.getCharaNameByNikonamaUser(listener)
+            comment["comment"] = message
+            ExtendFunc.ExtendPrint(comment)
+            await websocket.send_text(json.dumps(comment))
+            ExtendFunc.ExtendPrint("ツイッチ受信コメントをクライアントに送信完了")
+        ExtendFunc.ExtendPrint("TwitchCommentReceiver終了")
+    except WebSocketDisconnect:
+        ExtendFunc.ExtendPrint(f"WebSocket が切断されました。 for {char_name} and {video_id}")
+
+
+
+            
+
 
 @app.websocket("/InputPokemon")
 async def inputPokemon(websocket: WebSocket):

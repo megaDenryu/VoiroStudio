@@ -46,7 +46,7 @@ class ChatGptApiUnit:
 
         response = await self.async_client.chat.completions.create (
                 model="gpt-4o",
-                messages=message_query,
+                messages=message_query, # type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -58,7 +58,7 @@ class ChatGptApiUnit:
             return "テストモードです"
         response = self.client.chat.completions.create (
                 model="gpt-4o",
-                messages=message_query,
+                messages=message_query,# type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -71,8 +71,8 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=message_query,
+                model="gpt-4o",
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -81,8 +81,8 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
-                messages=message_query,
+                model="gpt-4o",
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -93,8 +93,8 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
-                messages=message_query,
+                model="gpt-4o-mini",
+                messages=message_query,# type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -104,8 +104,8 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
-                messages=message_query,
+                model="gpt-4o-mini",
+                messages=message_query,# type: ignore
                 response_format= { "type":"json_object" },
                 temperature=0.7
             )
@@ -117,8 +117,8 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
-                messages=message_query,
+                model="gpt-4o-mini",
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -127,8 +127,8 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
-                messages=message_query,
+                model="gpt-4o-mini",
+                messages=message_query,# type: ignore
                 temperature=0.7
             )
         return response.choices[0].message.content
@@ -140,12 +140,15 @@ class MicInputJudgeAgentResponse(TypedDict):
 class SpeakerDistributeAgentResponse(TypedDict):
     理由考察:str
     次に発言するべきキャラクター:str
-    
-class TransportedItem(BaseModel):
+
+class GeneralTransportedItem(BaseModel):
+    usage_purpose:str
+
+class TransportedItem(GeneralTransportedItem):
     time:TimeExtend
     data:Any
     recieve_messages:str
-    MicInputJudge_data:MicInputJudgeAgentResponse 
+    MicInputJudge_data:MicInputJudgeAgentResponse
     SpeakerDistribute_data:SpeakerDistributeAgentResponse #dict[str,str]
     Listening_data:Any
     Think_data:dict[str,str]
@@ -158,6 +161,7 @@ class TransportedItem(BaseModel):
     @staticmethod
     def init():
         return TransportedItem(
+            usage_purpose = "会話",
             time = TimeExtend(),
             data = "",
             recieve_messages = "",
@@ -169,6 +173,41 @@ class TransportedItem(BaseModel):
             NonThinkingSerif_data = None,
             stop = False
         )
+
+
+
+
+class TaskBrekingDownConversationUnit(BaseModel):
+    speaker:str
+    message:str
+    @staticmethod
+    def init(speaker:str, message:str):
+        return TaskBrekingDownConversationUnit(
+            speaker = speaker,
+            message = message
+        )
+class TaskBreakingDownTransportedItem(GeneralTransportedItem):
+    usage_purpose:str
+    problem:str
+    comlete_breaking_down_task:bool
+    conversation:list[TaskBrekingDownConversationUnit]
+    breaking_downed_task:str
+    class Config:
+        arbitrary_types_allowed = True
+    
+    @staticmethod
+    def init():
+        return TaskBreakingDownTransportedItem(
+            usage_purpose = "タスク分解",
+            problem = "",
+            comlete_breaking_down_task = False,
+            conversation = [],
+            breaking_downed_task = ""
+        )
+
+
+
+
 
 class EventReciever(Protocol):
     name:str
@@ -1339,7 +1378,138 @@ class NonThinkingSerifAgent(Agent):
 
     def addInfoToTransportedItem(self,transported_item:TransportedItem, result:Dict[str, str])->TransportedItem:
         transported_item.NonThinkingSerif_data = result
+        return transported_item    
+
+
+class ThinkingProcessModule:
+    replace_dict:dict[str,str] = {}
+    name:str
+    def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
+        self.agent_manager = agent_manager
+        self._gpt_api_unit = ChatGptApiUnit()
+        ExtendFunc.ExtendPrint(replace_dict)
+        self.replace_dict = replace_dict
+        self.event_queue_dict:dict[EventReciever,Queue[GeneralTransportedItem]] = {}
+
+    async def run(self,transported_item: GeneralTransportedItem)->GeneralTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
         return transported_item
+    
+    def appendReciever(self,reciever:EventReciever):
+        self.event_queue_dict[reciever] = Queue[GeneralTransportedItem]()
+        return self.event_queue_dict[reciever]
+    
+    async def notify(self, data:GeneralTransportedItem):
+        # LLMが出力した成功か失敗かを通知
+        task = []
+        for event_queue in self.event_queue_dict.values():
+            task.append(event_queue.put(data))
+        await asyncio.gather(*task)
+    
+    @abstractmethod
+    def prepareQuery(self,input: GeneralTransportedItem)->list[ChatGptApiUnit.MessageQuery]:
+        pass
+
+    @abstractmethod
+    async def request(self,query:list[ChatGptApiUnit.MessageQuery])->str:
+        """
+        ここはjsonになっていようといまいとstrで返し、correctResultで型を矯正する
+        """
+        pass
+
+    @abstractmethod
+    def correctResult(self,result:str)->Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def saveResult(self,result):
+        pass
+
+    @abstractmethod
+    def clearMemory(self):
+        pass
+
+    @abstractmethod
+    def addInfoToTransportedItem(self,transported_item:GeneralTransportedItem, result:Dict[str, Any])->GeneralTransportedItem:
+        pass
+
+# タスク分解の案を出すエージェント
+class TaskDecompositionProposerAgent(ThinkingProcessModule):
+    def __init__(self, agent_manager: AgentManager):
+        super().__init__(agent_manager)
+        self.name = "タスク分解提案エージェント"
+        self.request_template_name = "タスク分解提案エージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        self.event_queue = Queue()
+        self.agent_manager = agent_manager
+        self.epic:Epic = agent_manager.epic
+
+    def typeTaskDecompositionProposerAgentResponse(self, replace_dict: dict[str,str]):
+        TypeDict = {
+            "提案": str
+        }
+        return TypeDict
+
+    def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+        pass
+
+    async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})#self.replace_dict)
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+    
+    def prepareQuery(self, input: TaskBreakingDownTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: TaskBreakingDownTransportedItem)->dict[str,str]:
+        return {
+            "{{problem}}":input.problem
+        }
+    
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        if result is None:
+            raise ValueError("リクエストに失敗しました。")
+        return result
+    
+    def correctResult(self,result: str) -> str:
+        #このエージェントは文章をそのまま使うので、そのまま返す
+        return result
+    
+    def addInfoToTransportedItem(self,transported_item:TaskBreakingDownTransportedItem, result:str)->TaskBreakingDownTransportedItem:
+        item = TaskBrekingDownConversationUnit.init(self.name, result)
+        transported_item.conversation.append(item)
+        return transported_item
+
+        
 
 class AgentEventManager:
     def __init__(self, chara_name:str, gpt_mode_dict:dict[str,str]):
@@ -1427,8 +1597,8 @@ class AgentEventManager:
                     #両方とも同じならそのまま
                     pass
         return ti
-        
-        
+
+
 
 
 @dataclass
@@ -1441,40 +1611,7 @@ class GPTAgent:
     
     
 if __name__ == "__main__":
-    def te1():
-        test = MicInputJudgeAgent()
-        query = test.prepareQuery("ポケモンは{{input}}")
-        pprint(query, indent=4)
-
-    def te2():
-        test = MicInputJudgeAgent()
-        task = tasks.create_task(test.run("ほげほげほげ"))
-
-    def te3():
-        
-        message_history:list[MassageHistoryUnit] = []
-        for i in range(10):
-            message_history_unit = MassageHistoryUnit(
-                message = {f"ゆかり{i}":f"ほげほげほげ{i}"},
-                現在の日付時刻 = TimeExtend()
-            )
-            message_history.append(message_history_unit)
-
-        te = InputReciever.convertMessageHistoryToTransportedItemData(message_history, 6, len(message_history))
-        print(te)
-    def te4():
-        a = ["あ","い","う","え","お"]
-        for string in str(a):
-            print(string)
-    def te5():
-        print(JsonAccessor.loadGPTBehaviorYaml("一般"))
-
-    def te6():
-        a = ThinkAgent.typeThinkAgentResponse({"gpt_character":"ゆかり"})
-        t = a["他のキャラの会話ステータス"]
-        pprint(t, indent=4)
-        bool = isinstance(t, dict)
-        print(bool)
+    
 
     def te7():
         gpt_unit = ChatGptApiUnit(True)
@@ -1514,4 +1651,7 @@ if __name__ == "__main__":
         print(dict_a.keys())
         print("a" in dict_a.keys())
     
-    te9()
+    def te10():
+        ti = TaskBreakingDownTransportedItem.init()
+        ExtendFunc.ExtendPrint(ti)
+    te10()

@@ -1,15 +1,116 @@
-.function_blocks {
-    display: flex;
-    /* 四角形を作る*/
-    border: 1px solid #000;
+/* バックグラウンドデザインは全体を覆う*/
+.back_groung_design {
+    background-color: rgb(255, 226, 242);
+    z-index: 0;
+    position: absolute;
     width: 100%;
     height: 100%;
-    background-color: #ffa9a9;
-    /* border-radius: 50%; */
-    /* clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);  */
+    background-image: linear-gradient(0deg, rgba(255, 250, 240, 0.671) 1px, transparent 2px),
+                    linear-gradient(90deg, rgba(255, 246, 228, 0.671) 1px, transparent 2px);
+    background-size: 50px 50px;
+    border-radius:0 30% 30% 0; /* 上半分を丸くする */
 }
 
-.function_blocks.sample{
+.grid_line {
+    /* background-color: rgb(255, 226, 242); */
+    background-color: rgb(255, 238, 202);
+    z-index: 1;
+    position: absolute;
+    left : 0%;
+    top: 50%;
+    width: 90%;
+    height: 100%;
+    background-image: linear-gradient(0deg, rgba(255, 223, 163, 0.671) 1px, transparent 2px),
+                    linear-gradient(90deg, rgba(255, 223, 163, 0.671) 1px, transparent 2px);
+    background-size: 50px 50px;
+    border-radius:10% 10% 10% 0; /* 上半分を丸くする */
+    overflow: hidden;
+}
+
+.grid_line::after {
+    content: "";
+    position: absolute;
+    top: 0%; /* 半円の位置を調整 */
+    left: 75%; /* 半円の位置を調整 */
+    transform: translate(-50%, -50%); /* 中心に配置 */
+    width: 100vw; /* 半円の幅 */
+    height: 50vw; /* 半円の高さ（幅の半分） */
+    background-color: rgb(255, 255, 255);/* 半円の色 */
+    border-radius: 0 0 50% 50% ; /* 上半分を丸くする */
+}
+
+
+
+.setting_page {
+    z-index: 100;
+    position: absolute;
+    /*中央ぞろえにする*/
+    transform: translate(0.5%,10%);
+    top: 10%;
+    left: 5%;
+    width: 70%;
+    height: 10%;
+    display: flex;
+    flex-flow: column;
+}
+
+  
+
+.folder_name {
+    margin-top: 1vh;
+    margin-left: 1vw;
+    /* フォント */
+    font-family: "Potta One", system-ui;
+    /* フォントサイズ */
+    font-size: 2.5vh;
+    /* 文字色 */
+    color: #003618;
+}
+
+.folder {
+    flex: 1;
+    border: 1px solid #35353573;
+    width: 100%;
+    /* background-color: rgba(120, 183, 254, 0.5);#a9ffec; */
+    margin-top: 1%;
+    border-radius: 2vh;
+    background: rgb(2,0,36);
+    background: linear-gradient(90deg, rgba(237,154,170,0.5) 0%, rgba(255, 255, 255, 0.452) 6%, rgba(108,106,190,0.01) 11%, rgba(0, 213, 255, 0.729) 100%);
+    /* background: linear-gradient(90deg, rgba(2,0,36,1) 0%, rgba(237,154,170,1) 0%, rgba(108,106,190,0.01) 17%, rgba(0,212,255,1) 100%); */
+}
+
+
+.folder .folder{
+    background-color: rgba(151, 199, 254, 0.661);
+    /* インデントをする */
+    margin-left: 5%;
+    margin-top: 1%;
+    margin-bottom: 1%;
+    /* transform:translate(0%, 2vh) rotate(1deg); */
+}
+
+.folder .folder .folder{
+    background-color: rgba(188, 220, 255, 0.921);
+    /* インデントをする */
+    margin-left: 3%;
+    margin-top: 1%;
+    border-radius: 1.5vh;
+}
+
+.folder .function_block {
+    flex: 1;
+    display: flex;
+    /* 四角形を作る*/
+    /* border: 1px solid #000; */
+    width: 100%;
+    /* background-color: #ffffff; */
+    /* border-radius: 50%; */
+    /* clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);  */
+    margin-left: 1%;
+    margin: 1%;
+}
+
+.function_block.sample{
     /* display: none; */
     
     
@@ -17,8 +118,21 @@
 
 .key_name, .input_function, .send_function {
     flex: 1;
-    border: 1px solid #000;
+    border: 1px solid #6b6b6b71;
     width: 100%;
-    height: 100%;
-    background-color: #ecffa9;
+    /* background-color: #fffffff2; */
+    margin-left: 1vw;
+    text-align: center;
+    border-radius: 10%;
+    color: rgba(103, 0, 103, 0.538);
+    font-family: "Reggae One", sans-serif;
+}
+
+.tekiyou_button{
+    color: purple;
+    font-family: "Reggae One", sans-serif;
+}
+
+.input_function.function_block_element.SoundVolume {
+
 }

@@ -134,7 +134,7 @@ display:block;
     background-color: #333; /* 背景色をダークグレーに */
     color: #fff; /* テキスト色を白に */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* ボックスシャドウを追加 */
-    font-family: 'Yu Gothic', 'Roboto', sans-serif;
+    font-family: "Potta One", sans-serif;
 }
 .message_box_buttons{
     flex-grow: 2;
@@ -155,7 +155,6 @@ display:block;
     padding: 1vh;
     margin: 1vh;
     font-size: 2vh;
-    font-family: fantasy;
     background-color: rgba(0, 255, 255, 0.565);
     border-radius: 0.5vh;
 
@@ -177,7 +176,6 @@ display:block;
     padding: 1vh;
     margin: 1vh;
     font-size: 2vh;
-    font-family: fantasy;
     background-color: rgba(0, 255, 255, 0.565);
     border-radius: 0.5vh;
 }
