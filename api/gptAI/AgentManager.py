@@ -140,12 +140,15 @@ class MicInputJudgeAgentResponse(TypedDict):
 class SpeakerDistributeAgentResponse(TypedDict):
     理由考察:str
     次に発言するべきキャラクター:str
-    
-class TransportedItem(BaseModel):
+
+class GeneralTransportedItem(BaseModel):
+    usage_purpose:str
+
+class TransportedItem(GeneralTransportedItem):
     time:TimeExtend
     data:Any
     recieve_messages:str
-    MicInputJudge_data:MicInputJudgeAgentResponse 
+    MicInputJudge_data:MicInputJudgeAgentResponse
     SpeakerDistribute_data:SpeakerDistributeAgentResponse #dict[str,str]
     Listening_data:Any
     Think_data:dict[str,str]
@@ -158,6 +161,7 @@ class TransportedItem(BaseModel):
     @staticmethod
     def init():
         return TransportedItem(
+            usage_purpose = "会話",
             time = TimeExtend(),
             data = "",
             recieve_messages = "",
@@ -170,8 +174,7 @@ class TransportedItem(BaseModel):
             stop = False
         )
 
-class GeneralTransportedItem(BaseModel):
-    usage_purpose:str
+
 
 
 class TaskBrekingDownConversationUnit(BaseModel):
@@ -208,15 +211,15 @@ class TaskBreakingDownTransportedItem(GeneralTransportedItem):
 
 class EventReciever(Protocol):
     name:str
-    async def handleEvent(self, transported_item:TransportedItem|GeneralTransportedItem):
+    async def handleEvent(self, transported_item:TransportedItem):
         pass
 class EventRecieverWaitFor(Protocol):
     name:str
-    async def handleEvent(self, transported_item:TransportedItem|GeneralTransportedItem):
+    async def handleEvent(self, transported_item:TransportedItem):
         pass
     def timeOutSec(self)->float: # type: ignore
         pass
-    def timeOutItem(self)->TransportedItem|GeneralTransportedItem: # type: ignore
+    def timeOutItem(self)->TransportedItem: # type: ignore
         pass
 
 class EventNotifier(Protocol):
@@ -225,20 +228,20 @@ class EventNotifier(Protocol):
         pass
 
 class QueueNotifier(Protocol):
-    event_queue_dict:dict[EventReciever,Queue[TransportedItem|GeneralTransportedItem]]
-    async def notify(self, data:TransportedItem|GeneralTransportedItem):
+    event_queue_dict:dict[EventReciever,Queue[TransportedItem]]
+    async def notify(self, data:TransportedItem):
         pass
     # 購読者をリストにしておく
-    def appendReciever(self, reciever:EventReciever)->Queue[TransportedItem|GeneralTransportedItem]:
+    def appendReciever(self, reciever:EventReciever)->Queue[TransportedItem]:
         return self.event_queue_dict[reciever]
 
 class QueueNotifierWaitFor(Protocol):
-    event_queue:Queue[TransportedItem|GeneralTransportedItem]
-    async def notify(self, data:TransportedItem|GeneralTransportedItem):
+    event_queue:Queue[TransportedItem]
+    async def notify(self, data:TransportedItem):
         pass
     def timeOutSec(self)->float: # type: ignore
         pass
-    def timeOutItem(self)->TransportedItem|GeneralTransportedItem: # type: ignore
+    def timeOutItem(self)->TransportedItem: # type: ignore
         pass
 
 class EventNode(EventReciever,EventNotifier,Protocol):
