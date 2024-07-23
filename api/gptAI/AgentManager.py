@@ -71,7 +71,7 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model="gpt-4o",
                 messages=message_query,
                 temperature=0.7
             )
@@ -81,7 +81,7 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create(
-                model="gpt-4-turbo-preview",
+                model="gpt-4o",
                 messages=message_query,
                 temperature=0.7
             )
@@ -93,7 +93,7 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
+                model="gpt-4o-mini",
                 messages=message_query,
                 response_format= { "type":"json_object" },
                 temperature=0.7
@@ -104,7 +104,7 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
+                model="gpt-4o-mini",
                 messages=message_query,
                 response_format= { "type":"json_object" },
                 temperature=0.7
@@ -117,7 +117,7 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = await self.async_client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
+                model="gpt-4o-mini",
                 messages=message_query,
                 temperature=0.7
             )
@@ -127,7 +127,7 @@ class ChatGptApiUnit:
             print("テストモードです")
             return "テストモードです"
         response = self.client.chat.completions.create(
-                model="gpt-3.5-turbo-0125",
+                model="gpt-4o-mini",
                 messages=message_query,
                 temperature=0.7
             )
@@ -1461,6 +1461,7 @@ class TaskDecompositionProposerAgent(ThinkingProcessModule):
         return TypeDict
 
     def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+        pass
 
     async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         query = self.prepareQuery(transported_item)
