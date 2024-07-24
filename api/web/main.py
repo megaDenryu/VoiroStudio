@@ -993,6 +993,7 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
     gpt_agent_dict[chara_name] = gpt_agent
 
+    # 意思決定のパイプラインを作成
     pipe = asyncio.gather(
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),

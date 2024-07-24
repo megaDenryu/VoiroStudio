@@ -17,7 +17,7 @@ from api.Extend.ExtendFunc import ExtendFunc, RandomExtend, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.Epic.Epic import Epic, MassageHistoryUnit, MessageUnit
 from typing import Literal, Protocol, TypedDict
-from typing import Any, Dict, get_type_hints, get_origin
+from typing import Any, Dict, get_type_hints, get_origin,TypeVar, Generic
 from pydantic import BaseModel, validator
 
 
@@ -143,6 +143,10 @@ class SpeakerDistributeAgentResponse(TypedDict):
 
 class GeneralTransportedItem(BaseModel):
     usage_purpose:str
+    @classmethod
+    def init(cls) -> "GeneralTransportedItem":
+        raise NotImplementedError("initメソッドをオーバーライドしてください")
+
 
 class TransportedItem(GeneralTransportedItem):
     time:TimeExtend
@@ -207,19 +211,20 @@ class TaskBreakingDownTransportedItem(GeneralTransportedItem):
 
 
 
+GeneralTransportedItem_T_contra = TypeVar("GeneralTransportedItem_T_contra", bound=GeneralTransportedItem, contravariant=True)
+GeneralTransportedItem_T = TypeVar("GeneralTransportedItem_T", bound=GeneralTransportedItem)
 
-
-class EventReciever(Protocol):
+class EventReciever(Protocol, Generic[GeneralTransportedItem_T_contra]):
     name:str
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEvent(self, transported_item:GeneralTransportedItem_T_contra):
         pass
-class EventRecieverWaitFor(Protocol):
+class EventRecieverWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
     name:str
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEvent(self, transported_item:GeneralTransportedItem_T):
         pass
     def timeOutSec(self)->float: # type: ignore
         pass
-    def timeOutItem(self)->TransportedItem: # type: ignore
+    def timeOutItem(self)->GeneralTransportedItem_T: # type: ignore
         pass
 
 class EventNotifier(Protocol):
@@ -227,21 +232,21 @@ class EventNotifier(Protocol):
     async def notify(self, data):
         pass
 
-class QueueNotifier(Protocol):
-    event_queue_dict:dict[EventReciever,Queue[TransportedItem]]
-    async def notify(self, data:TransportedItem):
+class QueueNotifier(Protocol, Generic[GeneralTransportedItem_T]):
+    event_queue_dict:dict[EventReciever,Queue[GeneralTransportedItem_T]]
+    async def notify(self, data:GeneralTransportedItem_T):
         pass
     # 購読者をリストにしておく
-    def appendReciever(self, reciever:EventReciever)->Queue[TransportedItem]:
+    def appendReciever(self, reciever:EventReciever)->Queue[GeneralTransportedItem_T]:
         return self.event_queue_dict[reciever]
 
-class QueueNotifierWaitFor(Protocol):
-    event_queue:Queue[TransportedItem]
-    async def notify(self, data:TransportedItem):
+class QueueNotifierWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
+    event_queue:Queue[GeneralTransportedItem_T]
+    async def notify(self, data:GeneralTransportedItem_T):
         pass
     def timeOutSec(self)->float: # type: ignore
         pass
-    def timeOutItem(self)->TransportedItem: # type: ignore
+    def timeOutItem(self)->GeneralTransportedItem_T: # type: ignore
         pass
 
 class EventNode(EventReciever,EventNotifier,Protocol):
@@ -1519,15 +1524,10 @@ class AgentEventManager:
         while True:
             data = await websocket.receive_json()
             await reciever.handleEvent(data)
-    async def setEventArrow(self, notifier: EventNotifier, reciever: EventReciever):
-        while True:
-            await notifier.event.wait()
-            notifier.event.clear()
-            none_transported_data = TransportedItem.init()
-            await reciever.handleEvent(none_transported_data)
-    async def setEventQueueArrow(self, notifier: QueueNotifier, reciever: EventReciever):
+    
+    async def setEventQueueArrow(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventReciever[GeneralTransportedItem_T]):
         # notifierの中のreciever_dictにrecieverを追加
-        event_queue_for_reciever:Queue[TransportedItem] =notifier.appendReciever(reciever)
+        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
         while True:
             ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
@@ -1538,8 +1538,8 @@ class AgentEventManager:
             await reciever.handleEvent(item)
             ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
     
-    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier, reciever: EventRecieverWaitFor):
-        event_queue_for_reciever:Queue[TransportedItem] =notifier.appendReciever(reciever)
+    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventRecieverWaitFor[GeneralTransportedItem_T]):
+        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
         while True:
             ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
@@ -1557,10 +1557,10 @@ class AgentEventManager:
             except asyncio.TimeoutError:
                 ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")
     
-    async def setEventQueueConfluenceArrow(self, notifier_list: list[QueueNotifier], reciever: EventReciever):
-        list_event_queue_for_reciever:list[Queue[TransportedItem]] = []
+    async def setEventQueueConfluenceArrow(self, notifier_list: list[QueueNotifier[GeneralTransportedItem_T]], reciever: EventReciever[GeneralTransportedItem_T]):
+        list_event_queue_for_reciever:list[Queue[GeneralTransportedItem_T]] = []
         for notifier in notifier_list:
-            event_queue_for_reciever:Queue[TransportedItem] =notifier.appendReciever(reciever)
+            event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
             list_event_queue_for_reciever.append(event_queue_for_reciever)
         while True:
             ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
@@ -1581,8 +1581,8 @@ class AgentEventManager:
                 ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")     
     
     @staticmethod
-    def mergeTransportedItem(ti:TransportedItem, item:TransportedItem)->TransportedItem:
-        init_ti = TransportedItem.init()
+    def mergeTransportedItem(ti:GeneralTransportedItem_T, item:GeneralTransportedItem_T)->GeneralTransportedItem_T:
+        init_ti = ti.init()
         #init_tiの各要素を参照して、tiの情報がinit_tiの情報と異なるならtiの情報を採用し、同じならitemの情報を参照してinit_tiと異なるならitemの情報を採用し、両方とも同じならそのまま
         for key in init_ti.__dict__.keys():
             if ti.__dict__[key] != init_ti.__dict__[key]:
