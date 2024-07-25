@@ -1211,7 +1211,14 @@ class SerifAgent(Agent):
             return None
 
         serif = result[f'{self.chara_name}の発言']
-        return re.split(r'\. |\? |\。|\, |、 |\n', serif)
+        # 修正した正規表現パターン（キャプチャグループを追加）
+        split_pattern = r'([。！？\.\?\!\n])'
+        split_serif = re.split(split_pattern, serif)
+        
+        # 区切り文字を前の部分に結合
+        # combined_serif = [split_serif[i] + split_serif[i + 1] for i in range(0, len(split_serif) - 1, 2)]
+
+        return split_serif
 
     def saveResult(self,result):
 
@@ -1372,7 +1379,14 @@ class NonThinkingSerifAgent(Agent):
     # 読み上げるための文章を取り出す
     def getSerifList(self,result: Dict[str, Any]) -> list[str]:
         serif = result[f'{self.chara_name}の発言']
-        return re.split(r'\. |\? |\。|\, |、 |\n', serif)
+        # 修正した正規表現パターン（キャプチャグループを追加）
+        split_pattern = r'([。！？\.\?\!\n])'
+        split_serif = re.split(split_pattern, serif)
+        
+        # 区切り文字を前の部分に結合
+        # combined_serif = [split_serif[i] + split_serif[i + 1] for i in range(0, len(split_serif) - 1, 2)]
+
+        return split_serif
 
     def saveResult(self,result):
 
@@ -1654,4 +1668,19 @@ if __name__ == "__main__":
     def te10():
         ti = TaskBreakingDownTransportedItem.init()
         ExtendFunc.ExtendPrint(ti)
-    te10()
+
+    import re
+
+    def te11():
+        serif = "鬼ってことは、みんなを追いかける役かな？それなら、隠れる場所やアイテムを考えたりして、面白い要素を追加できそうだね！"
+        # 修正した正規表現パターン（キャプチャグループを追加）
+        split_pattern = r'([。！？、,\.\?\!\n])'
+        split_serif = re.split(split_pattern, serif)
+        
+        # 区切り文字を前の部分に結合
+        combined_serif = [split_serif[i] + split_serif[i + 1] for i in range(0, len(split_serif) - 1, 2)]
+        
+        ExtendFunc.ExtendPrint(combined_serif)
+
+    # 実行例
+    te11()

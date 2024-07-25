@@ -669,6 +669,8 @@ class TextConverter:
             if element.word_type == "英字":
                 # 英字を翻訳
                 ret_text_list.append(TextConverter.TranslateEngToJapanese(element.word))
+            elif element.word_type == "日本語" or element.word in ["ー","々","〆","〤","〥","〦","〧","〨","〩","ヶ"]:
+                ret_text_list.append(element.word)
             elif element.word_type == "特別記号":
                 # 記号を読み仮名に変換
                 ret_text_list.append(TextConverter.BulkConvertSpecialCharToYomi(element.word))
@@ -677,8 +679,6 @@ class TextConverter:
             elif element.word_type == "その他":
                 ret_text_list.append(TextConverter.TranslateAutoToJapanese(element.word))
                 ret_text_list.append("まる。")
-            elif element.word_type == "日本語":
-                ret_text_list.append(element.word)
         return "".join(ret_text_list)
     
     @staticmethod

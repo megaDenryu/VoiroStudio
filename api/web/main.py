@@ -948,7 +948,7 @@ async def ws_gpt_routine(websocket: WebSocket, front_name: str):
 @app.websocket("/gpt_routine2/{front_name}")
 async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
-    print("gpt_routineコネクションします")
+    print("gpt_routine2コネクションします")
     await websocket.accept()
     chara_name = Human.setCharName(front_name)
     if chara_name not in human_dict:
@@ -999,8 +999,8 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
-        agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
-        agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
+        # agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        # agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
     )
 
