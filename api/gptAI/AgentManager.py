@@ -183,12 +183,17 @@ class TransportedItem(GeneralTransportedItem):
 
 class TaskBrekingDownConversationUnit(BaseModel):
     speaker:str
-    message:str
+    solution_step_idea:str
+    problem_point:str
+    check_result:str
+
     @staticmethod
-    def init(speaker:str, message:str):
+    def init(speaker:str, solution_step_idea:str, problem_point:str = "", check_result:str = ""):
         return TaskBrekingDownConversationUnit(
             speaker = speaker,
-            message = message
+            solution_step_idea = solution_step_idea,
+            problem_point = problem_point,
+            check_result = check_result
         )
 class TaskBreakingDownTransportedItem(GeneralTransportedItem):
     usage_purpose:str
@@ -208,6 +213,12 @@ class TaskBreakingDownTransportedItem(GeneralTransportedItem):
             conversation = [],
             breaking_downed_task = ""
         )
+    @staticmethod
+    def conversationToString(conversation:list[TaskBrekingDownConversationUnit]):
+        ret_string = ""
+        for unit in conversation:
+            ret_string = f"{ret_string}\n{unit.speaker}:{unit.solution_step_idea}"
+        return ret_string
 
 
 
@@ -1479,8 +1490,15 @@ class TaskDecompositionProposerAgent(ThinkingProcessModule):
         }
         return TypeDict
 
-    def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
-        pass
+    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+        # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
+        await self.notify(output)
+    
+    async def notify(self, data:TaskBreakingDownTransportedItem):
+        # LLMが出力した成功か失敗かを通知
+        await self.event_queue.put(data)
 
     async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         query = self.prepareQuery(transported_item)
@@ -1528,6 +1546,88 @@ class TaskDecompositionProposerAgent(ThinkingProcessModule):
         transported_item.conversation.append(item)
         return transported_item
 
+
+# タスク分解の案をチェックし、反論や修正や承認を行うエージェント
+class TaskDecompositionCheckerAgent(ThinkingProcessModule):
+    def __init__(self, agent_manager: AgentManager):
+        super().__init__(agent_manager)
+        self.name = "タスク分解チェッカーエージェント"
+        self.request_template_name = "タスク分解チェッカーエージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        self.event_queue = Queue()
+        self.agent_manager = agent_manager
+        self.epic:Epic = agent_manager.epic
+
+    def typeTaskDecompositionCheckerAgentResponse(self, replace_dict: dict[str,str]):
+        TypeDict = {
+            "問題点": str,
+            "修正案": str,
+            "チェック結果": ["承認", "修正"]
+        }
+        return TypeDict
+    
+    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
+        # 確認結果が承認だった場合はJsonまとめエージェントに送る
+
+        # 確認結果が修正だった場合はタスク分解チェッカーエージェントにもう一度送る
+        await self.notify(output)
+
+    async def notify(self, data:TaskBreakingDownTransportedItem):
+
+    async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+    
+    def prepareQuery(self, input: TaskBreakingDownTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: TaskBreakingDownTransportedItem)->dict[str,str]:
+        return {
+            "{{problem}}":input.problem,
+            "{{conversation}}":TaskBreakingDownTransportedItem.conversationToString(input.conversation)
+        }
+    
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        if result is None:
+            raise ValueError("リクエストに失敗しました。")
+        return result
+    
+    def correctResult(self,result: str)->dict:
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        return ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeTaskDecompositionCheckerAgentResponse(self.replace_dict))
+    
+    def addInfoToTransportedItem(self,transported_item:TaskBreakingDownTransportedItem, result:dict)->TaskBreakingDownTransportedItem:
+        # resultは{"問題点":str, "修正案":str, "チェック結果":str}の形式
+        problem_point = result["問題点"]
+        fix_step_idea = result["修正案"]
+        check_result = result["チェック結果"]
+        item = TaskBrekingDownConversationUnit.init(self.name, fix_step_idea, problem_point, check_result)
+        transported_item.conversation.append(item)
+        return transported_item
+
+                                      
         
 
 class AgentEventManager:
