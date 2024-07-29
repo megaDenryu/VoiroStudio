@@ -1569,12 +1569,11 @@ class TaskDecompositionCheckerAgent(ThinkingProcessModule):
     async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
-        # 確認結果が承認だった場合はJsonまとめエージェントに送る
-
-        # 確認結果が修正だった場合はタスク分解チェッカーエージェントにもう一度送る
         await self.notify(output)
 
     async def notify(self, data:TaskBreakingDownTransportedItem):
+        # LLMが出力した成功か失敗かを通知
+        await self.event_queue.put(data)
 
     async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         query = self.prepareQuery(transported_item)
@@ -1627,7 +1626,58 @@ class TaskDecompositionCheckerAgent(ThinkingProcessModule):
         transported_item.conversation.append(item)
         return transported_item
 
-                                      
+class TaskUnit(BaseModel):
+        id:str
+        description:str
+        dependencies:list[str]
+        def __init__(self):
+            return self
+
+        @staticmethod
+        def init(id:str|None, タスクの説明:str|None, 依存するタスクのid:list[str]|None)->TaskUnit:
+            tu = TaskUnit()
+            return tu
+class TaskToJsonConverterAgent(ThinkingProcessModule):
+    def __init__(self, agent_manager: AgentManager):
+        super().__init__(agent_manager)
+        self.name = "タスクJSON変換エージェント"
+        self.request_template_name = "タスクJSON変換エージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        self.event_queue = Queue()
+        self.agent_manager = agent_manager
+        self.epic:Epic = agent_manager.epic
+    
+    
+
+
+
+    def typeTaskToJsonConverterAgentResponse(self, replace_dict: dict[str,str]):
+        #JsonSchemaの型を定義
+        TypeDict = {
+            "tasks": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "default": ""},
+                        "description": {"type": "string", "default": ""},
+                        "dependencies": {"type": "array", "items": {"type": "string"}, "default": []}
+                    },
+                    "required": ["id", "description", "dependencies"]
+                }
+            }
+        }
+        return TypeDict
+
+
+    def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+
+    def notify(self, data:TaskBreakingDownTransportedItem):
+
+    def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+
+    def correctResult(self, result: dict) -> Dict[str, Any]:
+        ret = ExtendFunc.correctDictToJsonSchemaTypeDictRecursive(result, self.typeTaskToJsonConverterAgentResponse(self.replace_dict))
         
 
 class AgentEventManager:

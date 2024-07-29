@@ -315,6 +315,117 @@ class ExtendFunc:
         return corrected_data
     
     @staticmethod
+    def correctDictToJsonSchemaTypeDictRecursive(result: Dict[str, Any], TypeDict:dict)->dict:
+        TypeDict = {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string", "default": ""},
+                            "description": {"type": "string", "default": ""},
+                            "dependencies": {"type": "array", "items": {"type": "string"}, "default": []},
+                            "task_type": {"type": "Enum", "enum": ["task", "subtask"], "default": "task"},
+                            "time": {"type": "Interval", "start": 0, "end": 100, "default": 0}
+                        },
+                        "required": ["id", "description", "dependencies"]
+                    }
+                }
+            },
+            "default": {}
+        }
+
+        result = {
+            "tasks": [
+                {
+                "id": "task1",
+                "description": "タスク1の説明",
+                "dependencies": []
+                },
+                {
+                "id": "task2",
+                "description": "タスク2の説明",
+                "dependencies": "task1"
+                },
+                {
+                "id": "task3",
+                "description": "タスク3の説明",
+                "dependencies": ["task1"]
+                },
+                {
+                "id": "task4",
+                "description": "タスク4の説明",
+                "dependencies": ["task2", "task3"]
+                }
+            ]
+        }
+
+        
+        def correctData(data_want_convert,TypeDict):
+            ret = {}
+            target_type = TypeDict["type"]
+            if data_want_convert is None:
+                return TypeDict["default"]
+
+            if target_type == "object":
+                if isinstance(data_want_convert, dict):
+                    for propertie in TypeDict["properties"].keys():
+                        if propertie in data_want_convert:
+                            ret[propertie] = correctData(data_want_convert[propertie], TypeDict["properties"][propertie])
+                        else:
+                            ret[propertie] = TypeDict["properties"][propertie]["default"]
+                else:
+                    ret = TypeDict["default"]
+            elif target_type == "array":
+                ret = []
+                if isinstance(data_want_convert, list):
+                    for item in data_want_convert:
+                        ret.append(correctData(item, TypeDict["items"]))
+                else:
+                    ret = TypeDict["default"]
+            elif target_type == "string":
+                try:
+                    ret = str(data_want_convert)
+                except:
+                    ret = TypeDict["default"]
+            elif target_type == "int":
+                try:
+                    ret = int(data_want_convert)
+                except:
+                    ret = TypeDict["default"]
+            elif target_type == "float":
+                try:
+                    ret = float(data_want_convert)
+                except:
+                    ret = TypeDict["default"]
+            elif target_type == "Enum":
+                if data_want_convert in TypeDict["enum"]:
+                    ret = data_want_convert
+                else:
+                    ret = TypeDict["default"]
+            elif target_type == "Interval":
+                if isinstance(data_want_convert, int) or isinstance(data_want_convert, float):
+                    I = Interval("[", TypeDict["start"], data_want_convert, "]")
+                    if I.__contains__(data_want_convert):
+                        ret = data_want_convert
+                    else:
+                        ret = TypeDict["default"]
+                else:
+                    ret = TypeDict["default"]
+            return ret
+        corrected_data = {}
+        corrected_data = correctData(result, TypeDict)
+        return corrected_data
+        
+            
+            
+            
+        
+
+    
+    @staticmethod
     def replaceBulkString(target: str, replace_dict: Dict[str, str]) -> str:
         """
         文字列中の指定した文字列を一括で置換します。
@@ -912,4 +1023,8 @@ if __name__ == '__main__':
             "huげ":"zunndamo"
         } 
         print(ExtendFunc.dictToStr(dicta))
+    elif True:
+
+        ret = ExtendFunc.correctDictToJsonSchemaTypeDictRecursive({},{})
+        ExtendFunc.ExtendPrint(ret)
     
