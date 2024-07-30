@@ -315,7 +315,7 @@ class ExtendFunc:
         return corrected_data
     
     @staticmethod
-    def correctDictToJsonSchemaTypeDictRecursive(result: Dict[str, Any], TypeDict:dict)->dict:
+    def correctDictToJsonSchemaTypeDictRecursive(result: Dict[str, Any], TypeDict:dict):
         TypeDict = {
             "type": "object",
             "properties": {

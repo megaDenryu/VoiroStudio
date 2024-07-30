@@ -524,5 +524,24 @@
           "チェック結果": Literal["承認", "修正"]
       ```
 
+タスクJSON変換エージェント:
+  - role: system
+    content: |-
+      あなたはタスクJSON変換エージェントです。ユーザーが与えたタスク分解の考えをまとめて以下のpythonで型定義されたjson形式に変換してください。
+      ```
+      class Task(TypedDict):
+          id: str
+          description: str
+          dependencies: List[str]
+
+      class Tasks(TypedDict):
+          tasks: List[Task]
+      ```
+
+タスクJSON変換エージェントリクエストひな形:
+  - role: user
+    content: |-
+      タスク分解考察結果: {{task_breaking_down_idea}}
+      このタスクをJSON形式に変換してください。
 
 

@@ -195,12 +195,16 @@ class TaskBrekingDownConversationUnit(BaseModel):
             problem_point = problem_point,
             check_result = check_result
         )
+class Task(TypedDict):
+    id: str
+    description: str
+    dependencies: list[str]
 class TaskBreakingDownTransportedItem(GeneralTransportedItem):
     usage_purpose:str
     problem:str
     comlete_breaking_down_task:bool
     conversation:list[TaskBrekingDownConversationUnit]
-    breaking_downed_task:str
+    breaking_downed_task:list[Task]
     class Config:
         arbitrary_types_allowed = True
     
@@ -211,7 +215,7 @@ class TaskBreakingDownTransportedItem(GeneralTransportedItem):
             problem = "",
             comlete_breaking_down_task = False,
             conversation = [],
-            breaking_downed_task = ""
+            breaking_downed_task = []
         )
     @staticmethod
     def conversationToString(conversation:list[TaskBrekingDownConversationUnit]):
@@ -1697,7 +1701,9 @@ class TaskToJsonConverterAgent(ThinkingProcessModule):
         return query
     
     def replaceDictDef(self, input: TaskBreakingDownTransportedItem)->dict[str,str]:
-
+        return {
+            "{{task_breaking_down_idea}}":input.conversationToString(input.conversation)
+        }
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
         print(f"{self.name}がリクエストを送信します")
         result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
@@ -1705,12 +1711,12 @@ class TaskToJsonConverterAgent(ThinkingProcessModule):
             raise ValueError("リクエストに失敗しました。")
         return result
         
-    def correctResult(self, result: dict) -> Dict[str, Any]:
+    def correctResult(self, result: dict):
         ret = ExtendFunc.correctDictToJsonSchemaTypeDictRecursive(result, self.typeTaskToJsonConverterAgentResponse(self.replace_dict))
 
     def addInfoToTransportedItem(self,transported_item:TaskBreakingDownTransportedItem, result:dict)->TaskBreakingDownTransportedItem:
         #内容未定
-    
+        transported_item.breaking_downed_task = result
         
 
 class AgentEventManager:
