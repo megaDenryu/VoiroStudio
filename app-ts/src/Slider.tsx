@@ -1,10 +1,10 @@
 import { useState } from "react";
 
-export function App() {
+export function Slider() {
   const [value, setValue] = useState(10);
 
   return (
-    <div>
+    <>
       <div>
         Value: {value}
       </div>
@@ -12,6 +12,6 @@ export function App() {
       <input type="range"
         value={value}
         onChange={e => setValue(+e.target.value)} />
-    </div>
+    </>
   );
 }
