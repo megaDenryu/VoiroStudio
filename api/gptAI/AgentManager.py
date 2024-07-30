@@ -1646,10 +1646,6 @@ class TaskToJsonConverterAgent(ThinkingProcessModule):
         self.event_queue = Queue()
         self.agent_manager = agent_manager
         self.epic:Epic = agent_manager.epic
-    
-    
-
-
 
     def typeTaskToJsonConverterAgentResponse(self, replace_dict: dict[str,str]):
         #JsonSchemaの型を定義
@@ -1670,14 +1666,51 @@ class TaskToJsonConverterAgent(ThinkingProcessModule):
         return TypeDict
 
 
-    def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+        ExtendFunc.ExtendPrint(transported_item)
+        result = await self.run(transported_item)
+        await self.notify(result)
 
-    def notify(self, data:TaskBreakingDownTransportedItem):
 
-    def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+    async def notify(self, data:TaskBreakingDownTransportedItem):
+        await self.event_queue.put(data)
 
+    async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+
+    def prepareQuery(self, input: TaskBreakingDownTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: TaskBreakingDownTransportedItem)->dict[str,str]:
+
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        if result is None:
+            raise ValueError("リクエストに失敗しました。")
+        return result
+        
     def correctResult(self, result: dict) -> Dict[str, Any]:
         ret = ExtendFunc.correctDictToJsonSchemaTypeDictRecursive(result, self.typeTaskToJsonConverterAgentResponse(self.replace_dict))
+
+    def addInfoToTransportedItem(self,transported_item:TaskBreakingDownTransportedItem, result:dict)->TaskBreakingDownTransportedItem:
+        #内容未定
+    
         
 
 class AgentEventManager:
