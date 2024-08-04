@@ -1007,7 +1007,7 @@ if __name__ == '__main__':
         
         corrected_data = ExtendFunc.correctDictToTypeDict(result, TypeDict)
         pprint(corrected_data, indent=4)
-    elif False:
+    elif True:
         time = TimeExtend("2024-05-04 19:18:17")
         time2 = TimeExtend("2024-05-04 19:18:17")
         print(time)
