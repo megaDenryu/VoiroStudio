@@ -213,6 +213,42 @@ class ExtendFunc:
         """
         return min(str_list, key=lambda x: Levenshtein.distance(target, x))
     
+    @staticmethod
+    def loadJsonFromSentence(text: str) -> list[dict]:
+        """
+        文章からjsonを全て抽出します。
+
+        Parameters:
+        sentence (str): 抽出対象の文章
+
+        Returns:
+        dict: 抽出したjson
+        """
+        
+        json_objects = []
+        stack = []
+        start_index = None
+
+        for i, char in enumerate(text):
+            if char == '{':
+                if start_index is None:
+                    start_index = i  # JSON開始位置を記録
+                stack.append(char)  # スタックに `{` を追加
+            elif char == '}':
+                stack.pop()  # スタックから `{` を削除
+                if not stack:
+                    # スタックが空になったらバランスが取れている
+                    json_str = text[start_index:i+1]
+                    try:
+                        # 抽出した文字列が有効なJSONかを確認
+                        json_object = json.loads(json_str)
+                        json_objects.append(json_object)
+                    except json.JSONDecodeError:
+                        pass  # 無効なJSONの場合は無視
+                    start_index = None  # 次のJSONに備えてリセット
+
+        return json_objects
+    
     
     @staticmethod
     def correctDictToGeneric(result: Dict[str, Any], typed_dict_class):
@@ -1023,8 +1059,16 @@ if __name__ == '__main__':
             "huげ":"zunndamo"
         } 
         print(ExtendFunc.dictToStr(dicta))
-    elif True:
+    elif False:
 
         ret = ExtendFunc.correctDictToJsonSchemaTypeDictRecursive({},{})
         ExtendFunc.ExtendPrint(ret)
     
+    elif True:
+        text = """
+                ここに普通の文章があり、{"key1": "value1", "key2": 2}というJSONがあります。
+                さらに、{"key3": [1, 2, 3], "key4": {"nested_key": "nested_value"}}という別のJSONもあります。
+                その他の文章は無視されます。
+                """
+        jsons = ExtendFunc.loadJsonFromSentence(text)
+        pprint(jsons)

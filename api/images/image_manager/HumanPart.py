@@ -253,7 +253,7 @@ class HumanPart:
         """
 
         # CharaFilePathのキャラ名キーがすべてそろっているかチェックする
-        chara_name_list = HumanPart.getAllCharacterName()
+        # chara_name_list = HumanPart.getAllCharacterName()
 
         path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CharFilePath.json")
         chara_name_dict = ExtendFunc.loadJsonToDict(path)
@@ -272,7 +272,7 @@ class HumanPart:
     def getAllCharacterName():
         cevio_names:list[str] = HumanPart.getCevioAllName()
         aivoice_names:list[str] = HumanPart.getAIVoiceAllNames()
-        voicevoc_names:list[str] = HumanPart.getVoiceVOXAllNames()
+        voicevoc_names:list[str] = HumanPart.getVoiceVoxAllNames()
         coeiroink_names:list[str] = HumanPart.getCoeiroinkAllNames()
         all_names = cevio_names + aivoice_names + voicevoc_names + coeiroink_names
         return all_names
@@ -310,3 +310,13 @@ class HumanPart:
             chara_names = ExtendFunc.loadJsonToList(path)
         return chara_names
 
+    
+    @staticmethod
+    def getCoeiroinkAllNames():
+        is_coeiroink_active = False
+        if is_coeiroink_active:
+            pass
+        else:
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CoeiroinkNameForVoiceroidAPI.json")
+            chara_names = ExtendFunc.loadJsonToList(path)
+        return chara_names
