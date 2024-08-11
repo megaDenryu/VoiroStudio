@@ -4,6 +4,8 @@ import json
 from pprint import pprint
 from pathlib import Path
 import sys
+
+from api.gptAI.HumanBaseModel import TaskGraph
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from fastapi import WebSocket
 from openai import OpenAI, AsyncOpenAI, AssistantEventHandler
@@ -222,6 +224,23 @@ class TaskBreakingDownTransportedItem(GeneralTransportedItem):
         for unit in conversation:
             ret_string = f"{ret_string}\n{unit.speaker}:{unit.solution_step_idea}"
         return ret_string
+
+class LifeProcessTransportedItem(GeneralTransportedItem):
+    fast_input:str
+    task_list:list[Task]
+    class Config:
+        arbitrary_types_allowed = True
+    
+    @staticmethod
+    def init():
+        return TaskBreakingDownTransportedItem(
+            usage_purpose = "タスク分解",
+            problem = "",
+            comlete_breaking_down_task = False,
+            conversation = [],
+            breaking_downed_task = []
+        )
+
 
 
 
@@ -1622,7 +1641,16 @@ class NonThinkingSerifAgent(Agent):
         return transported_item    
 
 
-class ThinkingProcessModule:
+class LifeProcessModule:
+    """
+    タスク分解
+    タスク実行
+    Bios
+    ネット検索
+    タイマー
+    制御（if、for、goto）
+    などを行う
+    """
     replace_dict:dict[str,str] = {}
     name:str
     def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
@@ -1685,7 +1713,7 @@ class ThinkingProcessModule:
         pass
 
 # タスク分解の案を出すエージェント
-class TaskDecompositionProposerAgent(ThinkingProcessModule):
+class TaskDecompositionProposerAgent(LifeProcessModule):
     def __init__(self, agent_manager: AgentManager):
         super().__init__(agent_manager)
         self.name = "タスク分解提案エージェント"
@@ -1759,7 +1787,7 @@ class TaskDecompositionProposerAgent(ThinkingProcessModule):
 
 
 # タスク分解の案をチェックし、反論や修正や承認を行うエージェント
-class TaskDecompositionCheckerAgent(ThinkingProcessModule):
+class TaskDecompositionCheckerAgent(LifeProcessModule):
     def __init__(self, agent_manager: AgentManager):
         super().__init__(agent_manager)
         self.name = "タスク分解チェッカーエージェント"
@@ -1848,7 +1876,7 @@ class TaskUnit(BaseModel):
         def init(id:str|None, タスクの説明:str|None, 依存するタスクのid:list[str]|None)->"TaskUnit":
             tu = TaskUnit()
             return tu
-class TaskToJsonConverterAgent(ThinkingProcessModule):
+class TaskToJsonConverterAgent(LifeProcessModule):
     def __init__(self, agent_manager: AgentManager):
         super().__init__(agent_manager)
         self.name = "タスクJSON変換エージェント"
@@ -1931,6 +1959,22 @@ class TaskToJsonConverterAgent(ThinkingProcessModule):
         #内容未定
         transported_item.breaking_downed_task = result
         return transported_item
+    
+class TaskExecutorAgent(LifeProcessModule):
+    def __init__(self, agent_manager: AgentManager, replace_dict: Dict[str, str] = {}):
+        pass
+    def handleEvent(self, transported_item:LifeProcessTransportedItem):
+        task_graph = self.createTaskGraph(transported_item.task_list)
+        
+
+        pass
+    
+    def createTaskGraph(self, task_list:list[Task]):#->TaskGraph:
+        pass
+class FileOperator(LifeProcessModule):
+    pass
+
+
 
 
 

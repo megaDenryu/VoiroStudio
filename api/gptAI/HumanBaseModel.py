@@ -1,4 +1,5 @@
 from enum import Enum
+from typing_extensions import Literal
 from pydantic import BaseModel
 from typing import TypedDict
 
@@ -57,7 +58,120 @@ class Task(TypedDict):
     id: str
     task_species: str
     description: str
+    use_tool: Literal["なし","タスク分解","タスク実行","発言"]
+    tool_query: str
     dependencies: list[str]
+
+class TaskOutput(TypedDict):
+    output:str
+
+class TaskGraphUnit:
+    _previous_tasks: list["TaskGraphUnit"]
+    _next_tasks: list["TaskGraphUnit"]
+    _previous_resolved:dict["TaskGraphUnit",bool]= {}
+    _ready:bool = False
+    task:Task
+    @property
+    def previous_tasks(self):
+        return self._previous_tasks
+    @property
+    def next_tasks(self):
+        return self._next_tasks
+    @property
+    def ready(self):
+        return self._ready
+    def __init__(self, task:Task) -> None:
+        self.task = task
+        self._previous_tasks = []
+        self._next_tasks = []
+    def registPreviousTask(self, previous_task:"TaskGraphUnit"):
+        # 重複登録を防ぐ
+        if previous_task not in self._previous_tasks:
+            self._previous_tasks.append(previous_task)
+    def registNextTask(self, next_task:"TaskGraphUnit"):
+        # 重複登録を防ぐ
+        if next_task not in self._next_tasks:
+            self._next_tasks.append(next_task)
+    def initPreviousResolvedStatus(self):
+        for previous_task in self._previous_tasks:
+            self._previous_resolved[previous_task] = False
+    async def notifiedPreviousTaskResolvedAndExcuteTask(self, previous_task:"TaskGraphUnit"):
+        self._previous_resolved[previous_task] = True
+        if all(self._previous_resolved.values()):
+            self._ready = True
+            self.execute()
+    def notifiedPreviousTaskResolved(self, previous_task:"TaskGraphUnit"):
+        self._previous_resolved[previous_task] = True
+        if all(self._previous_resolved.values()):
+            self._ready = True
+    async def notifyProcessComplete(self,):
+        self._ready = False
+        self._previous_resolved = {}
+        for next_task in self._next_tasks:
+            await next_task.notifiedPreviousTaskResolvedAndExcuteTask(self)
+    def notifyProcessCompleteForCreateStepList(self,next_step_candidate:list["TaskGraphUnit"])->list["TaskGraphUnit"]:
+        self._ready = False
+        self._previous_resolved = {}
+        for next_task in self._next_tasks:
+            next_task.notifiedPreviousTaskResolved(self)
+            next_step_candidate.extend(self._next_tasks)
+        return next_step_candidate
+    
+    def execute(self):
+        if all(self._previous_resolved.values()) == False:
+            return
+        # タスクを実行
+        
+        # タスクの実行結果を返す
+
+        # 次のタスクに通知
+        self.notifyProcessComplete()
+
+
+    
+    
+class TaskGraph:
+    task_dict:dict[str, TaskGraphUnit] = {}
+    step_list: list[list[TaskGraphUnit]] = []
+    non_dependent_tasks: list[TaskGraphUnit] = []
+    non_next_tasks: list[TaskGraphUnit] = []
+    def __init__(self,task_list:list[Task]) -> None:
+        # 辞書に登録
+        for task in task_list:
+            tmp_task_unit = TaskGraphUnit(task)
+            self.task_dict[task["id"]] = tmp_task_unit
+        # 依存関係を登録
+        for task_unit in self.task_dict.values():
+            for dependency_id in task_unit.task["dependencies"]:
+                dependency_task = self.task_dict[dependency_id]
+                task_unit.registPreviousTask(dependency_task)
+                dependency_task.registNextTask(task_unit)
+            if len(task_unit.previous_tasks) == 0:
+                self.non_dependent_tasks.append(task_unit)
+            if len(task_unit.next_tasks) == 0:
+                self.non_next_tasks.append(task_unit)
+        # ステップリストを作成
+        step_list = [self.non_dependent_tasks]
+        not_raady_next_step:list[TaskGraphUnit] = []
+        while len(step_list[-1]) > 0:
+            next_step_candidate:list[TaskGraphUnit] = []
+            for task in step_list[-1]:
+                next_step_candidate = task.notifyProcessCompleteForCreateStepList(next_step_candidate)
+            next_step:list[TaskGraphUnit] = []
+            for task in next_step_candidate:
+                if task.ready:
+                    next_step.append(task)
+                else:
+                    not_raady_next_step.append(task)
+            step_list.append(next_step)
+    
+    async def ExcuteStepList(self):
+        pass
+                
+
+
+
+
 class MentalEnergy:
     mental_energy_interval:Interval = Interval("[", 0, 100, "]")
     def __init__(self, energy_value:int):
