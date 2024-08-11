@@ -4,7 +4,6 @@ import json
 from pprint import pprint
 from pathlib import Path
 import sys
-
 from api.gptAI.HumanBaseModel import TaskGraph
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from fastapi import WebSocket
@@ -20,8 +19,9 @@ from api.gptAI.Human import Human
 from api.Extend.ExtendFunc import ExtendFunc, RandomExtend, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.Epic.Epic import Epic, MassageHistoryUnit, MessageUnit
-from typing import Literal, Protocol, TypedDict
+from typing import Literal, Protocol
 from typing import Any, Dict, get_type_hints, get_origin,TypeVar, Generic
+from typing_extensions import TypedDict
 from pydantic import BaseModel, validator
 
 

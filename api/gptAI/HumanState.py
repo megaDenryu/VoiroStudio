@@ -3,7 +3,6 @@ from typing import Literal
 from api.Extend.ExtendSet import Interval
 from api.gptAI.HumanBaseModel import *
 from api.gptAI.HumanBaseModel import HumanEmotion
-from typing import TypedDict
 
 
 
@@ -60,10 +59,10 @@ class LifeGoalState:
 
     # 会話と、メンタル、ボディー、ライフゴール、メモリーの状態からどのような目標を持つべきか探り、明確化する
     async def clarificateGoals(self, conversation:bool, mental:"MentalState", body:BodyState, memory:"MemoryState"):
-        golas_idea = await self.findGoals(conversation, mental, body, memory)
-        # 考えた目標がどれくらい達成できそうか確率を出力
-        gials = await judgeGoals(golas_idea)
-        # 
+        # golas_idea = await self.findGoals(conversation, mental, body, memory)
+        # # 考えた目標がどれくらい達成できそうか確率を出力
+        # gials = await judgeGoals(golas_idea)
+        pass
 
 class MentalState:
     mental_energy:MentalEnergy = MentalEnergy(100)

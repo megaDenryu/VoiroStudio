@@ -32,6 +32,7 @@ from typing import Dict, List, Any, Literal
 import mimetypes
 
 from api.comment_reciver.comment_module import NicoNamaCommentReciever
+from api.comment_reciver.newNikonamaCommentReciever import newNikonamaCommentReciever
 from api.comment_reciver.NiconamaUserLinkVoiceroidModule import NiconamaUserLinkVoiceroidModule
 from api.comment_reciver.YoutubeCommentReciever import YoutubeCommentReciever
 
@@ -65,6 +66,7 @@ game_master_enable = False
 human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
+new_nikonama_comment_reciever_list:dict[str,newNikonamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
 twitchBotList:dict[str,TwitchBot] = {}
 epic = Epic()
@@ -481,8 +483,8 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
         notifier.remove(websocket)
 
 
-@app.websocket("/nikonama_comment_reciver/{room_id}/{front_name}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str):
+@app.websocket("/old_nikonama_comment_reciver/{room_id}/{front_name}")
+async def old_nicowebsocket_endpoint(websocket: WebSocket, room_id: str, front_name: str):
     await websocket.accept()
     char_name = Human.setCharName(front_name)
     print(f"{char_name}で{room_id}のニコ生コメント受信開始")
@@ -512,12 +514,56 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
             
         await websocket.send_text(json.dumps(comment))
 
+@app.post("/old_nikonama_comment_reciver_stop/{front_name}")
+async def old_nikonama_comment_reciver_stop(front_name: str):
+    char_name = Human.setCharName(front_name)
+    if char_name in nikonama_comment_reciever_list:
+        print(f"{front_name}のニコ生コメント受信停止")
+        nikonama_comment_reciever = nikonama_comment_reciever_list[char_name]
+        nikonama_comment_reciever.stopRecieve()
+        return
+
+@app.websocket("/nikonama_comment_reciver/{room_id}/{front_name}")
+async def nikonama_comment_reciver_start(websocket: WebSocket, room_id: str, front_name: str):
+    await websocket.accept()
+    char_name = Human.setCharName(front_name)
+    print(f"{char_name}で{room_id}のニコ生コメント受信開始")
+    update_room_id_query = {
+        "ニコ生コメントレシーバー設定": {
+            "生放送URL":room_id
+        }
+    }
+    JsonAccessor.updateAppSettingJson(update_room_id_query)
+    end_keyword = app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"]
+    ndgr_client = newNikonamaCommentReciever(room_id, end_keyword)
+    new_nikonama_comment_reciever_list[char_name] = ndgr_client
+    nulvm = NiconamaUserLinkVoiceroidModule()
+
+    async for NDGRComment in ndgr_client.streamComments():
+        # 生のユーザー ID が 0 より上だったら生のユーザー ID を、そうでなければ匿名化されたユーザー ID を表示する
+        user_id = NDGRComment.raw_user_id if NDGRComment.raw_user_id > 0 else NDGRComment.hashed_user_id
+        content = NDGRComment.content
+        date = TimeExtend.convertDatetimeToString(NDGRComment.at)
+
+        comment = {
+            "user_id": user_id,
+            "comment": content,
+            "date": date,
+        }
+
+        pprint(comment)
+        if "@" in comment["comment"] or "＠" in comment["comment"]:
+            print("ユーザーIDとキャラ名を紐づけます")
+            char_name = nulvm.registerNikonamaUserIdToCharaName(comment["comment"],user_id)
+        comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
+        await websocket.send_text(json.dumps(comment))
+
 @app.post("/nikonama_comment_reciver_stop/{front_name}")
 async def nikonama_comment_reciver_stop(front_name: str):
     char_name = Human.setCharName(front_name)
     if char_name in nikonama_comment_reciever_list:
         print(f"{front_name}のニコ生コメント受信停止")
-        nikonama_comment_reciever = nikonama_comment_reciever_list[char_name]
+        nikonama_comment_reciever = new_nikonama_comment_reciever_list[char_name]
         nikonama_comment_reciever.stopRecieve()
         return
     

@@ -7,7 +7,7 @@ import re
 import typing
 import Levenshtein
 from pprint import pprint
-from typing import TypeVar, TypedDict, get_type_hints, Dict, Any, Literal, get_origin
+from typing import TypeVar, get_type_hints, Dict, Any, Literal, get_origin
 import sys
 import unicodedata
 from googletrans import translate
@@ -661,6 +661,18 @@ class TimeExtend:
         now = TimeExtend()
         return now.toSecond() - time.toSecond()
 
+    @staticmethod
+    def convertDatetimeToString(date:datetime.datetime) -> str:
+        """
+        日付を文字列に変換します。
+
+        Parameters:
+        date (datetime.datetime): 日付
+
+        Returns:
+        str: 日付の文字列
+        """
+        return date.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 
 class TextConverter:

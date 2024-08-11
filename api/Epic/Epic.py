@@ -1,5 +1,5 @@
 from asyncio import Event, Queue
-from typing import TypedDict
+from typing_extensions import TypedDict
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 

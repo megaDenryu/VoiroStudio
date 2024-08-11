@@ -1,7 +1,7 @@
 from enum import Enum
 from typing_extensions import Literal
 from pydantic import BaseModel
-from typing import TypedDict
+from typing_extensions import TypedDict
 
 from pathlib import Path
 import sys
