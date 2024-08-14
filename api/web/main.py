@@ -551,11 +551,12 @@ async def nikonama_comment_reciver_start(websocket: WebSocket, room_id: str, fro
             "date": date,
         }
 
-        pprint(comment)
+        ExtendFunc.ExtendPrint(comment)
         if "@" in comment["comment"] or "＠" in comment["comment"]:
             print("ユーザーIDとキャラ名を紐づけます")
             char_name = nulvm.registerNikonamaUserIdToCharaName(comment["comment"],user_id)
         comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
+        ExtendFunc.ExtendPrint(comment)
         await websocket.send_text(json.dumps(comment))
 
 @app.post("/nikonama_comment_reciver_stop/{front_name}")
