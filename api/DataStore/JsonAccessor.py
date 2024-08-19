@@ -120,6 +120,14 @@ class JsonAccessor:
         return content_dict
     
     @staticmethod
+    def loadGptBehaviorYaml(chara_name:str = "一般"):
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/GPTBehavior.yml"
+        with open(path,encoding="UTF8") as f:
+            content = f.read()
+        dict = yaml.safe_load(content)
+        return dict[chara_name]
+    
+    @staticmethod
     def loadCoeiroinkNameToNumberJson():
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "CharSettingJson/CoeiroinkNameToNumber.json"
         coeiroink_name_to_number = ExtendFunc.loadJsonToDict(path)

@@ -4,7 +4,8 @@ import json
 from pprint import pprint
 from pathlib import Path
 import sys
-from api.gptAI.HumanBaseModel import TaskGraph
+
+from api.gptAI.HumanBaseModel import DestinationAndProfitVector, ProfitVector, 目標と利益ベクトル
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from fastapi import WebSocket
 from openai import OpenAI, AsyncOpenAI, AssistantEventHandler
@@ -200,9 +201,35 @@ class TaskBrekingDownConversationUnit(BaseModel):
             check_result = check_result
         )
 
+class ProblemDecomposedIntoTasks(BaseModel):
+    problem_title:str
+    role_in_task_graph: str|None  #タスクグラフ内での役割または解決するべき問題
+    result_of_previous_task: str|None  #前のタスクの結果
+    def __init__(self, task:Task, result_of_previous_task:"TaskToolOutput|None" = None):
+        self.problem_title = task["task_title"]
+        self.role_in_task_graph = self.TaskToRoleInTaskGraph(task)
+        self.result_of_previous_task = self.perviousTaskToResultToString(result_of_previous_task)
+    def TaskToRoleInTaskGraph(self, task:Task|None)->str:
+        if task is None:
+            #todo :最初のタスクだがまだ実装していない
+            raise NotImplementedError("最初のタスクの時だがまだ実装していない")
+
+        else:
+            return ExtendFunc.dictToStr({"タスクの種類":task["task_species"],"タスクの説明":task["description"]})
+    def perviousTaskToResultToString(self, result_of_previous_task:"TaskToolOutput|None")->str:
+        if result_of_previous_task is None:
+            return "なし"
+        else:
+            return ExtendFunc.dictToMarkdownTitleEntry({"前回のタスク結果":result_of_previous_task.task_exec_result},2)
+    
+    def summarizeProblem(self):
+        if self.role_in_task_graph is None:
+            return f"## 問題\n{self.result_of_previous_task}"
+        return ExtendFunc.dictToMarkdownTitleEntry({"前のタスクの結果":self.result_of_previous_task,"問題":self.role_in_task_graph},2)
+
 class TaskBreakingDownTransportedItem(GeneralTransportedItem):
     usage_purpose:str
-    problem:str
+    problem:ProblemDecomposedIntoTasks
     comlete_breaking_down_task:bool
     conversation:list[TaskBrekingDownConversationUnit]
     breaking_downed_task:list[Task]
@@ -210,10 +237,10 @@ class TaskBreakingDownTransportedItem(GeneralTransportedItem):
         arbitrary_types_allowed = True
     
     @staticmethod
-    def init():
+    def init(problem):
         return TaskBreakingDownTransportedItem(
             usage_purpose = "タスク分解",
-            problem = "",
+            problem = problem,
             comlete_breaking_down_task = False,
             conversation = [],
             breaking_downed_task = []
@@ -235,7 +262,7 @@ class LifeProcessTransportedItem(GeneralTransportedItem):
     def init():
         return TaskBreakingDownTransportedItem(
             usage_purpose = "タスク分解",
-            problem = "",
+            problem = None,
             comlete_breaking_down_task = False,
             conversation = [],
             breaking_downed_task = []
@@ -635,6 +662,88 @@ class InputReciever():
             if self.message_stack[i]['現在の日付時刻'] < time:
                 return i
         return None
+
+class AgentEventManager:
+    def __init__(self, chara_name:str, gpt_mode_dict:dict[str,str]):
+        self.gpt_mode_dict = gpt_mode_dict
+        self.chara_name = chara_name
+    async def addEventWebsocketOnMessage(self, websocket: WebSocket, reciever: EventReciever):
+        while True:
+            data = await websocket.receive_json()
+            await reciever.handleEvent(data)
+    
+    async def setEventQueueArrow(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventReciever[GeneralTransportedItem_T]):
+        # notifierの中のreciever_dictにrecieverを追加
+        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
+        while True:
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
+            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
+                return
+            item = await event_queue_for_reciever.get()
+            ExtendFunc.ExtendPrint(item)
+            await reciever.handleEvent(item)
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
+    
+    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventRecieverWaitFor[GeneralTransportedItem_T]):
+        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
+        while True:
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
+            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
+                return
+            try:
+                item = await asyncio.wait_for(event_queue_for_reciever.get(), timeout=reciever.timeOutSec())
+            except asyncio.TimeoutError:
+                ExtendFunc.ExtendPrint(f"{reciever.name}イベントがタイムアウトしました")
+                item = reciever.timeOutItem()
+            ExtendFunc.ExtendPrint(item)
+            try:
+                await asyncio.wait_for(reciever.handleEvent(item),40)
+                ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
+            except asyncio.TimeoutError:
+                ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")
+    
+    async def setEventQueueConfluenceArrow(self, notifier_list: list[QueueNotifier[GeneralTransportedItem_T]], reciever: EventReciever[GeneralTransportedItem_T]):
+        list_event_queue_for_reciever:list[Queue[GeneralTransportedItem_T]] = []
+        for notifier in notifier_list:
+            event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
+            list_event_queue_for_reciever.append(event_queue_for_reciever)
+        while True:
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
+            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
+                return
+            task = [event_queue.get() for event_queue in list_event_queue_for_reciever]
+            resluts = await asyncio.gather(*task)
+            # tiをマージする
+            ti = resluts[0]
+            for item in resluts[1:]:
+                ti = self.mergeTransportedItem(ti, item)
+            ExtendFunc.ExtendPrint(ti)
+            try:
+                await asyncio.wait_for(reciever.handleEvent(ti), 40)
+                ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
+            except asyncio.TimeoutError:
+                ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")     
+    
+    @staticmethod
+    def mergeTransportedItem(ti:GeneralTransportedItem_T, item:GeneralTransportedItem_T)->GeneralTransportedItem_T:
+        init_ti = ti.init()
+        #init_tiの各要素を参照して、tiの情報がinit_tiの情報と異なるならtiの情報を採用し、同じならitemの情報を参照してinit_tiと異なるならitemの情報を採用し、両方とも同じならそのまま
+        for key in init_ti.__dict__.keys():
+            if ti.__dict__[key] != init_ti.__dict__[key]:
+                #tiの情報がinit_tiの情報と異なるならtiの情報を採用
+                ti.__dict__[key] = item.__dict__[key]
+            else:
+                #tiの情報がinit_tiの情報と同じならitemの情報を参照
+                if item.__dict__[key] != init_ti.__dict__[key]:
+                    #itemの情報がinit_tiの情報と異なるならitemの情報を採用
+                    ti.__dict__[key] = item.__dict__[key]
+                else:
+                    #両方とも同じならそのまま
+                    pass
+        return ti
 
 
 class MicInputJudgeAgent(Agent):
@@ -1653,12 +1762,11 @@ class LifeProcessModule:
     """
     replace_dict:dict[str,str] = {}
     name:str
-    def __init__(self,agent_manager: AgentManager,  replace_dict: dict[str,str] = {}):
-        self.agent_manager = agent_manager
+    event_queue_dict = {}
+    def __init__(self, replace_dict: dict[str,str] = {}):
         self._gpt_api_unit = ChatGptApiUnit()
         ExtendFunc.ExtendPrint(replace_dict)
         self.replace_dict = replace_dict
-        self.event_queue_dict:dict[EventReciever,Queue[GeneralTransportedItem]] = {}
 
     async def run(self,transported_item: GeneralTransportedItem)->GeneralTransportedItem:
         query = self.prepareQuery(transported_item)
@@ -1678,12 +1786,9 @@ class LifeProcessModule:
         self.event_queue_dict[reciever] = Queue[GeneralTransportedItem]()
         return self.event_queue_dict[reciever]
     
+    @abstractmethod
     async def notify(self, data:GeneralTransportedItem):
-        # LLMが出力した成功か失敗かを通知
-        task = []
-        for event_queue in self.event_queue_dict.values():
-            task.append(event_queue.put(data))
-        await asyncio.gather(*task)
+        pass
     
     @abstractmethod
     def prepareQuery(self,input: GeneralTransportedItem)->list[ChatGptApiUnit.MessageQuery]:
@@ -1712,16 +1817,18 @@ class LifeProcessModule:
     def addInfoToTransportedItem(self,transported_item:GeneralTransportedItem, result:Dict[str, Any])->GeneralTransportedItem:
         pass
 
+class LifeProcessModuleManager:
+    def __init__(self) -> None:
+        pass
+
 # タスク分解の案を出すエージェント
 class TaskDecompositionProposerAgent(LifeProcessModule):
-    def __init__(self, agent_manager: AgentManager):
-        super().__init__(agent_manager)
+    def __init__(self):
+        super().__init__()
         self.name = "タスク分解提案エージェント"
         self.request_template_name = "タスク分解提案エージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue = Queue()
-        self.agent_manager = agent_manager
-        self.epic:Epic = agent_manager.epic
+        self.event_queue_dict:dict[EventReciever,Queue[TaskBreakingDownTransportedItem]] = {}
 
     def typeTaskDecompositionProposerAgentResponse(self, replace_dict: dict[str,str]):
         TypeDict = {
@@ -1729,15 +1836,17 @@ class TaskDecompositionProposerAgent(LifeProcessModule):
         }
         return TypeDict
 
-    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
-        await self.notify(output)
+        return output
     
     async def notify(self, data:TaskBreakingDownTransportedItem):
-        # LLMが出力した成功か失敗かを通知
-        await self.event_queue.put(data)
+        task = []
+        for event_queue in self.event_queue_dict.values():
+            task.append(event_queue.put(data))
+        await asyncio.gather(*task)
 
     async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         query = self.prepareQuery(transported_item)
@@ -1765,8 +1874,10 @@ class TaskDecompositionProposerAgent(LifeProcessModule):
         return query
     
     def replaceDictDef(self, input: TaskBreakingDownTransportedItem)->dict[str,str]:
+        if input.problem is None:
+            raise ValueError("問題点が設定されていません。")
         return {
-            "{{problem}}":input.problem
+            "{{problem}}":input.problem.summarizeProblem(),
         }
     
     async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
@@ -1786,16 +1897,17 @@ class TaskDecompositionProposerAgent(LifeProcessModule):
         return transported_item
 
 
+
+
+
 # タスク分解の案をチェックし、反論や修正や承認を行うエージェント
 class TaskDecompositionCheckerAgent(LifeProcessModule):
-    def __init__(self, agent_manager: AgentManager):
-        super().__init__(agent_manager)
+    def __init__(self):
+        super().__init__()
         self.name = "タスク分解チェッカーエージェント"
         self.request_template_name = "タスク分解チェッカーエージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue = Queue()
-        self.agent_manager = agent_manager
-        self.epic:Epic = agent_manager.epic
+        self.event_queue_dict:dict[EventReciever,Queue[TaskBreakingDownTransportedItem]] = {}
 
     def typeTaskDecompositionCheckerAgentResponse(self, replace_dict: dict[str,str]):
         TypeDict = {
@@ -1805,14 +1917,16 @@ class TaskDecompositionCheckerAgent(LifeProcessModule):
         }
         return TypeDict
     
-    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
-        await self.notify(output)
+        return output
 
     async def notify(self, data:TaskBreakingDownTransportedItem):
-        # LLMが出力した成功か失敗かを通知
-        await self.event_queue.put(data)
+        task = []
+        for event_queue in self.event_queue_dict.values():
+            task.append(event_queue.put(data))
+        await asyncio.gather(*task)
 
     async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         query = self.prepareQuery(transported_item)
@@ -1839,9 +1953,14 @@ class TaskDecompositionCheckerAgent(LifeProcessModule):
         query = self.agent_setting + replaced_template
         return query
     
+    
+
     def replaceDictDef(self, input: TaskBreakingDownTransportedItem)->dict[str,str]:
+        if input.problem is None:
+            raise ValueError("問題点が設定されていません。")
+
         return {
-            "{{problem}}":input.problem,
+            "{{problem}}":input.problem.summarizeProblem(),
             "{{conversation}}":TaskBreakingDownTransportedItem.conversationToString(input.conversation)
         }
     
@@ -1877,14 +1996,12 @@ class TaskUnit(BaseModel):
             tu = TaskUnit()
             return tu
 class TaskToJsonConverterAgent(LifeProcessModule):
-    def __init__(self, agent_manager: AgentManager):
-        super().__init__(agent_manager)
+    def __init__(self):
+        super().__init__()
         self.name = "タスクJSON変換エージェント"
         self.request_template_name = "タスクJSON変換エージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue = Queue()
-        self.agent_manager = agent_manager
-        self.epic:Epic = agent_manager.epic
+        self.event_queue_dict:dict[EventReciever,Queue[TaskBreakingDownTransportedItem]] = {}
 
     def typeTaskToJsonConverterAgentResponse(self, replace_dict: dict[str,str]):
         #JsonSchemaの型を定義
@@ -1908,11 +2025,14 @@ class TaskToJsonConverterAgent(LifeProcessModule):
     async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
         ExtendFunc.ExtendPrint(transported_item)
         result = await self.run(transported_item)
-        await self.notify(result)
+        return result
 
 
     async def notify(self, data:TaskBreakingDownTransportedItem):
-        await self.event_queue.put(data)
+        task = []
+        for event_queue in self.event_queue_dict.values():
+            task.append(event_queue.put(data))
+        await asyncio.gather(*task)
 
     async def run(self,transported_item: TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         query = self.prepareQuery(transported_item)
@@ -1960,107 +2080,619 @@ class TaskToJsonConverterAgent(LifeProcessModule):
         transported_item.breaking_downed_task = result
         return transported_item
     
+class TaskDecompositionProcessManager:
+    _proposer = TaskDecompositionProposerAgent()
+    _checker = TaskDecompositionCheckerAgent()
+    _converter = TaskToJsonConverterAgent()
+    def __init__(self) -> None:
+        pass
+
+    async def taskDecompositionProcess(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+        while transported_item.comlete_breaking_down_task == False:
+            transported_item = await self._proposer.handleEvent(transported_item)
+            transported_item = await self._checker.handleEvent(transported_item)
+        transported_item = await self._converter.handleEvent(transported_item)
+        return transported_item
+
+class DestinationTransportedItem(GeneralTransportedItem):
+    """
+    resultの中身が決まってない
+    """
+    result: | None
+    class Config:
+        arbitrary_types_allowed = True
+    
+    @staticmethod
+    def init():
+        return DestinationTransportedItem(
+            usage_purpose="Destination"
+            result= None
+        )
+
+class DestinationAgent(LifeProcessModule):
+    """
+    Q1 : 目標エージェントはどこで生成するのがよいのか？ A:
+    Q2 : Memoryオブジェクトはシングルトンだが、どこで生成してこのクラスにバインドするのか？ A:
+    
+    """
+    name:str = "目標決定エージェント"
+    request_template_name:str = "目標決定エージェントリクエストひな形"
+    本能yml:dict
+    gptキャラの本能:str
+    memory:"Memory"
+
+    def __init__(self):
+        super().__init__()
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        self.load本能()
+
+    def typeDestinationAgentResponse(self, replace_dict: dict[str,str]):
+        #JsonSchemaの型を定義
+        TypeDict = {
+            "type": "object",
+            "properties": {
+                "目標": {"type": "string"},
+                "利益ベクトル": {
+                    "type": "object",
+                    "properties": {
+                        "精神エネルギー": {"type": "integer","default":0},
+                        "肉体エネルギー": {"type": "integer","default":0},
+                        "色々なことへの自尊心自信評価": {
+                            "type": "object",
+                            "properties": {
+                                "知識やスキルへの自信": {"type": "integer","default":0},
+                                "想像力への自信": {"type": "integer","default":0},
+                                "創造性への自信": {"type": "integer","default":0},
+                                "対人関係のスキルへの自信": {"type": "integer","default":0},
+                                "社会的地位への自信": {"type": "integer","default":0},
+                                "身体的能力への自信": {"type": "integer","default":0},
+                                "外見への自信": {"type": "integer","default":0},
+                                "倫理的な行動や自分の道徳的な価値観や倫理観に基づく自信": {"type": "integer","default":0},
+                                "社会や人類に貢献すること": {"type": "integer","default":0},
+                                "個性や独自性": {"type": "integer","default":0},
+                                "自己表現力への自信": {"type": "integer","default":0},
+                                "感情の安定性への自信": {"type": "integer","default":0},
+                                "共感力への自信": {"type": "integer","default":0}
+                            },
+                            "required": [
+                                "知識やスキルへの自信",
+                                "想像力への自信",
+                                "創造性への自信",
+                                "対人関係のスキルへの自信",
+                                "社会的地位への自信",
+                                "身体的能力への自信",
+                                "外見への自信",
+                                "倫理的な行動や自分の道徳的な価値観や倫理観に基づく自信",
+                                "社会や人類に貢献すること",
+                                "個性や独自性",
+                                "自己表現力への自信",
+                                "感情の安定性への自信",
+                                "共感力への自信"
+                            ]
+                        },
+                        "他者からの名誉": {
+                            "type": "object",
+                            "properties": {
+                                "愛": {"type": "integer","default":0},
+                                "友情": {"type": "integer","default":0},
+                                "尊敬": {"type": "integer","default":0},
+                                "信頼": {"type": "integer","default":0},
+                                "感謝": {"type": "integer","default":0},
+                                "認められること": {"type": "integer","default":0},
+                                "ユーモアがあること": {"type": "integer","default":0},
+                                "面白いことを言うこと": {"type": "integer","default":0}
+                            },
+                            "required": [
+                                "愛",
+                                "友情",
+                                "尊敬",
+                                "信頼",
+                                "感謝",
+                                "認められること",
+                                "ユーモアがあること",
+                                "面白いことを言うこと"
+                            ]
+                        },
+                        "物理的コスト": {
+                            "type": "object",
+                            "properties": {
+                                "お金": {"type": "integer","default":0},
+                                "時間": {"type": "integer","default":0},
+                                "資源": {"type": "integer","default":0}
+                            },
+                            "required": [
+                                "お金",
+                                "時間",
+                                "資源"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "精神エネルギー",
+                        "肉体エネルギー",
+                        "色々なことへの自尊心自信評価",
+                        "他者からの名誉",
+                        "物理的コスト"
+                    ]
+                    }
+                },
+            "required": [
+                "目標",
+                "利益ベクトル"
+            ]
+            }
+
+        return TypeDict
+    def handleEvent(self, transported_item:DestinationTransportedItem):
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        result = self.run(transported_item)
+        return result
+    
+    async def run(self,transported_item: DestinationTransportedItem)->GeneralTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def correctResult(self, result: str) -> DestinationAndProfitVector:
+        jsonnized_result = JsonAccessor.extendJsonLoad(result)
+        corrected_profit_dict:目標と利益ベクトル = ExtendFunc.correctDictToTypeDict(jsonnized_result, self.typeDestinationAgentResponse(self.replace_dict))  # type: ignore
+        return DestinationAndProfitVector.from_dict(corrected_profit_dict)
+    
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+    
+    def prepareQuery(self, input: DestinationTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: DestinationTransportedItem)->dict[str,str]:
+        # raise NotImplementedError("未定義・未使用")
+        return {
+            "{{gptキャラの本能}}":self.gptキャラの本能
+        }
+    
+    def load本能(self):
+        self.本能yml = JsonAccessor.loadGptBehaviorYaml("一般")
+        replace_dict = {
+            "{{利益重みベクトル}}" : self.本能yml["利益重みベクトル"],
+            "{{目標と利益ベクトルの辞書}}" : self.本能yml["目標と利益ベクトルの辞書"],
+        }
+        gptキャラの本能 = self.本能yml["gptキャラの本能"]
+        self.gptキャラの本能 = ExtendFunc.replaceBulkStringRecursiveCollection(gptキャラの本能, replace_dict)
+    
+    def addInfoToTransportedItem(self,transported_item:DestinationTransportedItem, result:DestinationAndProfitVector)->DestinationTransportedItem:
+        transported_item.result = result
+        return transported_item
+
+    
+
 class TaskExecutorAgent(LifeProcessModule):
+    """
+    未定義・未使用
+    """
     def __init__(self, agent_manager: AgentManager, replace_dict: Dict[str, str] = {}):
+        raise NotImplementedError("未定義・未使用")
         pass
     def handleEvent(self, transported_item:LifeProcessTransportedItem):
         task_graph = self.createTaskGraph(transported_item.task_list)
-        
-
         pass
     
     def createTaskGraph(self, task_list:list[Task]):#->TaskGraph:
         pass
 class FileOperator(LifeProcessModule):
-    pass
+    # todo: ファイル操作を行うエージェント。未定義・未使用
+    def __init__(self):
+        raise NotImplementedError("未定義・未使用")
 
-
-
-
-
-
-
-class AgentEventManager:
-    def __init__(self, chara_name:str, gpt_mode_dict:dict[str,str]):
-        self.gpt_mode_dict = gpt_mode_dict
-        self.chara_name = chara_name
-    async def addEventWebsocketOnMessage(self, websocket: WebSocket, reciever: EventReciever):
-        while True:
-            data = await websocket.receive_json()
-            await reciever.handleEvent(data)
-    
-    async def setEventQueueArrow(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventReciever[GeneralTransportedItem_T]):
-        # notifierの中のreciever_dictにrecieverを追加
-        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
-        while True:
-            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
-            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
-                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
-                return
-            item = await event_queue_for_reciever.get()
-            ExtendFunc.ExtendPrint(item)
-            await reciever.handleEvent(item)
-            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
-    
-    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventRecieverWaitFor[GeneralTransportedItem_T]):
-        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
-        while True:
-            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
-            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
-                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
-                return
-            try:
-                item = await asyncio.wait_for(event_queue_for_reciever.get(), timeout=reciever.timeOutSec())
-            except asyncio.TimeoutError:
-                ExtendFunc.ExtendPrint(f"{reciever.name}イベントがタイムアウトしました")
-                item = reciever.timeOutItem()
-            ExtendFunc.ExtendPrint(item)
-            try:
-                await asyncio.wait_for(reciever.handleEvent(item),40)
-                ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
-            except asyncio.TimeoutError:
-                ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")
-    
-    async def setEventQueueConfluenceArrow(self, notifier_list: list[QueueNotifier[GeneralTransportedItem_T]], reciever: EventReciever[GeneralTransportedItem_T]):
-        list_event_queue_for_reciever:list[Queue[GeneralTransportedItem_T]] = []
-        for notifier in notifier_list:
-            event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
-            list_event_queue_for_reciever.append(event_queue_for_reciever)
-        while True:
-            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
-            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
-                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
-                return
-            task = [event_queue.get() for event_queue in list_event_queue_for_reciever]
-            resluts = await asyncio.gather(*task)
-            # tiをマージする
-            ti = resluts[0]
-            for item in resluts[1:]:
-                ti = self.mergeTransportedItem(ti, item)
-            ExtendFunc.ExtendPrint(ti)
-            try:
-                await asyncio.wait_for(reciever.handleEvent(ti), 40)
-                ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
-            except asyncio.TimeoutError:
-                ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")     
+class NormalChatTransportedItem(GeneralTransportedItem):
+    task:Task | None
+    previous_task_result:"TaskToolOutput | None"
+    result:str | None
+    class Config:
+        arbitrary_types_allowed = True
     
     @staticmethod
-    def mergeTransportedItem(ti:GeneralTransportedItem_T, item:GeneralTransportedItem_T)->GeneralTransportedItem_T:
-        init_ti = ti.init()
-        #init_tiの各要素を参照して、tiの情報がinit_tiの情報と異なるならtiの情報を採用し、同じならitemの情報を参照してinit_tiと異なるならitemの情報を採用し、両方とも同じならそのまま
-        for key in init_ti.__dict__.keys():
-            if ti.__dict__[key] != init_ti.__dict__[key]:
-                #tiの情報がinit_tiの情報と異なるならtiの情報を採用
-                ti.__dict__[key] = item.__dict__[key]
-            else:
-                #tiの情報がinit_tiの情報と同じならitemの情報を参照
-                if item.__dict__[key] != init_ti.__dict__[key]:
-                    #itemの情報がinit_tiの情報と異なるならitemの情報を採用
-                    ti.__dict__[key] = item.__dict__[key]
+    def init():
+        return NormalChatTransportedItem(
+            usage_purpose="NormalChat",
+            task = None,
+            previous_task_result = None,
+            result = None
+        )
+
+class NormalChatAgent(LifeProcessModule):
+    def __init__(self):
+        super().__init__()
+        self.name = "汎用チャットエージェント"
+        self.request_template_name = "汎用チャットエージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+    
+    async def handleEvent(self, transported_item:NormalChatTransportedItem)->NormalChatTransportedItem:
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
+        return output
+
+    async def run(self,transported_item: NormalChatTransportedItem)->NormalChatTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+    
+    def prepareQuery(self, input: NormalChatTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: NormalChatTransportedItem)->dict[str,str]:
+        if input.task is None or input.previous_task_result is None:
+            raise ValueError("タスクが設定されていません")
+        return {
+            "{{previous_task_result}}":input.previous_task_result.summarizeOutputs(),
+            "{{task}}":input.task["description"]
+        }
+    
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        if result is None:
+            raise ValueError("リクエストに失敗しました。")
+        return result
+    
+    def correctResult(self,result: str)->str:
+        #何もしない
+        return result
+    
+    def addInfoToTransportedItem(self,transported_item:NormalChatTransportedItem, result:str)->NormalChatTransportedItem:
+        transported_item.result = result
+        return transported_item
+
+class TaskToolOutput:
+    taskGraph:"TaskGraph | None" = None
+    thinking: str | None = None
+    serif: str | None = None
+    task_exec_result: str | None = None # タスクのidや題名、問題、解決過程、結果をまとめたもの。jsonの文字列形式で保持する
+
+    def __init__(self,taskGraph:"TaskGraph | None" = None, taask_exec_result:str|None = None) -> None:
+        self.taskGraph = taskGraph
+        self.task_exec_result = taask_exec_result
+    
+    def summarizeOutputs(self)->str:
+        """
+        タスクグラフの現状までの実行結果をまとめる
+        """
+        if self.taskGraph is not None:
+            return self.taskGraph.summarizeOutputs()
+        
+        raise ValueError("タスクグラフが作成されていません")
+
+    
+
+class TaskTool:
+    def __init__(self, task:Task) -> None:
+        self.task = task
+    @abstractmethod
+    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
+        # TaskToolOutputのresultに結果を格納して返す、結果の書き込み責務はTaskTool側にある
+        pass
+    @abstractmethod
+    def report(self, ti:GeneralTransportedItem)->str:
+        pass
+
+class TaskDecompositionTool(TaskTool):
+    def __init__(self, task:Task) -> None:
+        super().__init__(task)
+        self.task_decomposition_process_manager = TaskDecompositionProcessManager()
+    async def execute(self, taskToolOutput: TaskToolOutput) -> TaskToolOutput:
+        problem = ProblemDecomposedIntoTasks(self.task, taskToolOutput)
+        task_breaking_down_ti = TaskBreakingDownTransportedItem.init(problem)
+        taskBreakingDown:TaskBreakingDownTransportedItem = await self.task_decomposition_process_manager.taskDecompositionProcess(task_breaking_down_ti)
+        taskGraph = TaskGraph(taskBreakingDown)
+        return TaskToolOutput(taskGraph)
+
+class TaskExecutionTool(TaskTool):
+    def __init__(self, task:Task) -> None:
+        super().__init__(task)
+
+    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
+        if previows_output.taskGraph is None:
+            raise ValueError("前の出力がタスクグラフではありません")
+        taskGraph:TaskGraph = previows_output.taskGraph
+        previows_output.task_exec_result = await taskGraph.excuteRecursive()
+        return previows_output
+    
+    def report(self, taskGraph: "TaskGraph")->str:
+        # 子タスクたちは全員結果を文字列で保持してるから、それをまとめて返す
+        return taskGraph.summarizeOutputs()
+
+class NormalChatTool(TaskTool):
+    def __init__(self, task:Task) -> None:
+        super().__init__(task)
+        self.normalChatAgenet = NormalChatAgent()
+    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
+        normalChatTransportedItem = NormalChatTransportedItem.init()
+        normalChatTransportedItem.task = self.task
+        normalChatTransportedItem.previous_task_result = previows_output
+        normalChatTransportedItem = await self.normalChatAgenet.handleEvent(normalChatTransportedItem)
+        previows_output.task_exec_result = self.report(normalChatTransportedItem)
+        return previows_output
+    
+    def report(self, ti:NormalChatTransportedItem)->str:
+        if ti.result is None:
+            raise ValueError("結果が設定されていません")
+        return ti.result
+        
+
+        
+        
+    
+class SpeakTool(TaskTool):
+    def __init__(self, task:Task) -> None:
+        super().__init__(task)
+
+
+    
+TaskToolType = TypeVar("TaskToolType", bound=TaskTool)
+
+class TaskGraphUnit:
+    _previous_tasks: list["TaskGraphUnit"]
+    _next_tasks: list["TaskGraphUnit"]
+    _previous_resolved:dict["TaskGraphUnit",bool]= {}
+    _ready:bool = False
+    task:Task
+    tool:TaskTool|None
+    _output:TaskToolOutput|None = None
+    @property
+    def previous_tasks(self):
+        return self._previous_tasks
+    @property
+    def next_tasks(self):
+        return self._next_tasks
+    @property
+    def ready(self):
+        return self._ready
+    @property
+    def usetool(self):
+        return self.task["use_tool"]
+    @property
+    def isLastTask(self):
+        return len(self._next_tasks) == 0
+    @property
+    def output(self):
+        return self._output
+    @output.setter
+    def output(self, value:TaskToolOutput):
+        self._output = value
+    def __init__(self, task:Task) -> None:
+        self.task = task
+        self._previous_tasks = []
+        self._next_tasks = []
+        self.tool = self.selectTool(task)
+    def registPreviousTask(self, previous_task:"TaskGraphUnit"):
+        # 重複登録を防ぐ
+        if previous_task not in self._previous_tasks:
+            self._previous_tasks.append(previous_task)
+    def registNextTask(self, next_task:"TaskGraphUnit"):
+        # 重複登録を防ぐ
+        if next_task not in self._next_tasks:
+            self._next_tasks.append(next_task)
+
+    def initPreviousResolvedStatus(self):
+        # 依存関係の解決状況を初期化
+        for previous_task in self._previous_tasks:
+            self._previous_resolved[previous_task] = False
+
+    async def recievePreviousTaskResolvedAndExcuteTask(self, previous_task:"TaskGraphUnit", previows_output:TaskToolOutput):
+        # 前のタスクが解決されたことを受信し、自身のタスクを実行
+        self._previous_resolved[previous_task] = True
+        if all(self._previous_resolved.values()):
+            self._ready = True
+            await self.executeAndRecursiveNextTaskExcute(previows_output)
+
+    def recievePreviousTaskResolved(self, previous_task:"TaskGraphUnit"):
+        # 前のタスクが解決されたことを受信
+        self._previous_resolved[previous_task] = True
+        if all(self._previous_resolved.values()):
+            self._ready = True
+
+    def notifyProcessComplete(self):
+        # 完了したことを次のタスクに通知
+        self._ready = False
+        self._previous_resolved = {}
+        for next_task in self._next_tasks:
+            next_task.recievePreviousTaskResolved(self)
+    async def notifyProcessCompleteAndNextTaskExcute(self, previows_output:TaskToolOutput):
+        # 完了したことを次のタスクに通知し、次のタスクを実行
+        next_tasks = asyncio.gather(*[next_task.recievePreviousTaskResolvedAndExcuteTask(self,previows_output) for next_task in self._next_tasks])
+        await next_tasks
+
+    def notifyProcessCompleteForCreateStepList(self,next_step_candidate:list["TaskGraphUnit"])->list["TaskGraphUnit"]:
+        # ステップリストを作る手続きのために完了したことを次のタスクに通知
+        self._ready = False
+        self._previous_resolved = {}
+        for next_task in self._next_tasks:
+            next_task.recievePreviousTaskResolved(self)
+            next_step_candidate.extend(self._next_tasks)
+        return next_step_candidate
+    
+    async def executeAndRecursiveNextTaskExcute(self, previows_output:TaskToolOutput):
+        if all(self._previous_resolved.values()) == False:
+            return
+        # タスクを実行
+        if self.tool is not None:
+            tool_output = await self.tool.execute(previows_output)
+            self.output = tool_output
+        
+        if self.isLastTask == True:
+            return tool_output
+        else:
+            # 次のタスクに通知して可能なら実行する
+            await self.notifyProcessCompleteAndNextTaskExcute(tool_output)
+    
+    def selectTool(self,task:Task)->TaskTool|None:
+        if task["use_tool"] == "タスク分解":
+            return TaskDecompositionTool(task)
+        elif task["use_tool"] == "タスク実行":
+            return TaskExecutionTool(task)
+        elif task["use_tool"] == "思考":
+            return NormalChatTool(task)
+        elif task["use_tool"] == "発言":
+            return SpeakTool(task)
+        else:
+            return None
+    
+class TaskGraph:
+    problem_title:str
+    task_dict:dict[str, TaskGraphUnit] = {}
+    step_list: list[list[TaskGraphUnit]] = []
+    non_dependent_tasks: list[TaskGraphUnit] = []
+    non_next_tasks: list[TaskGraphUnit] = []
+    task_breaking_down_ti: TaskBreakingDownTransportedItem
+    def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem) -> None:
+        self.problem_title = task_breaking_down_ti.problem.problem_title
+        self.task_breaking_down_ti = task_breaking_down_ti
+        task_list = task_breaking_down_ti.breaking_downed_task
+        # 辞書に登録
+        for task in task_list:
+            tmp_task_unit = TaskGraphUnit(task)
+            self.task_dict[task["id"]] = tmp_task_unit
+        # 依存関係を登録
+        for task_unit in self.task_dict.values():
+            for dependency_id in task_unit.task["dependencies"]:
+                dependency_task = self.task_dict[dependency_id]
+                task_unit.registPreviousTask(dependency_task)
+                dependency_task.registNextTask(task_unit)
+            if len(task_unit.previous_tasks) == 0:
+                self.non_dependent_tasks.append(task_unit)
+            if len(task_unit.next_tasks) == 0:
+                self.non_next_tasks.append(task_unit)
+        # ステップリストを作成
+        step_list = [self.non_dependent_tasks]
+        not_raady_next_step:list[TaskGraphUnit] = []
+        while len(step_list[-1]) > 0:
+            next_step_candidate:list[TaskGraphUnit] = []
+            for task in step_list[-1]:
+                next_step_candidate = task.notifyProcessCompleteForCreateStepList(next_step_candidate)
+            next_step:list[TaskGraphUnit] = []
+            for task in next_step_candidate:
+                if task.ready:
+                    next_step.append(task)
                 else:
-                    #両方とも同じならそのまま
-                    pass
-        return ti
+                    not_raady_next_step.append(task)
+            step_list.append(next_step)
+    
+    async def excuteStepList(self):
+        raise NotImplementedError("taskを単独で実行するメソッドが未実装です")
+        for step in self.step_list:
+            # 並列処理をする
+            await asyncio.gather(*[task.execute() for task in step])
+
+    async def excuteRecursive(self)->str:
+        fast_step = self.step_list[0]
+        fast_input:TaskToolOutput = TaskToolOutput(None,"最初のタスク")
+        #todo 一番最初のpreviows_outputが未実装です
+        # raise NotImplementedError("一番最初のpreviows_outputが未実装です")
+        tasks = asyncio.gather(*[task.executeAndRecursiveNextTaskExcute(fast_input) for task in fast_step])
+        output = await tasks
+        # 最後のタスクが終わったらサマライズする
+        return self.summarizeOutputs()
+    
+    def summarizeOutputs(self)->str:
+        """
+        タスクグラフの結果履歴をどのようにまとめるか考える
+        タスクグラフユニットごとに結果を持っておいて、ステップごとに結果をまとめる
+        """
+        summary = ""
+        step_index = 0
+        for step in self.step_list:
+            step_index += 1
+            summary += f"# ステップ{step_index}の結果\n"
+            for task in step:
+                if task.output is None:
+                    continue
+                output:TaskToolOutput = task.output
+                if output.task_exec_result is None:
+                    continue
+                task_exec_result = output.task_exec_result
+                summary += f"\n{task_exec_result}"
+            summary += "\n" 
+        return summary
+
+class TaskProgress:
+    # タスクの進捗
+    task_graphs:dict[str,TaskGraph] = {} # タスクグラフ
+    
+    def __init__(self) -> None:
+        pass
+    def addTaskGraph(self, task_graph:TaskGraph):
+        self.task_graphs[task_graph.problem_title] = task_graph
+
+class ThirdPersonEvaluation:
+    # 第三者評価
+    pass
+
+class Memory:
+    _destinations:list[DestinationAndProfitVector] # 目標リスト
+    _holding_profit_vector:ProfitVector # 保持している利益ベクトル
+    _past_conversation:Epic # 過去の会話
+    _task_progress:TaskProgress # タスクの進捗
+    _third_person_evaluation: ThirdPersonEvaluation # 第三者評価
+    def __init__(self) -> None:
+        raise NotImplementedError("未定義・未使用")
+        self._destinations = self.loadDestinations()
+        self._holding_profit_vector = self.loadHoldingProfitVector()
+        self._past_conversation = self.loadPastConversation()
+        self._task_progress = TaskProgress()
+        self._third_person_evaluation = ThirdPersonEvaluation()
+        
+
+    def addDestination(self, destination:DestinationAndProfitVector):
+        self._destinations.append(destination)
+
+    def addHoldingProfitVector(self, profit_vector:ProfitVector):
+        self._holding_profit_vector += profit_vector
+    
+
+
+class LifeProcessBrain:
+    task_graph_process:TaskGraph
+    memory:Memory
+
+    def __init__(self) -> None:
+        memory = Memory()
+
+
+
+
+
+    
+
 
 
 
@@ -2070,13 +2702,9 @@ class GPTAgent:
     manager: AgentManager
     event_manager: AgentEventManager
 
-        
 
-    
     
 if __name__ == "__main__":
-    
-
     def te7():
         gpt_unit = ChatGptApiUnit(True)
         test_message_query:list[ChatGptApiUnit.MessageQuery] = [
@@ -2133,4 +2761,3 @@ if __name__ == "__main__":
         ExtendFunc.ExtendPrint(combined_serif)
 
     # 実行例
-    te11()

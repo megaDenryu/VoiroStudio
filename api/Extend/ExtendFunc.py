@@ -517,6 +517,54 @@ class ExtendFunc:
             strnized_value += f"{key}:{value}\n"
         return strnized_value
     
+    @staticmethod
+    def dictToMarkdownTitleEntry(dic: dict, start_layer:int) -> str:
+        """
+        辞書をmarkdown形式のタイトルエントリに変換します。
+        入れ子になっている場合は再帰的に処理します。
+        入力例:
+        dic = {
+            "A": {
+                "key1": "value1",
+                "key2": "value2"
+            },
+            "B": "valueB"
+        }
+        出力例:
+        # A
+        ## key1
+        value1
+        ## key2
+        value2
+        # B
+        valueB
+        
+        """
+        markdown_title_entry = ""
+        for key, value in dic.items():
+            if isinstance(value, dict):
+                markdown_title_entry += "#"*(start_layer+1) + f" {key}\n"
+                markdown_title_entry += ExtendFunc.dictToMarkdownTitleEntry(value, start_layer+1)
+            else:
+                markdown_title_entry += "#"*(start_layer+1) + f" {key}\n"
+        return markdown_title_entry
+
+    
+    @staticmethod
+    def dictToMarkdownTable(dict: dict) -> str:
+        """
+        辞書をmarkdown形式のテーブルに変換します。
+        例:
+        | key | value |
+        | --- | --- |
+        | key1 | value1 |
+        | key2 | value2 |
+        """
+        markdown_table = "| key | value |\n| --- | --- |\n"
+        for key, value in dict.items():
+            markdown_table += f"| {key} | {value} |\n"
+        return markdown_table
+    
 import datetime
 class TimeExtend:
     def __init__(self,date_string = "now") -> None:
