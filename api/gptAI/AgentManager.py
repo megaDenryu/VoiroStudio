@@ -5,6 +5,7 @@ from pprint import pprint
 from pathlib import Path
 import sys
 
+from api.DataStore.PickleAccessor import PickleAccessor
 from api.gptAI.HumanBaseModel import DestinationAndProfitVector, ProfitVector, 目標と利益ベクトル
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from fastapi import WebSocket
@@ -2663,8 +2664,14 @@ class Memory:
     _past_conversation:Epic # 過去の会話
     _task_progress:TaskProgress # タスクの進捗
     _third_person_evaluation: ThirdPersonEvaluation # 第三者評価
-    def __init__(self) -> None:
+    def __init__(self, chara_name:str) -> None:
+        memory = self.loadSelfPickle(chara_name)
+        if memory is None:
+            memory = self.loadInitialMemory()
+        self = memory
         raise NotImplementedError("未定義・未使用")
+
+        
         self._destinations = self.loadDestinations()
         self._holding_profit_vector = self.loadHoldingProfitVector()
         self._past_conversation = self.loadPastConversation()
@@ -2677,7 +2684,30 @@ class Memory:
 
     def addHoldingProfitVector(self, profit_vector:ProfitVector):
         self._holding_profit_vector += profit_vector
+
+    def saveSelfPickle(self,chara_name:str):
+        """
+        pickleで保存
+        """
+        PickleAccessor.saveMemory(self, chara_name)
+
+    def loadSelfPickle(self,chara_name:str)->"Memory | None":
+        """
+        pickleで読み込み
+        """
+        memory = PickleAccessor.loadMemory(chara_name)
+        # memoryの型がMemoryであることを確認
+        if isinstance(memory, Memory) == False:
+            return None
+        return memory
     
+    def loadInitialMemory(self):
+        """
+        初期のMemoryをロード
+        """
+        return Memory()
+
+            
 
 
 class LifeProcessBrain:
