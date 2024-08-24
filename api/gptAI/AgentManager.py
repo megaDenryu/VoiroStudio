@@ -2575,6 +2575,8 @@ class TaskGraph:
     non_dependent_tasks: list[TaskGraphUnit] = []
     non_next_tasks: list[TaskGraphUnit] = []
     task_breaking_down_ti: TaskBreakingDownTransportedItem
+    run_state:Literal["not_ready", "ready", "not_start", "running", "stop", "complete", "error"]
+    
     def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem) -> None:
         self.problem_title = task_breaking_down_ti.problem.problem_title
         self.task_breaking_down_ti = task_breaking_down_ti
@@ -2721,14 +2723,28 @@ class Memory:
 
 
             
-
+class LifeProcessState:
+    """
+    LifeProcessの状態
+    """
+    実行状態:bool = False
+    def __init__(self) -> None:
+        pass
 
 class LifeProcessBrain:
     task_graph_process:TaskGraph
     memory:Memory
+    state:LifeProcessState = LifeProcessState()
 
     def __init__(self) -> None:
-        memory = Memory()
+        """
+        メモリーをロードor初期化
+        task_graph_processをメモリーから生成
+        task_graph_processを実行
+        """
+        self.memory = Memory()
+        self.task_graph_process = TaskGraph(self.memory.task_progress.task_graphs[""])
+
 
 
 
