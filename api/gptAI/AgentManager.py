@@ -2659,31 +2659,25 @@ class ThirdPersonEvaluation:
     pass
 
 class Memory:
-    _destinations:list[DestinationAndProfitVector] # 目標リスト
-    _holding_profit_vector:ProfitVector # 保持している利益ベクトル
-    _past_conversation:Epic # 過去の会話
-    _task_progress:TaskProgress # タスクの進捗
-    _third_person_evaluation: ThirdPersonEvaluation # 第三者評価
+    destinations:list[DestinationAndProfitVector] # 目標リスト
+    holding_profit_vector:ProfitVector # 保持している利益ベクトル
+    past_conversation:Epic # 過去の会話
+    task_progress:TaskProgress # タスクの進捗
+    third_person_evaluation: ThirdPersonEvaluation # 第三者評価
     def __init__(self, chara_name:str) -> None:
+        self.chara_name = chara_name
+        self.loadInitialMemory()
+    def loadMemory(self, chara_name:str)->"Memory | None":
         memory = self.loadSelfPickle(chara_name)
         if memory is None:
             memory = self.loadInitialMemory()
-        self = memory
-        raise NotImplementedError("未定義・未使用")
-
-        
-        self._destinations = self.loadDestinations()
-        self._holding_profit_vector = self.loadHoldingProfitVector()
-        self._past_conversation = self.loadPastConversation()
-        self._task_progress = TaskProgress()
-        self._third_person_evaluation = ThirdPersonEvaluation()
-        
+        return memory
 
     def addDestination(self, destination:DestinationAndProfitVector):
-        self._destinations.append(destination)
+        self.destinations.append(destination)
 
     def addHoldingProfitVector(self, profit_vector:ProfitVector):
-        self._holding_profit_vector += profit_vector
+        self.holding_profit_vector += profit_vector
 
     def saveSelfPickle(self,chara_name:str):
         """
@@ -2702,10 +2696,29 @@ class Memory:
         return memory
     
     def loadInitialMemory(self):
-        """
+        """ 
         初期のMemoryをロード
+        いろいろなjsonファイルから読み込む.
+        各プロパティごとに分かれているのでそれを読み込む
         """
-        return Memory()
+        behavior:dict = JsonAccessor.loadGptBehaviorYaml()
+        self.destination = behavior["目標"]
+        self.profit_vector = behavior["利益ベクトル"]
+        self.past_conversation = behavior["過去の会話"]
+        self.task_progress = behavior["タスクの進捗"]
+        self.third_person_evaluation = behavior["第三者評価"]
+        
+    
+    def loadDestinations(self)->list[DestinationAndProfitVector]:
+        """
+        目標:str は文章なので、キャラクターごとに目標の文章を設定する
+        利益ベクトル:ProfitVector
+
+        使用用途：目標決定エージェントが目標を決定する際に使用
+        """
+        
+
+
 
             
 
