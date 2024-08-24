@@ -2687,7 +2687,8 @@ class Memory:
         """
         PickleAccessor.saveMemory(self, chara_name)
 
-    def loadSelfPickle(self,chara_name:str)->"Memory | None":
+    @staticmethod
+    def loadSelfPickle(chara_name:str)->"Memory | None":
         """
         pickleで読み込み
         """
@@ -2709,6 +2710,17 @@ class Memory:
         self.past_conversation = behavior["過去の会話"]
         self.task_progress = behavior["タスクの進捗"]
         self.third_person_evaluation = behavior["第三者評価"]
+
+    @staticmethod
+    def loadLatestMemory(chara_name)->"Memory":
+        """
+        最新のMemoryをロード
+        """
+        memory = Memory.loadSelfPickle(chara_name)
+        if memory is None:
+            memory = Memory("default")
+        return memory
+        
         
     
     def loadDestinations(self)->list[DestinationAndProfitVector]:
