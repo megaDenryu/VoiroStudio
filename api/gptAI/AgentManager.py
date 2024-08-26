@@ -2407,14 +2407,16 @@ class TaskTool:
         pass
 
 class TaskDecompositionTool(TaskTool):
-    def __init__(self, task:Task) -> None:
+    def __init__(self, task:Task, memory:"Memory") -> None:
         super().__init__(task)
         self.task_decomposition_process_manager = TaskDecompositionProcessManager()
+        self.memory = memory
     async def execute(self, taskToolOutput: TaskToolOutput) -> TaskToolOutput:
         problem = ProblemDecomposedIntoTasks(self.task, taskToolOutput)
         task_breaking_down_ti = TaskBreakingDownTransportedItem.init(problem)
         taskBreakingDown:TaskBreakingDownTransportedItem = await self.task_decomposition_process_manager.taskDecompositionProcess(task_breaking_down_ti)
         taskGraph = TaskGraph(taskBreakingDown)
+        self.memory.task_progress.addTaskGraph(taskGraph)
         return TaskToolOutput(taskGraph)
 
 class TaskExecutionTool(TaskTool):
@@ -2466,6 +2468,7 @@ class TaskGraphUnit:
     _next_tasks: list["TaskGraphUnit"]
     _previous_resolved:dict["TaskGraphUnit",bool]= {}
     _ready:bool = False
+    _task_graph:"TaskGraph"
     task:Task
     tool:TaskTool|None
     _output:TaskToolOutput|None = None
@@ -2490,11 +2493,13 @@ class TaskGraphUnit:
     @output.setter
     def output(self, value:TaskToolOutput):
         self._output = value
-    def __init__(self, task:Task) -> None:
+    def __init__(self, task:Task, task_graph: "TaskGraph") -> None:
         self.task = task
         self._previous_tasks = []
         self._next_tasks = []
         self.tool = self.selectTool(task)
+        self._task_graph = task_graph
+
     def registPreviousTask(self, previous_task:"TaskGraphUnit"):
         # 重複登録を防ぐ
         if previous_task not in self._previous_tasks:
@@ -2558,7 +2563,7 @@ class TaskGraphUnit:
     
     def selectTool(self,task:Task)->TaskTool|None:
         if task["use_tool"] == "タスク分解":
-            return TaskDecompositionTool(task)
+            return TaskDecompositionTool(task, self._task_graph.memory)
         elif task["use_tool"] == "タスク実行":
             return TaskExecutionTool(task)
         elif task["use_tool"] == "思考":
@@ -2583,7 +2588,7 @@ class TaskGraph:
         task_list = task_breaking_down_ti.breaking_downed_task
         # 辞書に登録
         for task in task_list:
-            tmp_task_unit = TaskGraphUnit(task)
+            tmp_task_unit = TaskGraphUnit(task, self)
             self.task_dict[task["id"]] = tmp_task_unit
         # 依存関係を登録
         for task_unit in self.task_dict.values():
@@ -2748,14 +2753,15 @@ class LifeProcessBrain:
     memory:Memory
     state:LifeProcessState = LifeProcessState()
 
-    def __init__(self) -> None:
+    def __init__(self,chara_name) -> None:
         """
         メモリーをロードor初期化
         task_graph_processをメモリーから生成
         task_graph_processを実行
         """
-        self.memory = Memory()
-        self.task_graph_process = TaskGraph(self.memory.task_progress.task_graphs[""])
+        self.memory = Memory.loadLatestMemory(chara_name)
+
+        self.task_graph_process = self.memory.task_progress.task_graphs["最新のタスク"]
 
 
 
