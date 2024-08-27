@@ -2581,10 +2581,12 @@ class TaskGraph:
     non_next_tasks: list[TaskGraphUnit] = []
     task_breaking_down_ti: TaskBreakingDownTransportedItem
     run_state:Literal["not_ready", "ready", "not_start", "running", "stop", "complete", "error"]
+    memory:"Memory"
     
-    def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem) -> None:
+    def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem, memory:"Memory") -> None:
         self.problem_title = task_breaking_down_ti.problem.problem_title
         self.task_breaking_down_ti = task_breaking_down_ti
+        self.memory = memory
         task_list = task_breaking_down_ti.breaking_downed_task
         # 辞書に登録
         for task in task_list:
@@ -2762,6 +2764,8 @@ class LifeProcessBrain:
         self.memory = Memory.loadLatestMemory(chara_name)
 
         self.task_graph_process = self.memory.task_progress.task_graphs["最新のタスク"]
+        #すべてのタスクにmemoryをバインド
+        
 
 
 
