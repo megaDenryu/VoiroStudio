@@ -4,7 +4,7 @@ import json
 from pprint import pprint
 from pathlib import Path
 import sys
-
+from enum import Enum
 from api.DataStore.PickleAccessor import PickleAccessor
 from api.gptAI.HumanBaseModel import DestinationAndProfitVector, ProfitVector, 目標と利益ベクトル
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -206,10 +206,10 @@ class ProblemDecomposedIntoTasks(BaseModel):
     problem_title:str
     role_in_task_graph: str|None  #タスクグラフ内での役割または解決するべき問題
     result_of_previous_task: str|None  #前のタスクの結果
-    def __init__(self, task:Task, result_of_previous_task:"TaskToolOutput|None" = None):
+    def __init__(self, task:Task, result_of_previous_task_dict:dict["TaskGraphUnit","TaskToolOutput"] = {}):
         self.problem_title = task["task_title"]
         self.role_in_task_graph = self.TaskToRoleInTaskGraph(task)
-        self.result_of_previous_task = self.perviousTaskToResultToString(result_of_previous_task)
+        self.result_of_previous_task = self.perviousTaskToResultToString(result_of_previous_task_dict)
     def TaskToRoleInTaskGraph(self, task:Task|None)->str:
         if task is None:
             #todo :最初のタスクだがまだ実装していない
@@ -217,11 +217,14 @@ class ProblemDecomposedIntoTasks(BaseModel):
 
         else:
             return ExtendFunc.dictToStr({"タスクの種類":task["task_species"],"タスクの説明":task["description"]})
-    def perviousTaskToResultToString(self, result_of_previous_task:"TaskToolOutput|None")->str:
-        if result_of_previous_task is None:
+    def perviousTaskToResultToString(self, result_of_previous_task_dict:dict["TaskGraphUnit","TaskToolOutput"] = {})->str:
+        if result_of_previous_task_dict is {}:
             return "なし"
         else:
-            return ExtendFunc.dictToMarkdownTitleEntry({"前回のタスク結果":result_of_previous_task.task_exec_result},2)
+            result_str = {}
+            for taskGraphUnit, taskToolOutput in result_of_previous_task_dict.items():
+                result_str[taskGraphUnit.task_title] = taskToolOutput.task_exec_result
+            return ExtendFunc.dictToMarkdownTitleEntry({"前回のタスク結果":result_str},2)
     
     def summarizeProblem(self):
         if self.role_in_task_graph is None:
@@ -2099,16 +2102,18 @@ class DestinationTransportedItem(GeneralTransportedItem):
     """
     resultの中身が決まってない
     """
-    result: | None
+    result:DestinationAndProfitVector | None
+    ouput_dict:dict["TaskGraphUnit","TaskToolOutput"]
     class Config:
         arbitrary_types_allowed = True
     
     @staticmethod
-    def init():
+    def init(task_ouput_dict:dict["TaskGraphUnit","TaskToolOutput"])->"DestinationTransportedItem":
         return DestinationTransportedItem(
-            usage_purpose="Destination"
-            result= None
-        )
+            usage_purpose="Destination", 
+            result= None,
+            ouput_dict = task_ouput_dict
+            )
 
 class DestinationAgent(LifeProcessModule):
     """
@@ -2229,7 +2234,7 @@ class DestinationAgent(LifeProcessModule):
         result = self.run(transported_item)
         return result
     
-    async def run(self,transported_item: DestinationTransportedItem)->GeneralTransportedItem:
+    async def run(self,transported_item: DestinationTransportedItem)->DestinationTransportedItem:
         query = self.prepareQuery(transported_item)
         JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
         result = await self.request(query)
@@ -2261,8 +2266,15 @@ class DestinationAgent(LifeProcessModule):
     
     def replaceDictDef(self, input: DestinationTransportedItem)->dict[str,str]:
         # raise NotImplementedError("未定義・未使用")
+        output_dict = input.ouput_dict
+        all_sumry = {}
+        for unit, output in output_dict.items():
+            sumry = output.summarizeOutputs()
+            all_sumry[unit.task_title] = sumry
+        input_str:str = input.ouput_dict["TaskGraphUnit"].summarizeOutputs()
         return {
-            "{{gptキャラの本能}}":self.gptキャラの本能
+            "{{gptキャラの本能}}":self.gptキャラの本能,
+            "{{input}}":input_str
         }
     
     def load本能(self):
@@ -2399,7 +2411,7 @@ class TaskTool:
     def __init__(self, task:Task) -> None:
         self.task = task
     @abstractmethod
-    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
+    async def execute(self,previows_output:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
         # TaskToolOutputのresultに結果を格納して返す、結果の書き込み責務はTaskTool側にある
         pass
     @abstractmethod
@@ -2411,11 +2423,11 @@ class TaskDecompositionTool(TaskTool):
         super().__init__(task)
         self.task_decomposition_process_manager = TaskDecompositionProcessManager()
         self.memory = memory
-    async def execute(self, taskToolOutput: TaskToolOutput) -> TaskToolOutput:
-        problem = ProblemDecomposedIntoTasks(self.task, taskToolOutput)
+    async def execute(self, taskToolOutputDict: dict["TaskGraphUnit",TaskToolOutput]) -> TaskToolOutput:
+        problem = ProblemDecomposedIntoTasks(self.task, taskToolOutputDict)
         task_breaking_down_ti = TaskBreakingDownTransportedItem.init(problem)
         taskBreakingDown:TaskBreakingDownTransportedItem = await self.task_decomposition_process_manager.taskDecompositionProcess(task_breaking_down_ti)
-        taskGraph = TaskGraph(taskBreakingDown)
+        taskGraph = TaskGraph(taskBreakingDown,self.memory)
         self.memory.task_progress.addTaskGraph(taskGraph)
         return TaskToolOutput(taskGraph)
 
@@ -2423,7 +2435,12 @@ class TaskExecutionTool(TaskTool):
     def __init__(self, task:Task) -> None:
         super().__init__(task)
 
-    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
+    async def execute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
+        # 前のグラフユニットが１つの「タスク分解ツール」であることを前提としているので合流などはなく、辞書も１つの要素しか持たない
+        if len(previows_output_dict) != 1:
+            description = TaskGraphUnit.descriptionPreviowsOutputDict(previows_output_dict)
+            raise ValueError(f"前の出力が１つではありません。前のユニットがタスク分解ツールではない可能性が高いです。/n{description}")
+        previows_output = list(previows_output_dict.values())[0]
         if previows_output.taskGraph is None:
             raise ValueError("前の出力がタスクグラフではありません")
         taskGraph:TaskGraph = previows_output.taskGraph
@@ -2438,7 +2455,7 @@ class NormalChatTool(TaskTool):
     def __init__(self, task:Task) -> None:
         super().__init__(task)
         self.normalChatAgenet = NormalChatAgent()
-    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
+    async def execute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
         normalChatTransportedItem = NormalChatTransportedItem.init()
         normalChatTransportedItem.task = self.task
         normalChatTransportedItem.previous_task_result = previows_output
@@ -2452,7 +2469,22 @@ class NormalChatTool(TaskTool):
         return ti.result
         
 
+class DestinationTool(TaskTool):
+    def __init__(self, task:Task) -> None:
+        super().__init__(task)
+        self.destinationAgent = DestinationAgent()
+    async def execute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
+        destinationTransportedItem = DestinationTransportedItem.init(previows_output_dict)
+        destinationTransportedItem = await self.destinationAgent.handleEvent(destinationTransportedItem)
         
+        previows_output.task_exec_result = self.report(destinationTransportedItem)
+        return previows_output
+    
+    def report(self, ti:DestinationTransportedItem)->str:
+        if ti.result is None:
+            raise ValueError("結果が設定されていません")
+        # 次のツールはタスク分解なのでそれで使える形で返す
+        return ti.result.目標
         
     
 class SpeakTool(TaskTool):
@@ -2463,11 +2495,28 @@ class SpeakTool(TaskTool):
     
 TaskToolType = TypeVar("TaskToolType", bound=TaskTool)
 
+class RunStateEnum(Enum):
+    not_ready = "not_ready"
+    ready = "ready"
+    not_start = "not_start"
+    running = "running"
+    stop = "stop"
+    complete = "complete"
+    error = "error"
+class TaskGraphUnitRunState:
+    state:RunStateEnum = RunStateEnum.not_ready
+    
+    def __init__(self) -> None:
+        pass
+    def __str__(self) -> str:
+        return self.state.value
+
 class TaskGraphUnit:
     _previous_tasks: list["TaskGraphUnit"]
     _next_tasks: list["TaskGraphUnit"]
     _previous_resolved:dict["TaskGraphUnit",bool]= {}
-    _ready:bool = False
+    _previous_result:dict["TaskGraphUnit",TaskToolOutput|None] = {}
+    _run_state:TaskGraphUnitRunState = TaskGraphUnitRunState()
     _task_graph:"TaskGraph"
     task:Task
     tool:TaskTool|None
@@ -2479,8 +2528,11 @@ class TaskGraphUnit:
     def next_tasks(self):
         return self._next_tasks
     @property
-    def ready(self):
-        return self._ready
+    def run_state(self):
+        return self._run_state
+    @run_state.setter
+    def run_state(self, value:RunStateEnum):
+        self._run_state.state = value
     @property
     def usetool(self):
         return self.task["use_tool"]
@@ -2493,12 +2545,27 @@ class TaskGraphUnit:
     @output.setter
     def output(self, value:TaskToolOutput):
         self._output = value
+    @property
+    def task_title(self):
+        return self.task["task_title"]
+    @property
+    def perfect_previous_result(self)->dict["TaskGraphUnit",TaskToolOutput]:
+        result_dict = {}
+        for unit, result in self._previous_result.items():
+            if result is None:
+                raise ValueError(f"前のタスクの結果が設定されていません。{unit.task_title}")
+            result_dict[unit] = result
+        return result_dict
+        
+    
+    
     def __init__(self, task:Task, task_graph: "TaskGraph") -> None:
         self.task = task
         self._previous_tasks = []
         self._next_tasks = []
         self.tool = self.selectTool(task)
         self._task_graph = task_graph
+        self._task_graph.addTaskGraphUnitToRunState(self)
 
     def registPreviousTask(self, previous_task:"TaskGraphUnit"):
         # 重複登録を防ぐ
@@ -2508,28 +2575,33 @@ class TaskGraphUnit:
         # 重複登録を防ぐ
         if next_task not in self._next_tasks:
             self._next_tasks.append(next_task)
+    
+    def setPreviousResult(self, previous_task:"TaskGraphUnit", previows_output:TaskToolOutput|None):
+        self._previous_result[previous_task] = previows_output
 
     def initPreviousResolvedStatus(self):
         # 依存関係の解決状況を初期化
         for previous_task in self._previous_tasks:
             self._previous_resolved[previous_task] = False
+            self.setPreviousResult(previous_task, None)
 
     async def recievePreviousTaskResolvedAndExcuteTask(self, previous_task:"TaskGraphUnit", previows_output:TaskToolOutput):
         # 前のタスクが解決されたことを受信し、自身のタスクを実行
         self._previous_resolved[previous_task] = True
+        self.setPreviousResult(previous_task, previows_output)
         if all(self._previous_resolved.values()):
-            self._ready = True
-            await self.executeAndRecursiveNextTaskExcute(previows_output)
+            self.run_state = RunStateEnum.ready
+            await self.executeAndRecursiveNextTaskExcute(self.perfect_previous_result)
 
     def recievePreviousTaskResolved(self, previous_task:"TaskGraphUnit"):
         # 前のタスクが解決されたことを受信
         self._previous_resolved[previous_task] = True
         if all(self._previous_resolved.values()):
-            self._ready = True
+            self.run_state = RunStateEnum.ready
 
     def notifyProcessComplete(self):
         # 完了したことを次のタスクに通知
-        self._ready = False
+        self.run_state = RunStateEnum.not_ready
         self._previous_resolved = {}
         for next_task in self._next_tasks:
             next_task.recievePreviousTaskResolved(self)
@@ -2540,25 +2612,38 @@ class TaskGraphUnit:
 
     def notifyProcessCompleteForCreateStepList(self,next_step_candidate:list["TaskGraphUnit"])->list["TaskGraphUnit"]:
         # ステップリストを作る手続きのために完了したことを次のタスクに通知
-        self._ready = False
+        self.run_state = RunStateEnum.not_ready
         self._previous_resolved = {}
         for next_task in self._next_tasks:
             next_task.recievePreviousTaskResolved(self)
             next_step_candidate.extend(self._next_tasks)
         return next_step_candidate
     
-    async def executeAndRecursiveNextTaskExcute(self, previows_output:TaskToolOutput):
+    async def executeAndRecursiveNextTaskExcute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput]):
         if all(self._previous_resolved.values()) == False:
             return
+        self.run_state = RunStateEnum.ready
         # タスクを実行
         if self.tool is not None:
-            tool_output = await self.tool.execute(previows_output)
+            self.run_state = RunStateEnum.running
+            task_tool_exec = asyncio.create_task(self.tool.execute(previows_output_dict))
+            task_graph_stop_observation = asyncio.create_task(self._task_graph.run_state.state_publisher[self].get())
+            # 2つのタスクを待って早く終わったほうを採用する
+            done, pending = await asyncio.wait([task_tool_exec, task_graph_stop_observation], return_when=asyncio.FIRST_COMPLETED)
+            if task_graph_stop_observation in done:
+                # グラフが停止された場合は自身も停止する
+                self.run_state = RunStateEnum.stop
+                return
+            tool_output = task_tool_exec.result()
+
             self.output = tool_output
         
         if self.isLastTask == True:
+            self.run_state = RunStateEnum.complete
             return tool_output
         else:
             # 次のタスクに通知して可能なら実行する
+            self.run_state = RunStateEnum.complete
             await self.notifyProcessCompleteAndNextTaskExcute(tool_output)
     
     def selectTool(self,task:Task)->TaskTool|None:
@@ -2570,8 +2655,41 @@ class TaskGraphUnit:
             return NormalChatTool(task)
         elif task["use_tool"] == "発言":
             return SpeakTool(task)
+        elif task["use_tool"] == "目標決定":
+            return DestinationAgent()
         else:
             return None
+    
+    @staticmethod
+    def descriptionPreviowsOutputDict(previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->str:
+        """
+        タスクの実行結果の辞書を文字列にして返す
+        返り値はタスクのタイトルと実行結果をまとめたもの
+        """
+        description_dict = {}
+        for unit, output in previows_output_dict.items():
+            description_dict[unit.task_title] = output.task_exec_result
+        description = ExtendFunc.dictToStr(description_dict)
+        return description
+
+
+
+class RunState:
+    state_publisher:dict[TaskGraphUnit,Queue[RunStateEnum]]
+    state:RunStateEnum
+    def __init__(self) -> None:
+        self.state_publisher = {}
+        self.state = RunStateEnum.not_start
+    def addPublisher(self, task_graph_unit:TaskGraphUnit):
+        self.state_publisher[task_graph_unit] = Queue()
+        return self.state_publisher[task_graph_unit]
+    async def pushState(self, state:RunStateEnum):
+        self.state = state
+        for queue in self.state_publisher.values():
+            await queue.put(state)
+    async def pushStop(self):
+        await self.pushState(RunStateEnum.stop)
+        
     
 class TaskGraph:
     problem_title:str
@@ -2580,8 +2698,12 @@ class TaskGraph:
     non_dependent_tasks: list[TaskGraphUnit] = []
     non_next_tasks: list[TaskGraphUnit] = []
     task_breaking_down_ti: TaskBreakingDownTransportedItem
-    run_state:Literal["not_ready", "ready", "not_start", "running", "stop", "complete", "error"]
+    run_state:RunState = RunState()
     memory:"Memory"
+
+    @property
+    def task_num(self):
+        return len(self.task_dict)
     
     def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem, memory:"Memory") -> None:
         self.problem_title = task_breaking_down_ti.problem.problem_title
@@ -2611,7 +2733,7 @@ class TaskGraph:
                 next_step_candidate = task.notifyProcessCompleteForCreateStepList(next_step_candidate)
             next_step:list[TaskGraphUnit] = []
             for task in next_step_candidate:
-                if task.ready:
+                if task.run_state == RunStateEnum.ready:
                     next_step.append(task)
                 else:
                     not_raady_next_step.append(task)
@@ -2626,12 +2748,54 @@ class TaskGraph:
     async def excuteRecursive(self)->str:
         fast_step = self.step_list[0]
         fast_input:TaskToolOutput = TaskToolOutput(None,"最初のタスク")
+        self.allTaskGraphUnitInitailize()
         #todo 一番最初のpreviows_outputが未実装です
         # raise NotImplementedError("一番最初のpreviows_outputが未実装です")
         tasks = asyncio.gather(*[task.executeAndRecursiveNextTaskExcute(fast_input) for task in fast_step])
         output = await tasks
         # 最後のタスクが終わったらサマライズする
         return self.summarizeOutputs()
+    
+    def allTaskGraphUnitInitailize(self):
+        for task in self.task_dict.values():
+            task.initPreviousResolvedStatus()
+    
+    async def continueExecRecursive(self):
+        #一時停止したタスクを再開する
+        pause_tasks = self.getContinueTasks()
+        # 一時停止したタスクを再開する
+        tasks = asyncio.gather(*[task.executeAndRecursiveNextTaskExcute(task.perfect_previous_result) for task in pause_tasks])
+        output = await tasks
+        # 最後のタスクが終わったらサマライズする
+        return self.summarizeOutputs()
+    
+    def getContinueTasks(self)->list[TaskGraphUnit]:
+        """
+        前回中断したときに実行中だったタスクを取得する
+        """
+        classifed_task_state = self.classificationTaskState
+        pause_tasks = classifed_task_state[RunStateEnum.running] + classifed_task_state[RunStateEnum.stop]
+        if len(pause_tasks) == 0:
+            if len(classifed_task_state[RunStateEnum.complete]) == self.task_num:
+                # 全てのタスクが完了している場合は何も返さない
+                return []
+            else:
+                # 全て完了してるわけでもないし、途中のタスクもないので一切実行されてないと思われるので、最初のステップを返す
+                return self.step_list[0]
+        return pause_tasks
+    
+    @property
+    def classificationTaskState(self)->dict[RunStateEnum,list[TaskGraphUnit]]:
+        """
+        タスクの状態を分類する
+        """
+        task_state_dict:dict[RunStateEnum,list[TaskGraphUnit]] = {}
+        for task in self.task_dict.values():
+            if task.run_state.state not in task_state_dict:
+                task_state_dict[task.run_state.state] = []
+            task_state_dict[task.run_state.state].append(task)
+        return task_state_dict
+
     
     def summarizeOutputs(self)->str:
         """
@@ -2653,6 +2817,14 @@ class TaskGraph:
                 summary += f"\n{task_exec_result}"
             summary += "\n" 
         return summary
+    
+    def addTaskGraphUnitToRunState(self, task_graph_unit:TaskGraphUnit):
+        self.run_state.addPublisher(task_graph_unit)
+
+    
+
+        
+        
 
 class TaskProgress:
     # タスクの進捗
@@ -2746,12 +2918,13 @@ class LifeProcessState:
     """
     LifeProcessの状態
     """
-    実行状態:bool = False
+    state:RunStateEnum = RunStateEnum.not_ready
     def __init__(self) -> None:
         pass
 
+
 class LifeProcessBrain:
-    task_graph_process:TaskGraph
+    task_graph_process:dict[str,TaskGraph]
     memory:Memory
     state:LifeProcessState = LifeProcessState()
 
@@ -2763,8 +2936,28 @@ class LifeProcessBrain:
         """
         self.memory = Memory.loadLatestMemory(chara_name)
 
-        self.task_graph_process = self.memory.task_progress.task_graphs["最新のタスク"]
+        self.task_graph_process = self.memory.task_progress.task_graphs
         #すべてのタスクにmemoryをバインド
+        for task_graph in self.task_graph_process.values():
+            task_graph.memory = self.memory
+
+    async def continueRun(self):
+        """
+        task_graph_processを途中から実行
+        """
+        gather_graph = asyncio.gather(*[task_graph.continueExecRecursive() for task_graph in self.task_graph_process.values()])
+        await gather_graph
+
+    async def run(self):
+        """
+        task_graph_processを実行
+        """
+        gather_graph = asyncio.gather(*[task_graph.excuteRecursive() for task_graph in self.task_graph_process.values()])
+        await gather_graph
+
+    
+        
+
         
 
 

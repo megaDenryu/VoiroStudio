@@ -62,7 +62,7 @@ class Task(TypedDict):
     task_species: str
     task_title: str
     description: str
-    use_tool: Literal["なし","タスク分解","タスク実行","発言","思考"]
+    use_tool: Literal["なし","タスク分解","タスク実行","発言","思考","目標決定"]
     tool_query: str
     dependencies: list[str]
 
