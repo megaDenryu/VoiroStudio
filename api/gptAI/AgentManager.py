@@ -206,10 +206,10 @@ class ProblemDecomposedIntoTasks(BaseModel):
     problem_title:str
     role_in_task_graph: str|None  #タスクグラフ内での役割または解決するべき問題
     result_of_previous_task: str|None  #前のタスクの結果
-    def __init__(self, task:Task, result_of_previous_task_dict:dict["TaskGraphUnit","TaskToolOutput"] = {}):
+    def __init__(self, task:Task, result_of_previous_task:"TaskToolOutput"):
         self.problem_title = task["task_title"]
         self.role_in_task_graph = self.TaskToRoleInTaskGraph(task)
-        self.result_of_previous_task = self.perviousTaskToResultToString(result_of_previous_task_dict)
+        self.result_of_previous_task = result_of_previous_task.task_exec_result
     def TaskToRoleInTaskGraph(self, task:Task|None)->str:
         if task is None:
             #todo :最初のタスクだがまだ実装していない
@@ -2103,16 +2103,16 @@ class DestinationTransportedItem(GeneralTransportedItem):
     resultの中身が決まってない
     """
     result:DestinationAndProfitVector | None
-    ouput_dict:dict["TaskGraphUnit","TaskToolOutput"]
+    ouput:"TaskToolOutput"
     class Config:
         arbitrary_types_allowed = True
     
     @staticmethod
-    def init(task_ouput_dict:dict["TaskGraphUnit","TaskToolOutput"])->"DestinationTransportedItem":
+    def init(task_ouput:"TaskToolOutput")->"DestinationTransportedItem":
         return DestinationTransportedItem(
             usage_purpose="Destination", 
             result= None,
-            ouput_dict = task_ouput_dict
+            ouput = task_ouput
             )
 
 class DestinationAgent(LifeProcessModule):
@@ -2265,16 +2265,11 @@ class DestinationAgent(LifeProcessModule):
         return query
     
     def replaceDictDef(self, input: DestinationTransportedItem)->dict[str,str]:
-        # raise NotImplementedError("未定義・未使用")
-        output_dict = input.ouput_dict
-        all_sumry = {}
-        for unit, output in output_dict.items():
-            sumry = output.summarizeOutputs()
-            all_sumry[unit.task_title] = sumry
-        input_str:str = input.ouput_dict["TaskGraphUnit"].summarizeOutputs()
+        if input.ouput.task_exec_result is None:
+            raise ValueError("タスク実行結果が設定されていません")
         return {
             "{{gptキャラの本能}}":self.gptキャラの本能,
-            "{{input}}":input_str
+            "{{input}}":input.ouput.task_exec_result
         }
     
     def load本能(self):
@@ -2411,7 +2406,7 @@ class TaskTool:
     def __init__(self, task:Task) -> None:
         self.task = task
     @abstractmethod
-    async def execute(self,previows_output:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
+    async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
         # TaskToolOutputのresultに結果を格納して返す、結果の書き込み責務はTaskTool側にある
         pass
     @abstractmethod
@@ -2423,8 +2418,8 @@ class TaskDecompositionTool(TaskTool):
         super().__init__(task)
         self.task_decomposition_process_manager = TaskDecompositionProcessManager()
         self.memory = memory
-    async def execute(self, taskToolOutputDict: dict["TaskGraphUnit",TaskToolOutput]) -> TaskToolOutput:
-        problem = ProblemDecomposedIntoTasks(self.task, taskToolOutputDict)
+    async def execute(self, taskToolOutput:TaskToolOutput) -> TaskToolOutput:
+        problem = ProblemDecomposedIntoTasks(self.task, taskToolOutput)
         task_breaking_down_ti = TaskBreakingDownTransportedItem.init(problem)
         taskBreakingDown:TaskBreakingDownTransportedItem = await self.task_decomposition_process_manager.taskDecompositionProcess(task_breaking_down_ti)
         taskGraph = TaskGraph(taskBreakingDown,self.memory)
@@ -2435,12 +2430,7 @@ class TaskExecutionTool(TaskTool):
     def __init__(self, task:Task) -> None:
         super().__init__(task)
 
-    async def execute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
-        # 前のグラフユニットが１つの「タスク分解ツール」であることを前提としているので合流などはなく、辞書も１つの要素しか持たない
-        if len(previows_output_dict) != 1:
-            description = TaskGraphUnit.descriptionPreviowsOutputDict(previows_output_dict)
-            raise ValueError(f"前の出力が１つではありません。前のユニットがタスク分解ツールではない可能性が高いです。/n{description}")
-        previows_output = list(previows_output_dict.values())[0]
+    async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
         if previows_output.taskGraph is None:
             raise ValueError("前の出力がタスクグラフではありません")
         taskGraph:TaskGraph = previows_output.taskGraph
@@ -2455,7 +2445,7 @@ class NormalChatTool(TaskTool):
     def __init__(self, task:Task) -> None:
         super().__init__(task)
         self.normalChatAgenet = NormalChatAgent()
-    async def execute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
+    async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
         normalChatTransportedItem = NormalChatTransportedItem.init()
         normalChatTransportedItem.task = self.task
         normalChatTransportedItem.previous_task_result = previows_output
@@ -2473,8 +2463,8 @@ class DestinationTool(TaskTool):
     def __init__(self, task:Task) -> None:
         super().__init__(task)
         self.destinationAgent = DestinationAgent()
-    async def execute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput])->TaskToolOutput:
-        destinationTransportedItem = DestinationTransportedItem.init(previows_output_dict)
+    async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
+        destinationTransportedItem = DestinationTransportedItem.init(previows_output)
         destinationTransportedItem = await self.destinationAgent.handleEvent(destinationTransportedItem)
         
         previows_output.task_exec_result = self.report(destinationTransportedItem)
@@ -2490,6 +2480,8 @@ class DestinationTool(TaskTool):
 class SpeakTool(TaskTool):
     def __init__(self, task:Task) -> None:
         super().__init__(task)
+
+
 
 
     
@@ -2550,6 +2542,9 @@ class TaskGraphUnit:
         return self.task["task_title"]
     @property
     def perfect_previous_result(self)->dict["TaskGraphUnit",TaskToolOutput]:
+        """
+        必要だと思って作ったがresultがその時点のタスクグラフの結果をすべて持っているので使う必要がない。したがって後で消す
+        """
         result_dict = {}
         for unit, result in self._previous_result.items():
             if result is None:
@@ -2591,7 +2586,7 @@ class TaskGraphUnit:
         self.setPreviousResult(previous_task, previows_output)
         if all(self._previous_resolved.values()):
             self.run_state = RunStateEnum.ready
-            await self.executeAndRecursiveNextTaskExcute(self.perfect_previous_result)
+            await self.executeAndRecursiveNextTaskExcute(previows_output) #previows_outpuはその時点のグラフ全体の結果を持っているのでself.perfect_previous_resultは使う必要がない
 
     def recievePreviousTaskResolved(self, previous_task:"TaskGraphUnit"):
         # 前のタスクが解決されたことを受信
@@ -2619,14 +2614,14 @@ class TaskGraphUnit:
             next_step_candidate.extend(self._next_tasks)
         return next_step_candidate
     
-    async def executeAndRecursiveNextTaskExcute(self, previows_output_dict:dict["TaskGraphUnit",TaskToolOutput]):
+    async def executeAndRecursiveNextTaskExcute(self, previows_output:TaskToolOutput):
         if all(self._previous_resolved.values()) == False:
             return
         self.run_state = RunStateEnum.ready
         # タスクを実行
         if self.tool is not None:
             self.run_state = RunStateEnum.running
-            task_tool_exec = asyncio.create_task(self.tool.execute(previows_output_dict))
+            task_tool_exec = asyncio.create_task(self.tool.execute(previows_output))
             task_graph_stop_observation = asyncio.create_task(self._task_graph.run_state.state_publisher[self].get())
             # 2つのタスクを待って早く終わったほうを採用する
             done, pending = await asyncio.wait([task_tool_exec, task_graph_stop_observation], return_when=asyncio.FIRST_COMPLETED)
@@ -2656,7 +2651,7 @@ class TaskGraphUnit:
         elif task["use_tool"] == "発言":
             return SpeakTool(task)
         elif task["use_tool"] == "目標決定":
-            return DestinationAgent()
+            return DestinationTool(task)
         else:
             return None
     
@@ -2665,6 +2660,7 @@ class TaskGraphUnit:
         """
         タスクの実行結果の辞書を文字列にして返す
         返り値はタスクのタイトルと実行結果をまとめたもの
+        09/08 : 使わなさそう
         """
         description_dict = {}
         for unit, output in previows_output_dict.items():
@@ -2764,7 +2760,8 @@ class TaskGraph:
         #一時停止したタスクを再開する
         pause_tasks = self.getContinueTasks()
         # 一時停止したタスクを再開する
-        tasks = asyncio.gather(*[task.executeAndRecursiveNextTaskExcute(task.perfect_previous_result) for task in pause_tasks])
+        latest_output = TaskToolOutput(self,self.summarizeOutputs())
+        tasks = asyncio.gather(*[task.executeAndRecursiveNextTaskExcute(latest_output) for task in pause_tasks])
         output = await tasks
         # 最後のタスクが終わったらサマライズする
         return self.summarizeOutputs()
@@ -2897,7 +2894,7 @@ class Memory:
         """
         memory = Memory.loadSelfPickle(chara_name)
         if memory is None:
-            memory = Memory("default")
+            memory = Memory(chara_name)
         return memory
         
         
