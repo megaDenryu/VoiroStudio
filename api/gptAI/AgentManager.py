@@ -2853,7 +2853,7 @@ class Memory:
         self.chara_name = chara_name
         self.loadInitialMemory()
         self.loadCharaSetting()
-        self.createTaskProgress()
+        self.createInitTaskGraph(chara_name)
     
     def loadInitialMemory(self):
         """ 
@@ -2876,11 +2876,15 @@ class Memory:
     def addDestination(self, destination:DestinationAndProfitVector):
         self.destinations.append(destination)
 
-    def createInitTaskGraph(self, chara_name:str)->TaskGraph:
+    def createInitTaskGraph(self, chara_name:str):
+        # キャラクターごとの初期目標をロードして、タスクグラフを作成する。しかしそもそも目標がない場合は無理に目標を与える必要はないとも思う。本当の最初はある程度会話による記憶の入力が必要
+        # それよりもある程度会話して記憶ができた後に暇になったときに何をするのか考えたら、記憶から興味が形成されているので、それと内面状態を合わせて目標を生成するのがよい。
+        # したがって内面を用いて目標を生成するプロセスを書く必要がある。
+        # モット言うともはや入力するプロセスをちゃんと書く必要がある。
         first_destination = self.loadCharaInitialDestination(chara_name)
         ti = TaskBreakingDownTransportedItem.init(first_destination)
-        task_graph = TaskGraph(task_list)
-        return task_graph
+        task_graph = TaskGraph(ti,self)
+        self.task_progress.addTaskGraph(task_graph)
     
     def loadCharaInitialDestination(self, chara_name:str)->str:
         # キャラクターごとの初期目標をロード
@@ -2928,6 +2932,7 @@ class Memory:
 
         使用用途：目標決定エージェントが目標を決定する際に使用
         """
+        raise NotImplementedError("目標をロードするメソッドが未実装です")
         
 
 
