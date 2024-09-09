@@ -2837,22 +2837,55 @@ class ThirdPersonEvaluation:
     pass
 
 class Memory:
+    behavior:dict
     destinations:list[DestinationAndProfitVector] # 目標リスト
     holding_profit_vector:ProfitVector # 保持している利益ベクトル
     past_conversation:Epic # 過去の会話
     task_progress:TaskProgress # タスクの進捗
     third_person_evaluation: ThirdPersonEvaluation # 第三者評価
+    destination:str # 目標
+    profit_vector:ProfitVector # 利益ベクトル
+    chara_name:str # キャラクター名
+    chara_setting:str # キャラクター設定
+
+
     def __init__(self, chara_name:str) -> None:
         self.chara_name = chara_name
         self.loadInitialMemory()
-    def loadMemory(self, chara_name:str)->"Memory | None":
-        memory = self.loadSelfPickle(chara_name)
-        if memory is None:
-            memory = self.loadInitialMemory()
-        return memory
+        self.loadCharaSetting()
+        self.createTaskProgress()
+    
+    def loadInitialMemory(self):
+        """ 
+        初期のMemoryをロード
+        いろいろなjsonファイルから読み込む.
+        各プロパティごとに分かれているのでそれを読み込む
+        """
+        behavior = JsonAccessor.loadGptBehaviorYaml()
+        self.behavior = behavior
+        self.destination = behavior["目標"]
+        self.profit_vector = behavior["利益ベクトル"]
+        self.past_conversation = behavior["過去の会話"]
+        self.task_progress = behavior["タスクの進捗"]
+        self.third_person_evaluation = behavior["第三者評価"]
+    
+    def loadCharaSetting(self):
+        chara_setting_dict = JsonAccessor.loadCharSettingYaml()
+        self.chara_setting = chara_setting_dict[self.chara_name]
 
     def addDestination(self, destination:DestinationAndProfitVector):
         self.destinations.append(destination)
+
+    def createInitTaskGraph(self, chara_name:str)->TaskGraph:
+        first_destination = self.loadCharaInitialDestination(chara_name)
+        ti = TaskBreakingDownTransportedItem.init(first_destination)
+        task_graph = TaskGraph(task_list)
+        return task_graph
+    
+    def loadCharaInitialDestination(self, chara_name:str)->str:
+        # キャラクターごとの初期目標をロード
+        raise NotImplementedError("キャラクターごとの初期目標をロードするメソッドが未実装です")
+        # 目標がない時キャラが何をするか？だめ人間なら暇なときは散歩を始めたりネットを始めたりして何かを探すが、AIは散歩もできないので、自分にとっての「不可能な目標」を設定して、それを目指すというのはどうか？
 
     def addHoldingProfitVector(self, profit_vector:ProfitVector):
         self.holding_profit_vector += profit_vector
@@ -2874,18 +2907,7 @@ class Memory:
             return None
         return memory
     
-    def loadInitialMemory(self):
-        """ 
-        初期のMemoryをロード
-        いろいろなjsonファイルから読み込む.
-        各プロパティごとに分かれているのでそれを読み込む
-        """
-        behavior:dict = JsonAccessor.loadGptBehaviorYaml()
-        self.destination = behavior["目標"]
-        self.profit_vector = behavior["利益ベクトル"]
-        self.past_conversation = behavior["過去の会話"]
-        self.task_progress = behavior["タスクの進捗"]
-        self.third_person_evaluation = behavior["第三者評価"]
+    
 
     @staticmethod
     def loadLatestMemory(chara_name)->"Memory":
