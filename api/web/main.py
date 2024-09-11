@@ -8,7 +8,7 @@ from api.comment_reciver.TwitchCommentReciever import TwitchBot, TwitchMessageUn
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
-from api.gptAI.AgentManager import AgentEventManager, AgentManager, GPTAgent, InputReciever
+from api.gptAI.AgentManager import AgentEventManager, AgentManager, GPTAgent, InputReciever, LifeProcessBrain
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
@@ -1054,6 +1054,41 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     # pipeが完了したら通知
     await pipe
     ExtendFunc.ExtendPrint("gpt_routine終了")
+
+@app.websocket("/gpt_routine3/{front_name}")
+async def wsGptGraphEventStart(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+
+    life_process_brain = LifeProcessBrain(chara_name)
+    
+    agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
+    gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
+    gpt_agent_dict[chara_name] = gpt_agent
+
+    # 意思決定のパイプラインを作成
+    # 目標の生成とタスクグラフの生成を行いたい。入力を受け取ると、目標を生成し、タスクグラフを生成する。これ以外に目標を生成する方法はあるのか？
+    # 入力から目標を生成する過程はどうなっているのか？
+    pipe = asyncio.gather(
+        input_reciever.runObserveEpic(),
+        agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
+        # agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        # agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
+        # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
+    )
+
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
+
 
 
 class Item(BaseModel):

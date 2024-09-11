@@ -2876,6 +2876,7 @@ class Memory:
     def addDestination(self, destination:DestinationAndProfitVector):
         self.destinations.append(destination)
 
+
     def createInitTaskGraph(self, chara_name:str):
         # キャラクターごとの初期目標をロードして、タスクグラフを作成する。しかしそもそも目標がない場合は無理に目標を与える必要はないとも思う。本当の最初はある程度会話による記憶の入力が必要
         # それよりもある程度会話して記憶ができた後に暇になったときに何をするのか考えたら、記憶から興味が形成されているので、それと内面状態を合わせて目標を生成するのがよい。
@@ -2979,6 +2980,61 @@ class LifeProcessBrain:
         gather_graph = asyncio.gather(*[task_graph.excuteRecursive() for task_graph in self.task_graph_process.values()])
         await gather_graph
 
+    async def recieve(self, input:str):
+        """
+        外界からの作用を入力として受け取って、目標を生成し、タスクグラフを生成し、実行する
+        """
+        # キャラクターごとの初期目標をロードして、タスクグラフを作成する。しかしそもそも目標がない場合は無理に目標を与える必要はないとも思う。本当の最初はある程度会話による記憶の入力が必要
+        # それよりもある程度会話して記憶ができた後に暇になったときに何をするのか考えたら、記憶から興味が形成されているので、それと内面状態を合わせて目標を生成するのがよい。
+        # したがって内面を用いて目標を生成するプロセスを書く必要がある。
+        # モット言うともはや入力するプロセスをちゃんと書く必要がある。
+
+        # 最初に目標ツールを使って入力から目標を生成するためのTaskを作成。ここでinputを使う
+        task_destination:Task = {
+            "id":"0",
+            "task_species":"目標決定",
+            "task_title":"目標決定",
+            "use_tool":"目標決定",
+            "description":"目標を決定する",
+            "tool_query":"目標を決定する",
+            "dependencies":[],
+        }
+        destination_tool = DestinationTool(task_destination)
+        output:TaskToolOutput = TaskToolOutput(None,input)
+        destination_output = await destination_tool.execute(output)
+        # タスクグラフ分解ツールを使って目標を分解するためのTaskを作成
+        task_decomposition:Task = {
+            "id":"1",
+            "task_species":"タスク分解",
+            "task_title":"タスク分解",
+            "use_tool":"タスク分解",
+            "description":"目標を分解する",
+            "tool_query":"目標を分解する",
+            "dependencies":["0"],
+        }
+        task_decomposition_tool = TaskDecompositionTool(task_decomposition, self.memory)
+        task_graph_output = await task_decomposition_tool.execute(destination_output)
+        task_graph_exec:Task = {
+            "id":"2",
+            "task_species":"タスク実行",
+            "task_title":"タスク実行",
+            "use_tool":"タスク実行",
+            "description":"タスクを実行する",
+            "tool_query":"タスクを実行する",
+            "dependencies":["1"],
+        }
+        task_exec_tool = TaskExecutionTool(task_graph_exec)
+        task_exec_output = await task_exec_tool.execute(task_graph_output)
+
+        
+        
+
+    async def createTaskGraph(self,destination:str):
+        """
+        目標からタスクグラフを生成
+        """
+        
+        
     
         
 
