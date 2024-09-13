@@ -2979,8 +2979,15 @@ class LifeProcessBrain:
         """
         gather_graph = asyncio.gather(*[task_graph.excuteRecursive() for task_graph in self.task_graph_process.values()])
         await gather_graph
+    
+    async def addGraphAndRun(self,input:str):
+        """"
+        1. task_graphを追加
+        2. 他の非同期実行中のtask_graphを邪魔しないように非同期実行
+        """
+        new_graph_task = asyncio.create_task(self.memory.runGraphProcess(input))
 
-    async def recieve(self, input:str):
+    async def runGraphProcess(self, input:str):
         """
         外界からの作用を入力として受け取って、目標を生成し、タスクグラフを生成し、実行する
         """
@@ -3025,6 +3032,22 @@ class LifeProcessBrain:
         }
         task_exec_tool = TaskExecutionTool(task_graph_exec)
         task_exec_output = await task_exec_tool.execute(task_graph_output)
+
+    async def testGatherRun(self):
+        """
+        テスト用
+        """
+        task1 = asyncio.create_task(self.runGraphProcess(input))
+        task2 = asyncio.create_task(self.runGraphProcess(input))
+        await asyncio.gather(task1,task2)
+
+    async def testRun(self):
+        """
+        テスト用
+        """
+        task1 = self.runGraphProcess(input)
+        task2 = self.runGraphProcess(input)
+        await asyncio.gather(task1,task2)
 
         
         
