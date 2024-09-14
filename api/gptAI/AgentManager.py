@@ -720,16 +720,51 @@ class AgentEventManager:
     async def setEventQueueArrowToCreateTask(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: AsyncEventHandler[GeneralTransportedItem_T]):
         # notifierの中のreciever_dictにrecieverを追加
         event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
+        event_id = TimeExtend.nowSecond()
+        stop_queue = self.run_state.addPublisher(event_id)
         while True:
             ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
                 ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
                 return
-            stop_observation = asyncio.create_task(self.run_state.state_publisher[self].get())
-            item = await event_queue_for_reciever.get()
+            stop_observation = asyncio.create_task(stop_queue.get())
+            # item = await event_queue_for_reciever.get()
+            queue = asyncio.create_task(event_queue_for_reciever.get())
+
+            while True:
+                done, pending = await asyncio.wait({stop_observation, queue}, return_when=asyncio.FIRST_COMPLETED)
+                if stop_observation in done:
+                    ExtendFunc.ExtendPrint(f"{reciever.name}イベントを終了します")
+                    return
+                if queue in done:
+                    item = queue.result()
+                    break
+
             ExtendFunc.ExtendPrint(item)
             task = asyncio.create_task(reciever.handleEventAsync(item))
             ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました") 
+    
+    async def wait_for_event_or_StopQueue(self, stop_queue:Queue[RunStateEnum], target_func):
+        stop_observation = asyncio.create_task(stop_queue.get())
+        queue = asyncio.create_task(target_func)
+
+        while True:
+            done, pending = await asyncio.wait({stop_observation, queue}, return_when=asyncio.FIRST_COMPLETED)
+            if queue in done:
+                return queue.result()
+            elif stop_observation in done:
+                if stop_observation.result() == RunStateEnum.stop:
+                    queue.cancel()
+                    return RunStateEnum.stop
+                else:
+                    stop_observation = asyncio.create_task(stop_queue.get())
+            else:
+                # 必ずどちらかのタスクが終了するはずなのでここには来ないはずなので、エラーを出す。doneの状態を確認する。
+                raise Exception(f"予期せぬエラーが発生しました。\n  done:{done},\n  pending:{pending}")
+            
+                
+
+
     
     async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: AsyncEventHandlerWaitFor[GeneralTransportedItem_T]):
         event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
@@ -2659,14 +2694,25 @@ class TaskGraphUnit:
             task_tool_exec = asyncio.create_task(self.tool.execute(previows_output))
             task_graph_stop_observation = asyncio.create_task(self._task_graph.run_state.state_publisher[self].get())
             # 2つのタスクを待って早く終わったほうを採用する
-            done, pending = await asyncio.wait([task_tool_exec, task_graph_stop_observation], return_when=asyncio.FIRST_COMPLETED)
-            if task_graph_stop_observation in done and task_graph_stop_observation.result() == RunStateEnum.stop:
-                # グラフが停止された場合は自身も停止する
-                self.run_state = RunStateEnum.stop
-                return
-            tool_output = task_tool_exec.result()
+            while True:
+                done, pending = await asyncio.wait([task_tool_exec, task_graph_stop_observation], return_when=asyncio.FIRST_COMPLETED)
+                if task_tool_exec in done:
+                    tool_output = task_tool_exec.result()
+                    break
 
-            self.output = tool_output
+                if task_graph_stop_observation in done:
+                    if task_graph_stop_observation.result() == RunStateEnum.stop:
+                        # グラフが停止された場合は自身も停止する
+                        self.run_state = RunStateEnum.stop
+                        task_tool_exec.cancel()
+                        return
+                    else:
+                        # グラフが停止されていない場合は再度待つ
+                        task_graph_stop_observation = asyncio.create_task(self._task_graph.run_state.state_publisher[self].get())
+
+                
+
+            
         
         if self.isLastTask == True:
             self.run_state = RunStateEnum.complete
