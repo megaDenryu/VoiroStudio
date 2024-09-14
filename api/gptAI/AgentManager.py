@@ -280,11 +280,12 @@ GeneralTransportedItem_T = TypeVar("GeneralTransportedItem_T", bound=GeneralTran
 
 class EventReciever(Protocol, Generic[GeneralTransportedItem_T_contra]):
     name:str
-    async def handleEvent(self, transported_item:GeneralTransportedItem_T_contra):
+    async def handleEventAsync(self, transported_item:GeneralTransportedItem_T_contra):
         pass
+    
 class EventRecieverWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
     name:str
-    async def handleEvent(self, transported_item:GeneralTransportedItem_T):
+    async def handleEventAsync(self, transported_item:GeneralTransportedItem_T):
         pass
     def timeOutSec(self)->float: # type: ignore
         pass
@@ -620,7 +621,7 @@ class InputReciever():
             task.append(event_queue.put(data))
         await asyncio.gather(*task)
             
-    async def handleEvent(self, data = None):
+    async def handleEventAsync(self, data = None):
         # x秒非同期に待つ
         await asyncio.sleep(3)
         # 次が来てるかどうかをチェック。
@@ -674,7 +675,7 @@ class AgentEventManager:
     async def addEventWebsocketOnMessage(self, websocket: WebSocket, reciever: EventReciever):
         while True:
             data = await websocket.receive_json()
-            await reciever.handleEvent(data)
+            await reciever.handleEventAsync(data)
     
     async def setEventQueueArrow(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventReciever[GeneralTransportedItem_T]):
         # notifierの中のreciever_dictにrecieverを追加
@@ -686,7 +687,7 @@ class AgentEventManager:
                 return
             item = await event_queue_for_reciever.get()
             ExtendFunc.ExtendPrint(item)
-            await reciever.handleEvent(item)
+            await reciever.handleEventAsync(item)
             ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
     
     async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventRecieverWaitFor[GeneralTransportedItem_T]):
@@ -703,7 +704,7 @@ class AgentEventManager:
                 item = reciever.timeOutItem()
             ExtendFunc.ExtendPrint(item)
             try:
-                await asyncio.wait_for(reciever.handleEvent(item),40)
+                await asyncio.wait_for(reciever.handleEventAsync(item),40)
                 ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
             except asyncio.TimeoutError:
                 ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")
@@ -726,7 +727,7 @@ class AgentEventManager:
                 ti = self.mergeTransportedItem(ti, item)
             ExtendFunc.ExtendPrint(ti)
             try:
-                await asyncio.wait_for(reciever.handleEvent(ti), 40)
+                await asyncio.wait_for(reciever.handleEventAsync(ti), 40)
                 ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
             except asyncio.TimeoutError:
                 ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")     
@@ -770,7 +771,7 @@ class MicInputJudgeAgent(Agent):
         self.request_template_name = "マイク入力成否判定エージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # マイク入力成功判定エージェントがマイク入力に成功しているか判定
         ExtendFunc.ExtendPrint(self.name,transported_item)
         if transported_item.stop:
@@ -847,7 +848,7 @@ class SpeakerDistributeAgent(Agent):
             "{{character_list}}":self.createCharacterListStr()
         }
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # 話者割り振りエージェントが会話を見て次に喋るべきキャラクターを推論
         ExtendFunc.ExtendPrint(self.name,transported_item)
         if transported_item.stop:
@@ -956,7 +957,7 @@ class ListeningAgent(Agent):
         self.agent_setting = self.loadAgentSetting()
         self.event_queue = Queue()
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
@@ -1070,7 +1071,7 @@ class ThinkAgent2(Agent,QueueNode):
         return "傾聴思考"
     
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
 
@@ -1278,7 +1279,7 @@ class ThinkAgent(Agent,QueueNode):
         return "傾聴思考"
     
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
 
@@ -1445,7 +1446,7 @@ class SerifAgent(Agent):
         self.epic:Epic = agent_manager.epic
         self.replace_dict = self.replaceDictDef("",None)
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
 
@@ -1615,7 +1616,7 @@ class NonThinkingSerifAgent(Agent):
         self.epic:Epic = agent_manager.epic
         self.replace_dict = self.replaceDictDef("", "")
 
-    async def handleEvent(self, transported_item:TransportedItem):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
 
@@ -1840,7 +1841,7 @@ class TaskDecompositionProposerAgent(LifeProcessModule):
         }
         return TypeDict
 
-    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+    async def handleEventAsync(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         # 思考エージェントが状況を整理し、必要なタスクなどを分解し、思考
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
@@ -1921,7 +1922,7 @@ class TaskDecompositionCheckerAgent(LifeProcessModule):
         }
         return TypeDict
     
-    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
+    async def handleEventAsync(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
         return output
@@ -2026,7 +2027,7 @@ class TaskToJsonConverterAgent(LifeProcessModule):
         return TypeDict
 
 
-    async def handleEvent(self, transported_item:TaskBreakingDownTransportedItem):
+    async def handleEventAsync(self, transported_item:TaskBreakingDownTransportedItem):
         ExtendFunc.ExtendPrint(transported_item)
         result = await self.run(transported_item)
         return result
@@ -2093,9 +2094,9 @@ class TaskDecompositionProcessManager:
 
     async def taskDecompositionProcess(self, transported_item:TaskBreakingDownTransportedItem)->TaskBreakingDownTransportedItem:
         while transported_item.comlete_breaking_down_task == False:
-            transported_item = await self._proposer.handleEvent(transported_item)
-            transported_item = await self._checker.handleEvent(transported_item)
-        transported_item = await self._converter.handleEvent(transported_item)
+            transported_item = await self._proposer.handleEventAsync(transported_item)
+            transported_item = await self._checker.handleEventAsync(transported_item)
+        transported_item = await self._converter.handleEventAsync(transported_item)
         return transported_item
 
 class DestinationTransportedItem(GeneralTransportedItem):
@@ -2229,7 +2230,7 @@ class DestinationAgent(LifeProcessModule):
             }
 
         return TypeDict
-    def handleEvent(self, transported_item:DestinationTransportedItem):
+    def handleEventAsync(self, transported_item:DestinationTransportedItem):
         ExtendFunc.ExtendPrint(self.name,transported_item)
         result = self.run(transported_item)
         return result
@@ -2328,7 +2329,7 @@ class NormalChatAgent(LifeProcessModule):
         self.request_template_name = "汎用チャットエージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
     
-    async def handleEvent(self, transported_item:NormalChatTransportedItem)->NormalChatTransportedItem:
+    async def handleEventAsync(self, transported_item:NormalChatTransportedItem)->NormalChatTransportedItem:
         ExtendFunc.ExtendPrint(self.name,transported_item)
         output = await self.run(transported_item)
         return output
@@ -2449,7 +2450,7 @@ class NormalChatTool(TaskTool):
         normalChatTransportedItem = NormalChatTransportedItem.init()
         normalChatTransportedItem.task = self.task
         normalChatTransportedItem.previous_task_result = previows_output
-        normalChatTransportedItem = await self.normalChatAgenet.handleEvent(normalChatTransportedItem)
+        normalChatTransportedItem = await self.normalChatAgenet.handleEventAsync(normalChatTransportedItem)
         previows_output.task_exec_result = self.report(normalChatTransportedItem)
         return previows_output
     
@@ -2465,7 +2466,7 @@ class DestinationTool(TaskTool):
         self.destinationAgent = DestinationAgent()
     async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
         destinationTransportedItem = DestinationTransportedItem.init(previows_output)
-        destinationTransportedItem = await self.destinationAgent.handleEvent(destinationTransportedItem)
+        destinationTransportedItem = await self.destinationAgent.handleEventAsync(destinationTransportedItem)
         
         previows_output.task_exec_result = self.report(destinationTransportedItem)
         return previows_output
@@ -2949,6 +2950,7 @@ class LifeProcessState:
 
 
 class LifeProcessBrain:
+    name = "LifeProcessBrain"
     task_graph_process:dict[str,TaskGraph]
     memory:Memory
     state:LifeProcessState = LifeProcessState()
@@ -2980,12 +2982,20 @@ class LifeProcessBrain:
         gather_graph = asyncio.gather(*[task_graph.excuteRecursive() for task_graph in self.task_graph_process.values()])
         await gather_graph
     
-    async def addGraphAndRun(self,input:str):
+    def handleEvent(self, input:str):
+        """
+        入力を受け取って、task_graph_processを追加して実行
+        """
+        self.addGraphAndRun(input)
+    
+    def addGraphAndRun(self,input:str):
         """"
         1. task_graphを追加
         2. 他の非同期実行中のtask_graphを邪魔しないように非同期実行
+
+        inputを受け取って、いろいろなチェックが終わったら実行する
         """
-        new_graph_task = asyncio.create_task(self.memory.runGraphProcess(input))
+        new_graph_task = asyncio.create_task(self.runGraphProcess(input))
 
     async def runGraphProcess(self, input:str):
         """
@@ -3032,30 +3042,10 @@ class LifeProcessBrain:
         }
         task_exec_tool = TaskExecutionTool(task_graph_exec)
         task_exec_output = await task_exec_tool.execute(task_graph_output)
-
-    async def testGatherRun(self):
-        """
-        テスト用
-        """
-        task1 = asyncio.create_task(self.runGraphProcess(input))
-        task2 = asyncio.create_task(self.runGraphProcess(input))
-        await asyncio.gather(task1,task2)
-
-    async def testRun(self):
-        """
-        テスト用
-        """
-        task1 = self.runGraphProcess(input)
-        task2 = self.runGraphProcess(input)
-        await asyncio.gather(task1,task2)
-
         
         
 
-    async def createTaskGraph(self,destination:str):
-        """
-        目標からタスクグラフを生成
-        """
+   
         
         
     
