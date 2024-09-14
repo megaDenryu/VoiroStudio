@@ -21,7 +21,7 @@ from api.gptAI.Human import Human
 from api.Extend.ExtendFunc import ExtendFunc, RandomExtend, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.Epic.Epic import Epic, MassageHistoryUnit, MessageUnit
-from typing import Literal, Protocol
+from typing import Coroutine, Literal, Protocol
 from typing import Any, Dict, get_type_hints, get_origin,TypeVar, Generic
 from typing_extensions import TypedDict
 from pydantic import BaseModel, validator
@@ -727,24 +727,26 @@ class AgentEventManager:
             if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
                 ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
                 return
-            stop_observation = asyncio.create_task(stop_queue.get())
-            # item = await event_queue_for_reciever.get()
-            queue = asyncio.create_task(event_queue_for_reciever.get())
-
-            while True:
-                done, pending = await asyncio.wait({stop_observation, queue}, return_when=asyncio.FIRST_COMPLETED)
-                if stop_observation in done:
-                    ExtendFunc.ExtendPrint(f"{reciever.name}イベントを終了します")
+            
+            # イベントが来るか、stop_queueにRunStateEnum.stopが入力されるまで待機
+            target_func = event_queue_for_reciever.get()
+            result = await self.wait_for_event_or_StopQueue(stop_queue, target_func)
+            # resultのタイプを確認して、RunStateEnum.stopなら終了
+            if isinstance(result, RunStateEnum):
+                if result == RunStateEnum.stop:
                     return
-                if queue in done:
-                    item = queue.result()
-                    break
+                else:
+                    raise Exception("RunStateEnum.stop以外が入力されました")
+            item = result
 
             ExtendFunc.ExtendPrint(item)
             task = asyncio.create_task(reciever.handleEventAsync(item))
-            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました") 
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
     
-    async def wait_for_event_or_StopQueue(self, stop_queue:Queue[RunStateEnum], target_func):
+    async def wait_for_event_or_StopQueue(self, stop_queue:Queue[RunStateEnum], target_func:Coroutine[Any, Any, GeneralTransportedItem_T])->RunStateEnum|GeneralTransportedItem_T:
+        """
+        target_funcを実行し、stop_queueにRunStateEnum.stopが入力されたらtarget_funcをキャンセルしてRunStateEnum.stopを返す
+        """
         stop_observation = asyncio.create_task(stop_queue.get())
         queue = asyncio.create_task(target_func)
 
