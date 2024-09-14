@@ -278,12 +278,14 @@ class LifeProcessTransportedItem(GeneralTransportedItem):
 GeneralTransportedItem_T_contra = TypeVar("GeneralTransportedItem_T_contra", bound=GeneralTransportedItem, contravariant=True)
 GeneralTransportedItem_T = TypeVar("GeneralTransportedItem_T", bound=GeneralTransportedItem)
 
-class EventReciever(Protocol, Generic[GeneralTransportedItem_T_contra]):
+class Reciever(Protocol):
     name:str
+class AsyncEventHandler(Reciever, Protocol, Generic[GeneralTransportedItem_T_contra]):
+    # name:str
     async def handleEventAsync(self, transported_item:GeneralTransportedItem_T_contra):
         pass
 
-class EventRecieverWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
+class AsyncEventHandlerWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
     name:str
     async def handleEventAsync(self, transported_item:GeneralTransportedItem_T):
         pass
@@ -298,11 +300,11 @@ class EventNotifier(Protocol):
         pass
 
 class QueueNotifier(Protocol, Generic[GeneralTransportedItem_T]):
-    event_queue_dict:dict[EventReciever,Queue[GeneralTransportedItem_T]]
+    event_queue_dict:dict[AsyncEventHandler,Queue[GeneralTransportedItem_T]]
     async def notify(self, data:GeneralTransportedItem_T):
         pass
     # 購読者をリストにしておく
-    def appendReciever(self, reciever:EventReciever)->Queue[GeneralTransportedItem_T]:
+    def appendReciever(self, reciever:AsyncEventHandler)->Queue[GeneralTransportedItem_T]:
         return self.event_queue_dict[reciever]
 
 class QueueNotifierWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
@@ -314,9 +316,9 @@ class QueueNotifierWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
     def timeOutItem(self)->GeneralTransportedItem_T: # type: ignore
         pass
 
-class EventNode(EventReciever,EventNotifier,Protocol):
+class EventNode(AsyncEventHandler,EventNotifier,Protocol):
     pass
-class QueueNode(EventReciever,QueueNotifier,Protocol):
+class QueueNode(AsyncEventHandler,QueueNotifier,Protocol):
     pass
 
 
@@ -485,7 +487,7 @@ class Agent:
         self._gpt_api_unit = ChatGptApiUnit()
         ExtendFunc.ExtendPrint(replace_dict)
         self.replace_dict = replace_dict
-        self.event_queue_dict:dict[EventReciever,Queue[TransportedItem]] = {}
+        self.event_queue_dict:dict[AsyncEventHandler,Queue[TransportedItem]] = {}
 
     async def run(self,transported_item: TransportedItem)->TransportedItem:
         query = self.prepareQuery(transported_item)
@@ -501,7 +503,7 @@ class Agent:
         ExtendFunc.ExtendPrint(transported_item)
         return transported_item
     
-    def appendReciever(self,reciever:EventReciever):
+    def appendReciever(self,reciever:AsyncEventHandler):
         self.event_queue_dict[reciever] = Queue[TransportedItem]()
         return self.event_queue_dict[reciever]
     
@@ -546,7 +548,7 @@ class InputReciever():
         self.gpt_agent_dict = gpt_agent_dict
         self.message_stack:list[MassageHistoryUnit] = []
         self.event_queue = Queue[TransportedItem]()
-        self.event_queue_dict:dict[EventReciever,Queue[TransportedItem]] = {}
+        self.event_queue_dict:dict[AsyncEventHandler,Queue[TransportedItem]] = {}
         self.gpt_mode_dict = gpt_mode_dict
         self.runnnig = False
     async def runObserveEpic(self):
@@ -610,7 +612,7 @@ class InputReciever():
             ExtendFunc.ExtendPrint(transported_item)
             await self.notify(transported_item)
 
-    def appendReciever(self, reciever:EventReciever):
+    def appendReciever(self, reciever:AsyncEventHandler):
         self.event_queue_dict[reciever] = Queue[TransportedItem]()
         return self.event_queue_dict[reciever]
             
@@ -672,12 +674,12 @@ class AgentEventManager:
     def __init__(self, chara_name:str, gpt_mode_dict:dict[str,str]):
         self.gpt_mode_dict = gpt_mode_dict
         self.chara_name = chara_name
-    async def addEventWebsocketOnMessage(self, websocket: WebSocket, reciever: EventReciever):
+    async def addEventWebsocketOnMessage(self, websocket: WebSocket, reciever: AsyncEventHandler):
         while True:
             data = await websocket.receive_json()
             await reciever.handleEventAsync(data)
     
-    async def setEventQueueArrow(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventReciever[GeneralTransportedItem_T]):
+    async def setEventQueueArrow(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: AsyncEventHandler[GeneralTransportedItem_T]):
         # notifierの中のreciever_dictにrecieverを追加
         event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
         while True:
@@ -690,7 +692,7 @@ class AgentEventManager:
             await reciever.handleEventAsync(item)
             ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
     
-    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: EventRecieverWaitFor[GeneralTransportedItem_T]):
+    async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: AsyncEventHandlerWaitFor[GeneralTransportedItem_T]):
         event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
         while True:
             ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
@@ -709,7 +711,7 @@ class AgentEventManager:
             except asyncio.TimeoutError:
                 ExtendFunc.ExtendPrint(f"{reciever.name}のハンドルイベントがタイムアウトしました")
     
-    async def setEventQueueConfluenceArrow(self, notifier_list: list[QueueNotifier[GeneralTransportedItem_T]], reciever: EventReciever[GeneralTransportedItem_T]):
+    async def setEventQueueConfluenceArrow(self, notifier_list: list[QueueNotifier[GeneralTransportedItem_T]], reciever: AsyncEventHandler[GeneralTransportedItem_T]):
         list_event_queue_for_reciever:list[Queue[GeneralTransportedItem_T]] = []
         for notifier in notifier_list:
             event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
@@ -1787,7 +1789,7 @@ class LifeProcessModule:
         ExtendFunc.ExtendPrint(transported_item)
         return transported_item
     
-    def appendReciever(self,reciever:EventReciever):
+    def appendReciever(self,reciever:AsyncEventHandler):
         self.event_queue_dict[reciever] = Queue[GeneralTransportedItem]()
         return self.event_queue_dict[reciever]
     
@@ -1833,7 +1835,7 @@ class TaskDecompositionProposerAgent(LifeProcessModule):
         self.name = "タスク分解提案エージェント"
         self.request_template_name = "タスク分解提案エージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue_dict:dict[EventReciever,Queue[TaskBreakingDownTransportedItem]] = {}
+        self.event_queue_dict:dict[AsyncEventHandler,Queue[TaskBreakingDownTransportedItem]] = {}
 
     def typeTaskDecompositionProposerAgentResponse(self, replace_dict: dict[str,str]):
         TypeDict = {
@@ -1912,7 +1914,7 @@ class TaskDecompositionCheckerAgent(LifeProcessModule):
         self.name = "タスク分解チェッカーエージェント"
         self.request_template_name = "タスク分解チェッカーエージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue_dict:dict[EventReciever,Queue[TaskBreakingDownTransportedItem]] = {}
+        self.event_queue_dict:dict[AsyncEventHandler,Queue[TaskBreakingDownTransportedItem]] = {}
 
     def typeTaskDecompositionCheckerAgentResponse(self, replace_dict: dict[str,str]):
         TypeDict = {
@@ -2006,7 +2008,7 @@ class TaskToJsonConverterAgent(LifeProcessModule):
         self.name = "タスクJSON変換エージェント"
         self.request_template_name = "タスクJSON変換エージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
-        self.event_queue_dict:dict[EventReciever,Queue[TaskBreakingDownTransportedItem]] = {}
+        self.event_queue_dict:dict[AsyncEventHandler,Queue[TaskBreakingDownTransportedItem]] = {}
 
     def typeTaskToJsonConverterAgentResponse(self, replace_dict: dict[str,str]):
         #JsonSchemaの型を定義
@@ -2982,20 +2984,16 @@ class LifeProcessBrain:
         gather_graph = asyncio.gather(*[task_graph.excuteRecursive() for task_graph in self.task_graph_process.values()])
         await gather_graph
     
-    def handleEvent(self, input:str):
-        """
-        入力を受け取って、task_graph_processを追加して実行
-        """
-        self.addGraphAndRun(input)
-    
-    def addGraphAndRun(self,input:str):
+    async def handleEventAsync(self, transported_item:TransportedItem):
         """"
         1. task_graphを追加
         2. 他の非同期実行中のtask_graphを邪魔しないように非同期実行
 
         inputを受け取って、いろいろなチェックが終わったら実行する
         """
-        new_graph_task = asyncio.create_task(self.runGraphProcess(input))
+        input = transported_item.recieve_messages
+        await self.runGraphProcess(input)
+        ExtendFunc.ExtendPrint("タスクグラフの実行が完了しました")
 
     async def runGraphProcess(self, input:str):
         """
