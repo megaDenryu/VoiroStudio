@@ -960,37 +960,37 @@ async def ws_gpt_mode(websocket: WebSocket):
 async def ws_gpt_routine(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
     print("gpt_routineコネクションします")
-    await websocket.accept()
-    chara_name = Human.setCharName(front_name)
-    if chara_name not in human_dict:
-        return
-    human = human_dict[chara_name]
-    human_gpt_manager = AgentManager(chara_name, epic)
-    while True:
-        if gpt_mode_dict[chara_name] == "individual_process0501dev":
-            start_time_second = TimeExtend()
-            message_memory = human_gpt_manager.message_memory
-            latest_message_time = human_gpt_manager.latest_message_time
-            message = human_gpt_manager.joinMessageMemory(message_memory)
-            think_agent_response = human_gpt_manager.think_agent.run(message)
-            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
-                continue
-            serif_agent_response = await human_gpt_manager.serif_agent.run(think_agent_response)
-            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
-                continue
-            serif_list = human_gpt_manager.serif_agent.getSerifList(serif_agent_response)
-            for serif_unit in serif_agent_response:
-                send_data = human_gpt_manager.createSendData(serif_unit, human)
-                await websocket.send_json(send_data)
-                # 区分音声の再生が完了したかメッセージを貰う
-                end_play = await websocket.receive_json()
-                # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
-                if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
-                    human_gpt_manager.modifyMemory()
-                    break
-            else:
-                # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
-                human_gpt_manager.message_memory = []
+    # await websocket.accept()
+    # chara_name = Human.setCharName(front_name)
+    # if chara_name not in human_dict:
+    #     return
+    # human = human_dict[chara_name]
+    # human_gpt_manager = AgentManager(chara_name, epic)
+    # while True:
+    #     if gpt_mode_dict[chara_name] == "individual_process0501dev":
+    #         start_time_second = TimeExtend()
+    #         message_memory = human_gpt_manager.message_memory
+    #         latest_message_time = human_gpt_manager.latest_message_time
+    #         message = human_gpt_manager.joinMessageMemory(message_memory)
+    #         think_agent_response = human_gpt_manager.think_agent.run(message)
+    #         if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+    #             continue
+    #         serif_agent_response = await human_gpt_manager.serif_agent.run(think_agent_response)
+    #         if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+    #             continue
+    #         serif_list = human_gpt_manager.serif_agent.getSerifList(serif_agent_response)
+    #         for serif_unit in serif_agent_response:
+    #             send_data = human_gpt_manager.createSendData(serif_unit, human)
+    #             await websocket.send_json(send_data)
+    #             # 区分音声の再生が完了したかメッセージを貰う
+    #             end_play = await websocket.receive_json()
+    #             # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
+    #             if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+    #                 human_gpt_manager.modifyMemory()
+    #                 break
+    #         else:
+    #             # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
+    #             human_gpt_manager.message_memory = []
 
 @app.websocket("/gpt_routine2/{front_name}")
 async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
@@ -1078,6 +1078,7 @@ async def wsGptGraphEventStart(websocket: WebSocket, front_name: str):
     pipe = asyncio.gather(
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrowToCreateTask(input_reciever, life_process_brain),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
         # agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),

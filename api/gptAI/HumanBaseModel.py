@@ -281,7 +281,7 @@ class ProfitVector:
 
     
 
-class DestinationAndProfitVector(BaseModel):
+class DestinationAndProfitVector:
     # 目標とそこから期待できる利益ベクトル
     目標:str
     期待利益ベクトル:ProfitVector

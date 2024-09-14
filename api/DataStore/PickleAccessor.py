@@ -2,8 +2,6 @@ import pickle
 from pprint import pprint
 import sys
 from pathlib import Path
-
-from api.gptAI.AgentManager import Memory
 sys.path.append(str(Path(__file__).parent.parent.parent))
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 import aiofiles
