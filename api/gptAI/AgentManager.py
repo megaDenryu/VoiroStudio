@@ -668,10 +668,37 @@ class InputReciever():
                 return i
         return None
 
+class RunStateEnum(Enum):
+    not_ready = "not_ready"
+    ready = "ready"
+    not_start = "not_start"
+    running = "running"
+    stop = "stop"
+    complete = "complete"
+    error = "error"
+
+class RunState:
+    state_publisher:dict[Any,Queue[RunStateEnum]]
+    state:RunStateEnum
+    def __init__(self) -> None:
+        self.state_publisher = {}
+        self.state = RunStateEnum.not_start
+    def addPublisher(self, reciever:Any)->Queue[RunStateEnum]:
+        self.state_publisher[reciever] = Queue()
+        return self.state_publisher[reciever]
+    async def pushState(self, state:RunStateEnum):
+        self.state = state
+        for queue in self.state_publisher.values():
+            await queue.put(state)
+    async def pushStop(self):
+        await self.pushState(RunStateEnum.stop)
+
 class AgentEventManager:
+    run_state: RunState
     def __init__(self, chara_name:str, gpt_mode_dict:dict[str,str]):
         self.gpt_mode_dict = gpt_mode_dict
         self.chara_name = chara_name
+        self.run_state = RunState()
     async def addEventWebsocketOnMessage(self, websocket: WebSocket, reciever: AsyncEventHandler):
         while True:
             data = await websocket.receive_json()
@@ -689,6 +716,20 @@ class AgentEventManager:
             ExtendFunc.ExtendPrint(item)
             await reciever.handleEventAsync(item)
             ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました")
+    
+    async def setEventQueueArrowToCreateTask(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: AsyncEventHandler[GeneralTransportedItem_T]):
+        # notifierの中のreciever_dictにrecieverを追加
+        event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
+        while True:
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベント待機中")
+            if self.gpt_mode_dict[self.chara_name] != "individual_process0501dev":
+                ExtendFunc.ExtendPrint(f"{self.gpt_mode_dict[self.chara_name]}はindividual_process0501devではないため、{reciever.name}イベントを終了します")
+                return
+            stop_observation = asyncio.create_task(self.run_state.state_publisher[self].get())
+            item = await event_queue_for_reciever.get()
+            ExtendFunc.ExtendPrint(item)
+            task = asyncio.create_task(reciever.handleEventAsync(item))
+            ExtendFunc.ExtendPrint(f"{reciever.name}イベントを処理しました") 
     
     async def setEventQueueArrowWithTimeOutByHandler(self, notifier: QueueNotifier[GeneralTransportedItem_T], reciever: AsyncEventHandlerWaitFor[GeneralTransportedItem_T]):
         event_queue_for_reciever:Queue[GeneralTransportedItem_T] =notifier.appendReciever(reciever)
@@ -2488,14 +2529,7 @@ class SpeakTool(TaskTool):
     
 TaskToolType = TypeVar("TaskToolType", bound=TaskTool)
 
-class RunStateEnum(Enum):
-    not_ready = "not_ready"
-    ready = "ready"
-    not_start = "not_start"
-    running = "running"
-    stop = "stop"
-    complete = "complete"
-    error = "error"
+
 class TaskGraphUnitRunState:
     state:RunStateEnum = RunStateEnum.not_ready
     
@@ -2626,7 +2660,7 @@ class TaskGraphUnit:
             task_graph_stop_observation = asyncio.create_task(self._task_graph.run_state.state_publisher[self].get())
             # 2つのタスクを待って早く終わったほうを採用する
             done, pending = await asyncio.wait([task_tool_exec, task_graph_stop_observation], return_when=asyncio.FIRST_COMPLETED)
-            if task_graph_stop_observation in done:
+            if task_graph_stop_observation in done and task_graph_stop_observation.result() == RunStateEnum.stop:
                 # グラフが停止された場合は自身も停止する
                 self.run_state = RunStateEnum.stop
                 return
@@ -2668,24 +2702,6 @@ class TaskGraphUnit:
             description_dict[unit.task_title] = output.task_exec_result
         description = ExtendFunc.dictToStr(description_dict)
         return description
-
-
-
-class RunState:
-    state_publisher:dict[TaskGraphUnit,Queue[RunStateEnum]]
-    state:RunStateEnum
-    def __init__(self) -> None:
-        self.state_publisher = {}
-        self.state = RunStateEnum.not_start
-    def addPublisher(self, task_graph_unit:TaskGraphUnit):
-        self.state_publisher[task_graph_unit] = Queue()
-        return self.state_publisher[task_graph_unit]
-    async def pushState(self, state:RunStateEnum):
-        self.state = state
-        for queue in self.state_publisher.values():
-            await queue.put(state)
-    async def pushStop(self):
-        await self.pushState(RunStateEnum.stop)
         
     
 class TaskGraph:
