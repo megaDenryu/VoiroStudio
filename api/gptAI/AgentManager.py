@@ -282,7 +282,7 @@ class EventReciever(Protocol, Generic[GeneralTransportedItem_T_contra]):
     name:str
     async def handleEventAsync(self, transported_item:GeneralTransportedItem_T_contra):
         pass
-    
+
 class EventRecieverWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
     name:str
     async def handleEventAsync(self, transported_item:GeneralTransportedItem_T):
@@ -3111,7 +3111,22 @@ if __name__ == "__main__":
         print("a" in dict_a.keys())
     
     def te10():
-        ti = TaskBreakingDownTransportedItem.init()
+        """
+        タスクのブレイクダウンのテスト
+        """
+        input = ""
+        task:Task = {
+            "id":"0",
+            "task_species":"目標決定",
+            "task_title":"目標決定",
+            "use_tool":"目標決定",
+            "description":"目標を決定する",
+            "tool_query":"目標を決定する",
+            "dependencies":[],
+        }
+        previows_output = TaskToolOutput(None,input)
+        problem = ProblemDecomposedIntoTasks(task, previows_output)
+        ti = TaskBreakingDownTransportedItem.init(problem)
         ExtendFunc.ExtendPrint(ti)
 
     import re
