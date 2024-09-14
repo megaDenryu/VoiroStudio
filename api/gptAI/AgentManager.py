@@ -281,12 +281,10 @@ GeneralTransportedItem_T = TypeVar("GeneralTransportedItem_T", bound=GeneralTran
 class Reciever(Protocol):
     name:str
 class AsyncEventHandler(Reciever, Protocol, Generic[GeneralTransportedItem_T_contra]):
-    # name:str
     async def handleEventAsync(self, transported_item:GeneralTransportedItem_T_contra):
         pass
 
-class AsyncEventHandlerWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
-    name:str
+class AsyncEventHandlerWaitFor(Reciever, Protocol, Generic[GeneralTransportedItem_T]):
     async def handleEventAsync(self, transported_item:GeneralTransportedItem_T):
         pass
     def timeOutSec(self)->float: # type: ignore
@@ -300,11 +298,11 @@ class EventNotifier(Protocol):
         pass
 
 class QueueNotifier(Protocol, Generic[GeneralTransportedItem_T]):
-    event_queue_dict:dict[AsyncEventHandler,Queue[GeneralTransportedItem_T]]
+    event_queue_dict:dict[Reciever,Queue[GeneralTransportedItem_T]]
     async def notify(self, data:GeneralTransportedItem_T):
         pass
     # 購読者をリストにしておく
-    def appendReciever(self, reciever:AsyncEventHandler)->Queue[GeneralTransportedItem_T]:
+    def appendReciever(self, reciever:Reciever)->Queue[GeneralTransportedItem_T]:
         return self.event_queue_dict[reciever]
 
 class QueueNotifierWaitFor(Protocol, Generic[GeneralTransportedItem_T]):
@@ -487,7 +485,7 @@ class Agent:
         self._gpt_api_unit = ChatGptApiUnit()
         ExtendFunc.ExtendPrint(replace_dict)
         self.replace_dict = replace_dict
-        self.event_queue_dict:dict[AsyncEventHandler,Queue[TransportedItem]] = {}
+        self.event_queue_dict:dict[Reciever,Queue[TransportedItem]] = {}
 
     async def run(self,transported_item: TransportedItem)->TransportedItem:
         query = self.prepareQuery(transported_item)
@@ -503,7 +501,7 @@ class Agent:
         ExtendFunc.ExtendPrint(transported_item)
         return transported_item
     
-    def appendReciever(self,reciever:AsyncEventHandler):
+    def appendReciever(self,reciever:Reciever):
         self.event_queue_dict[reciever] = Queue[TransportedItem]()
         return self.event_queue_dict[reciever]
     
@@ -548,7 +546,7 @@ class InputReciever():
         self.gpt_agent_dict = gpt_agent_dict
         self.message_stack:list[MassageHistoryUnit] = []
         self.event_queue = Queue[TransportedItem]()
-        self.event_queue_dict:dict[AsyncEventHandler,Queue[TransportedItem]] = {}
+        self.event_queue_dict:dict[Reciever,Queue[TransportedItem]] = {}
         self.gpt_mode_dict = gpt_mode_dict
         self.runnnig = False
     async def runObserveEpic(self):
@@ -612,7 +610,7 @@ class InputReciever():
             ExtendFunc.ExtendPrint(transported_item)
             await self.notify(transported_item)
 
-    def appendReciever(self, reciever:AsyncEventHandler):
+    def appendReciever(self, reciever:Reciever):
         self.event_queue_dict[reciever] = Queue[TransportedItem]()
         return self.event_queue_dict[reciever]
             
@@ -1769,7 +1767,7 @@ class LifeProcessModule:
     """
     replace_dict:dict[str,str] = {}
     name:str
-    event_queue_dict = {}
+    event_queue_dict:dict[Reciever,Queue[GeneralTransportedItem]] = {}
     def __init__(self, replace_dict: dict[str,str] = {}):
         self._gpt_api_unit = ChatGptApiUnit()
         ExtendFunc.ExtendPrint(replace_dict)
@@ -1789,7 +1787,7 @@ class LifeProcessModule:
         ExtendFunc.ExtendPrint(transported_item)
         return transported_item
     
-    def appendReciever(self,reciever:AsyncEventHandler):
+    def appendReciever(self,reciever:Reciever):
         self.event_queue_dict[reciever] = Queue[GeneralTransportedItem]()
         return self.event_queue_dict[reciever]
     
