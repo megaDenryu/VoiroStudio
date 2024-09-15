@@ -251,6 +251,10 @@ class HumanPart:
         """
         ボイロキャラの画像フォルダに名前が存在するかをすべてのボイロについて確認して、存在しなければ作成する
         """
+
+        # CharaFilePathのキャラ名キーがすべてそろっているかチェックする
+        # chara_name_list = HumanPart.getAllCharacterName()
+
         path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CharFilePath.json")
         chara_name_dict = ExtendFunc.loadJsonToDict(path)
         for chara_name in chara_name_dict:
@@ -263,3 +267,56 @@ class HumanPart:
         """
         HumanPart.checkExistVoiroCharaImageFolderAndCreate()
         HumanPart.checkAllNameExistInVoiroCharaImageFolderAndCreate()
+
+    @staticmethod
+    def getAllCharacterName():
+        cevio_names:list[str] = HumanPart.getCevioAllName()
+        aivoice_names:list[str] = HumanPart.getAIVoiceAllNames()
+        voicevoc_names:list[str] = HumanPart.getVoiceVoxAllNames()
+        coeiroink_names:list[str] = HumanPart.getCoeiroinkAllNames()
+        all_names = cevio_names + aivoice_names + voicevoc_names + coeiroink_names
+        return all_names
+    
+    @staticmethod
+    def getCevioAllName():
+        #最新の状態を取得するにはcevioを起動しておかないといけないので何かcevioを起動しているか見れる変数を用意してたはずなのでそれを見て確認し、してないときはとらないようにする
+
+        is_cevio_acticve = False
+        if is_cevio_acticve:
+            pass
+        else:
+            #CevioNameForVoiceroidAPI.jsonから名前を取得
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CevioNameForVoiceroidAPI.json")
+            chara_names = ExtendFunc.loadJsonToList(path)
+        return chara_names
+    
+    @staticmethod
+    def getAIVoiceAllNames():
+        is_aivoice_active = False
+        if is_aivoice_active:
+            pass
+        else:
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CevioNameForVoiceroidAPI.json")
+            chara_names = ExtendFunc.loadJsonToList(path)
+        return chara_names
+
+    @staticmethod
+    def getVoiceVoxAllNames():
+        is_voicevox_active = False
+        if is_voicevox_active:
+            pass
+        else:
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CevioNameForVoiceroidAPI.json")
+            chara_names = ExtendFunc.loadJsonToList(path)
+        return chara_names
+
+    
+    @staticmethod
+    def getCoeiroinkAllNames():
+        is_coeiroink_active = False
+        if is_coeiroink_active:
+            pass
+        else:
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CoeiroinkNameForVoiceroidAPI.json")
+            chara_names = ExtendFunc.loadJsonToList(path)
+        return chara_names

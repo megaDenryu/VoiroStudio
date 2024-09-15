@@ -1,4 +1,5 @@
-from typing import Literal, TypedDict
+from typing import Literal
+from typing_extensions import TypedDict
 
 class ThinkAgentResponse(TypedDict):
     現在の相手の状況の要約: str

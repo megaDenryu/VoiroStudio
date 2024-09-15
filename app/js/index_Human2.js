@@ -866,8 +866,10 @@ async function execText(obj,human_tab) {
         
             //class = "subtitle"を取得してinnerTextをmessageに変更
             let subtitle = human_tab[i].getElementsByClassName("subtitle")[0]
-            subtitle.innerText = obj[name]
-            console.log("subtitle.innerText=",subtitle.innerText)
+            if (subtitle instanceof HTMLElement) {
+                updateSubtitle(subtitle, obj[name])
+            }
+            
 
             //class = "message"を追加
             message.classList.add("message")
@@ -897,7 +899,16 @@ async function execText(obj,human_tab) {
     }
 }
 
+/**
+ * 吹き出しのテキストを更新する。
+ * @param {HTMLElement} subtitle
+ * @param {string} text
+ */
+function updateSubtitle(subtitle,text){
 
+    // subtitle.innerText = text;
+    // console.log("subtitle.innerText=",subtitle.innerText)
+}
 
 /**
  * @param {WavInfo[]} obj 

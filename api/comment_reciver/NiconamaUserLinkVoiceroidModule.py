@@ -17,6 +17,7 @@ class NiconamaUserLinkVoiceroidModule:
         """
         ユーザーIDからキャラ名を取得する
         """
+        NikonamaUserId = str(NikonamaUserId)
         if NikonamaUserId in self.user_data:
             return self.user_data[NikonamaUserId].replace("*","")
         else:
@@ -56,7 +57,7 @@ class NiconamaUserLinkVoiceroidModule:
         """
         # 既存のデータを読み込む
         data = self.loadNikonamaUserIdToCharaNameJson()
-
+        NikonamaUserId = str(NikonamaUserId)
         if NikonamaUserId in data and "*" in data[NikonamaUserId]:
             print("このユーザーはキャラを変更できません")
             return

@@ -100,6 +100,14 @@ class JsonAccessor:
         return content
     
     @staticmethod
+    def loadCharSettingYaml():
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/CharSetting.yml"
+        with open(path,encoding="UTF8") as f:
+            content = f.read()
+        dict = yaml.safe_load(content)
+        return dict
+    
+    @staticmethod
     def loadAppSettingYamlAsString(yml_file_name:str)->str:
         """
         CharSetting.ymlを読み込み、その内容を文字列として返します。
@@ -118,6 +126,14 @@ class JsonAccessor:
         replaced_content = ExtendFunc.replaceBulkString(content, replace_dict)
         content_dict = yaml.safe_load(replaced_content)
         return content_dict
+    
+    @staticmethod
+    def loadGptBehaviorYaml(chara_name:str = "一般"):
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/GPTBehavior.yml"
+        with open(path,encoding="UTF8") as f:
+            content = f.read()
+        dict = yaml.safe_load(content)
+        return dict[chara_name]
     
     @staticmethod
     def loadCoeiroinkNameToNumberJson():
