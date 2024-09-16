@@ -2459,12 +2459,27 @@ class NormalChatAgent(LifeProcessModule):
     def addInfoToTransportedItem(self,transported_item:NormalChatTransportedItem, result:str)->NormalChatTransportedItem:
         transported_item.result = result
         return transported_item
+    
+class SpeakTransportedItem(GeneralTransportedItem):
+    pass
+    
+class SpeakAgent(LifeProcessModule):
+    """
+    # エージェントの役割
+    タスクグラフの中で{入力:自分の考え, 出力:口語形式の自分の発言}の形式で自分の考えを口語形式に変換するユニット。
+    """
+    def __init__(self):
+        super().__init__()
+        self.name = "思考を口語で伝えるエージェント"
+        self.request_template_name = "思考を口語で伝えるエージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
 
 class TaskToolOutput:
     taskGraph:"TaskGraph | None" = None
     thinking: str | None = None
     serif: str | None = None
     task_exec_result: str | None = None # タスクのidや題名、問題、解決過程、結果をまとめたもの。jsonの文字列形式で保持する
+    InterrupteNextTask:Task | None = None
 
     def __init__(self,taskGraph:"TaskGraph | None" = None, taask_exec_result:str|None = None) -> None:
         self.taskGraph = taskGraph
@@ -2473,7 +2488,7 @@ class TaskToolOutput:
     def summarizeOutputs(self)->str:
         """
         タスクグラフの現状までの実行結果をまとめる
-        """
+        """ 
         if self.taskGraph is not None:
             return self.taskGraph.summarizeOutputs()
         
@@ -2583,7 +2598,15 @@ class DestinationTool(TaskTool):
 class SpeakTool(TaskTool):
     def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
         super().__init__(task, life_process_brain)
+        self.speakAgent = SpeakAgent()
 
+    async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
+        speakTransportedItem = SpeakTransportedItem.init(self.task, previows_output)
+        speakTransportedItem = await self.speakAgent.handleEventAsync(speakTransportedItem)
+        message_dict = self.convert(speakTransportedItem)
+        await self.speak(message_dict)
+        return previows_output
+    
     async def speak(self, send_data:dict[str,str]):
         await self.life_process_brain.websocket.send_json(json.dumps(send_data))
 
@@ -2716,6 +2739,11 @@ class TaskGraphUnit:
         for next_task in self._next_tasks:
             next_task.recievePreviousTaskResolved(self)
     async def notifyProcessCompleteAndNextTaskExcute(self, previows_output:TaskToolOutput):
+        # 場当たり的に追加されたタスクを作ってnext_tasksに追加する
+        if previows_output.InterrupteNextTask is not None:
+            raise NotImplementedError("実装中")
+            self.addNextTaskGraphUnitT(previows_output.InterrupteNextTask)
+
         # 完了したことを次のタスクに通知し、次のタスクを実行
         next_tasks = asyncio.gather(*[next_task.recievePreviousTaskResolvedAndExcuteTask(self,previows_output) for next_task in self._next_tasks])
         await next_tasks
@@ -2793,6 +2821,34 @@ class TaskGraphUnit:
             description_dict[unit.task_title] = output.task_exec_result
         description = ExtendFunc.dictToStr(description_dict)
         return description
+    
+    def addNextTaskGraphUnitT(self, task_list:list[Task]):
+        """
+        今のタスクから生えている次のタスクに突発的に新しいタスクを生やして追加する
+        A1 
+        |-> B1 -> ..
+        |-> B2 -> ..
+        という状態の時、
+        A1 
+        |-> B1 -> ..
+        |-> B2 -> ..
+        |-> B3 を追加する
+        """
+        for task in task_list:
+            next_task_unit = TaskGraphUnit(task, self._task_graph)
+            self._next_tasks.append(next_task_unit)
+            self._task_graph.updateGraphWithAddNextTaskGraphUnit(self, next_task_unit)
+    
+    def addInterruptNextTaskGraphUnitT(self, task:Task):
+        """
+        今のタスクから生えている次のタスクに突発的に新しいタスクを割り込ませる。
+        A1 -> B1 -> ..
+        という状態の時、
+        A1 -> newTask -> B1 -> ..
+        という状態にする
+        """
+
+
         
     
 class TaskGraph:
@@ -2938,6 +2994,22 @@ class TaskGraph:
         初めてタスクグラフを生成するときは、このメソッドを呼び出す必要がない。
         """
         self.life_process_brain = life_process_brain
+
+    def updateGraphWithAddNextTaskGraphUnit(self, task_unitA:TaskGraphUnit, add_task_unitB:TaskGraphUnit):
+        """
+        タスクグラフユニットAに割り込みで次のタスクBを追加する処理に伴い、タスクグラフの状態を更新sる
+        @param task_unit: タスクグラフユニットA
+        @param add_task_unit: 追加するタスクグラフユニットB
+        """
+        self.task_dict[add_task_unitB.task["id"]] = add_task_unitB
+        self.non_next_tasks.append(add_task_unitB)
+        if task_unitA in self.non_dependent_tasks:
+            # Aの後にもともと次のタスクがない場合
+            self.non_dependent_tasks.remove(task_unitA)
+        if len(add_task_unitB.next_tasks) == 0:
+            # Bの後に次のタスクがない場合
+            self.non_next_tasks.append(add_task_unitB)
+        
 
     
 
