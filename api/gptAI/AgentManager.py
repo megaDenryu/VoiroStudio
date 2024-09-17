@@ -2460,10 +2460,10 @@ class NormalChatAgent(LifeProcessModule):
         transported_item.result = result
         return transported_item
     
-class SpeakTransportedItem(GeneralTransportedItem):
+class ThoughtsSerifnizeTransportedItem(GeneralTransportedItem):
     pass
     
-class SpeakAgent(LifeProcessModule):
+class ThoughtsSerifnizeAgent(LifeProcessModule):
     """
     # エージェントの役割
     タスクグラフの中で{入力:自分の考え, 出力:口語形式の自分の発言}の形式で自分の考えを口語形式に変換するユニット。
@@ -2473,6 +2473,56 @@ class SpeakAgent(LifeProcessModule):
         self.name = "思考を口語で伝えるエージェント"
         self.request_template_name = "思考を口語で伝えるエージェントリクエストひな形"
         self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+
+    async def handleEventAsync(self, transported_item:ThoughtsSerifnizeTransportedItem)->ThoughtsSerifnizeTransportedItem:
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
+        return output
+
+    async def run(self,transported_item: ThoughtsSerifnizeTransportedItem)->ThoughtsSerifnizeTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+    
+    def prepareQuery(self, input: ThoughtsSerifnizeTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: ThoughtsSerifnizeTransportedItem)->dict[str,str]:
+        # 未定義
+        pass
+
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        if result is None:
+            raise ValueError("リクエストに失敗しました。")
+        return result
+    
+    def correctResult(self,result: str)->str:
+        #何もしない
+        return result
+    
+    def addInfoToTransportedItem(self,transported_item:ThoughtsSerifnizeTransportedItem, result:str)->ThoughtsSerifnizeTransportedItem:
+        # 未定義
+        pass
+
 
 class TaskToolOutput:
     taskGraph:"TaskGraph | None" = None
@@ -2598,10 +2648,10 @@ class DestinationTool(TaskTool):
 class SpeakTool(TaskTool):
     def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
         super().__init__(task, life_process_brain)
-        self.speakAgent = SpeakAgent()
+        self.speakAgent = ThoughtsSerifnizeAgent()
 
     async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
-        speakTransportedItem = SpeakTransportedItem.init(self.task, previows_output)
+        speakTransportedItem = ThoughtsSerifnizeTransportedItem.init(self.task, previows_output)
         speakTransportedItem = await self.speakAgent.handleEventAsync(speakTransportedItem)
         message_dict = self.convert(speakTransportedItem)
         await self.speak(message_dict)
