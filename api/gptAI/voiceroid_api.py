@@ -177,6 +177,19 @@ class cevio_human:
         for i in range(0,castlist.Length):
             result.append(castlist.At(i))
         return result
+    
+    def updateAllCharaList(self):
+        """
+        CeVIOのキャラクター名を取得して、CevioKnownNames.jsonを更新する
+        """
+        # CeVIOのキャラクター名を取得
+        cast_list = self.getAvailableCast()
+        # CevioKnownNames.jsonを更新
+        api_dir = Path(__file__).parent.parent
+        path = api_dir / "CharSettingJson" / "CevioKnownNames.json"
+        #pathにspeaker_dictを書き込む
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(cast_list,f,ensure_ascii=False, indent=4)
         
 class voicevox_human:
     def __init__(self,name:str,started_voicevox_num:int) -> None:
