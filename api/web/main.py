@@ -1,19 +1,21 @@
 import asyncio
-from pathlib import Path
 import os
 import random
 import sys
+from pathlib import Path
 sys.path.append('../..')
+from api.comment_reciver.TwitchCommentReciever import TwitchBot, TwitchMessageUnit
 from api.gptAI.gpt import ChatGPT
 from api.gptAI.voiceroid_api import cevio_human
 from api.gptAI.Human import Human
-from api.gptAI.AgentManager import AgentEventManager, AgentManager, GPTAgent, InputReciever
+from api.gptAI.AgentManager import AgentEventManager, AgentManager, GPTAgent, InputReciever, LifeProcessBrain
 from api.images.image_manager.HumanPart import HumanPart
 from api.images.psd_parser_python.parse_main import PsdParserMain
 from api.Extend.ExtendFunc import ExtendFunc, TimeExtend
 from api.DataStore.JsonAccessor import JsonAccessor
 from api.DataStore.AppSettingModule import AppSettingModule, PageMode
 from api.Epic.Epic import Epic
+from api.DataStore.Memo import Memo
 
 from enum import Enum
 
@@ -30,6 +32,7 @@ from typing import Dict, List, Any, Literal
 import mimetypes
 
 from api.comment_reciver.comment_module import NicoNamaCommentReciever
+from api.comment_reciver.newNikonamaCommentReciever import newNikonamaCommentReciever
 from api.comment_reciver.NiconamaUserLinkVoiceroidModule import NiconamaUserLinkVoiceroidModule
 from api.comment_reciver.YoutubeCommentReciever import YoutubeCommentReciever
 
@@ -63,10 +66,13 @@ game_master_enable = False
 human_queue_shuffle = False
 yukarinet_enable = True
 nikonama_comment_reciever_list:dict[str,NicoNamaCommentReciever] = {}
+new_nikonama_comment_reciever_list:dict[str,newNikonamaCommentReciever] = {}
 YoutubeCommentReciever_list:dict[str,YoutubeCommentReciever] = {}
+twitchBotList:dict[str,TwitchBot] = {}
 epic = Epic()
 gpt_agent_dict: dict[str,GPTAgent] = {}
 input_reciever = InputReciever(epic ,gpt_agent_dict, gpt_mode_dict)
+diary = Memo()
 
 
 app_setting = JsonAccessor.loadAppSetting()
@@ -245,18 +251,18 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                 human_ai:Human = human_dict[name]
                 print("yukarinetに投げます")
                 print(f"{input_dict=}")
-                await epic.appendMessage(input_dict)
+                await epic.appendMessageAndNotify(input_dict)
                 print(f"{human_ai.char_name=}")
                 if "" != input_dict[human_ai.char_name]:
                     print(f"{input_dict[human_ai.char_name]=}")
-                    # 文章をまず返答
-                    json_data = json.dumps(message, ensure_ascii=False)
-                    print(f"{json_data=}を送信します")
-                    try:
-                        await notifier.push(json_data)
-                    except Exception as e:
-                        print(e)
-                        await websocket.send_json(json_data)
+                    # # 文章をまず返答
+                    # json_data = json.dumps(message, ensure_ascii=False)
+                    # print(f"{json_data=}を送信します")
+                    # try:
+                    #     await notifier.push(json_data)
+                    # except Exception as e:
+                    #     print(e)
+                    #     await websocket.send_json(json_data)
                     
                     
                     for sentence in Human.parseSentenseList(input_dict[human_ai.char_name]):
@@ -267,8 +273,16 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
                         #wavデータを取得
                         wav_info = human_ai.human_Voice.output_wav_info_list
                         #バイナリーをjson形式で送信
+                        send_data = {
+                            "sentence":{human_ai.front_name:sentence},
+                            "wav_info":wav_info,
+                            "chara_type":"player"
+                        }
                         print(f"{human_ai.char_name}のwavデータを送信します")
-                        await websocket.send_json(json.dumps(wav_info))
+                        # await websocket.send_json(json.dumps(wav_info))
+                        await websocket.send_json(json.dumps(send_data))
+                    # daiaryに保存
+                    diary.insertTodayMemo(input_dict[human_ai.char_name])
 
             sentence_dict4sedn_gpt:str = json_data
             #human_dict_keysの順番にhuman_dictの値を取り出し、それぞれのインスタンスのgenerate_textを実行
@@ -471,8 +485,8 @@ async def websocket_endpoint2(websocket: WebSocket, client_id: str):
         notifier.remove(websocket)
 
 
-@app.websocket("/nikonama_comment_reciver/{room_id}/{front_name}")
-async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str):
+@app.websocket("/old_nikonama_comment_reciver/{room_id}/{front_name}")
+async def old_nicowebsocket_endpoint(websocket: WebSocket, room_id: str, front_name: str):
     await websocket.accept()
     char_name = Human.setCharName(front_name)
     print(f"{char_name}で{room_id}のニコ生コメント受信開始")
@@ -502,12 +516,57 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, front_name: str
             
         await websocket.send_text(json.dumps(comment))
 
+@app.post("/old_nikonama_comment_reciver_stop/{front_name}")
+async def old_nikonama_comment_reciver_stop(front_name: str):
+    char_name = Human.setCharName(front_name)
+    if char_name in nikonama_comment_reciever_list:
+        print(f"{front_name}のニコ生コメント受信停止")
+        nikonama_comment_reciever = nikonama_comment_reciever_list[char_name]
+        nikonama_comment_reciever.stopRecieve()
+        return
+
+@app.websocket("/nikonama_comment_reciver/{room_id}/{front_name}")
+async def nikonama_comment_reciver_start(websocket: WebSocket, room_id: str, front_name: str):
+    await websocket.accept()
+    char_name = Human.setCharName(front_name)
+    print(f"{char_name}で{room_id}のニコ生コメント受信開始")
+    update_room_id_query = {
+        "ニコ生コメントレシーバー設定": {
+            "生放送URL":room_id
+        }
+    }
+    JsonAccessor.updateAppSettingJson(update_room_id_query)
+    end_keyword = app_setting["ニコ生コメントレシーバー設定"]["コメント受信停止キーワード"]
+    ndgr_client = newNikonamaCommentReciever(room_id, end_keyword)
+    new_nikonama_comment_reciever_list[char_name] = ndgr_client
+    nulvm = NiconamaUserLinkVoiceroidModule()
+
+    async for NDGRComment in ndgr_client.streamComments():
+        # 生のユーザー ID が 0 より上だったら生のユーザー ID を、そうでなければ匿名化されたユーザー ID を表示する
+        user_id = NDGRComment.raw_user_id if NDGRComment.raw_user_id > 0 else NDGRComment.hashed_user_id
+        content = NDGRComment.content
+        date = TimeExtend.convertDatetimeToString(NDGRComment.at)
+
+        comment = {
+            "user_id": user_id,
+            "comment": content,
+            "date": date,
+        }
+
+        ExtendFunc.ExtendPrint(comment)
+        if "@" in comment["comment"] or "＠" in comment["comment"]:
+            print("ユーザーIDとキャラ名を紐づけます")
+            char_name = nulvm.registerNikonamaUserIdToCharaName(comment["comment"],user_id)
+        comment["char_name"] = nulvm.getCharaNameByNikonamaUser(user_id)
+        ExtendFunc.ExtendPrint(comment)
+        await websocket.send_text(json.dumps(comment))
+
 @app.post("/nikonama_comment_reciver_stop/{front_name}")
 async def nikonama_comment_reciver_stop(front_name: str):
     char_name = Human.setCharName(front_name)
     if char_name in nikonama_comment_reciever_list:
         print(f"{front_name}のニコ生コメント受信停止")
-        nikonama_comment_reciever = nikonama_comment_reciever_list[char_name]
+        nikonama_comment_reciever = new_nikonama_comment_reciever_list[char_name]
         nikonama_comment_reciever.stopRecieve()
         return
     
@@ -548,6 +607,67 @@ async def getYoutubeComment(websocket: WebSocket, video_id: str, front_name: str
         if char_name in YoutubeCommentReciever_list:
             YoutubeCommentReciever_list[char_name].stop()
             del YoutubeCommentReciever_list[char_name]
+class TwitchCommentReceiver(BaseModel):
+    video_id: str
+    front_name: str
+
+@app.post("/RunTwitchCommentReceiver")
+async def runTwitchCommentReceiver(req:TwitchCommentReceiver):
+    ExtendFunc.ExtendPrint("ツイッチ開始")
+    ExtendFunc.ExtendPrint(req)
+    video_id = req.video_id
+    front_name = req.front_name
+    char_name = Human.setCharName(front_name)
+    print(f"{char_name}でTwitchコメント受信開始")
+    TWTITCH_ACCESS_TOKEN = TwitchBot.getAccessToken()
+    twitchBot = TwitchBot(video_id, TWTITCH_ACCESS_TOKEN)
+    twitchBotList[char_name] = twitchBot
+    twitchBot.run()
+    # return {"message":"Twitchコメント受信開始"}
+
+class StopTwitchCommentReceiver(BaseModel):
+    front_name: str
+
+@app.post("/StopTwitchCommentReceiver")
+async def stopTwitchCommentReceiver(req:StopTwitchCommentReceiver):
+    print("Twitchコメント受信停止")
+    front_name = req.front_name
+    chara_name = Human.setCharName(front_name)
+    await twitchBotList[chara_name].stop()
+    twitchBotList.pop(chara_name)
+    return {"message":"Twitchコメント受信停止"}
+
+@app.websocket("/TwitchCommentReceiver/{video_id}/{front_name}")
+async def twitchCommentReceiver(websocket: WebSocket, video_id: str, front_name: str):
+    ExtendFunc.ExtendPrint("TwitchCommentReceiver")
+    await websocket.accept()
+    char_name = Human.setCharName(front_name)
+    message_queue:asyncio.Queue[TwitchMessageUnit] = twitchBotList[char_name].message_queue
+    nulvm = NiconamaUserLinkVoiceroidModule()
+    try:
+        while True and char_name in twitchBotList:
+            comment = {}
+            messageUnit:TwitchMessageUnit = await message_queue.get()
+            ExtendFunc.ExtendPrint(f"messageUnit:{messageUnit}")
+            message = messageUnit.message
+            listener = messageUnit.listner_name
+            ExtendFunc.ExtendPrint(f"message:{message}")
+            if "@" in message or "＠" in message:
+                print("ユーザーIDとキャラ名を紐づけます")
+                registered_char_name = nulvm.registerNikonamaUserIdToCharaName(message,listener)
+            comment["char_name"] = nulvm.getCharaNameByNikonamaUser(listener)
+            comment["comment"] = message
+            ExtendFunc.ExtendPrint(comment)
+            await websocket.send_text(json.dumps(comment))
+            ExtendFunc.ExtendPrint("ツイッチ受信コメントをクライアントに送信完了")
+        ExtendFunc.ExtendPrint("TwitchCommentReceiver終了")
+    except WebSocketDisconnect:
+        ExtendFunc.ExtendPrint(f"WebSocket が切断されました。 for {char_name} and {video_id}")
+
+
+
+            
+
 
 @app.websocket("/InputPokemon")
 async def inputPokemon(websocket: WebSocket):
@@ -830,7 +950,7 @@ async def ws_gpt_mode(websocket: WebSocket):
             print(msg)
             if "individual_process0501dev" not in gpt_mode_dict.values():
                 print("individual_process0501devがないので終了します")
-                input_reciever.stopObserveEpic()
+                await input_reciever.stopObserveEpic()
                 break
                 
             
@@ -842,37 +962,68 @@ async def ws_gpt_mode(websocket: WebSocket):
 async def ws_gpt_routine(websocket: WebSocket, front_name: str):
     # クライアントとのコネクション確立
     print("gpt_routineコネクションします")
+    # await websocket.accept()
+    # chara_name = Human.setCharName(front_name)
+    # if chara_name not in human_dict:
+    #     return
+    # human = human_dict[chara_name]
+    # human_gpt_manager = AgentManager(chara_name, epic)
+    # while True:
+    #     if gpt_mode_dict[chara_name] == "individual_process0501dev":
+    #         start_time_second = TimeExtend()
+    #         message_memory = human_gpt_manager.message_memory
+    #         latest_message_time = human_gpt_manager.latest_message_time
+    #         message = human_gpt_manager.joinMessageMemory(message_memory)
+    #         think_agent_response = human_gpt_manager.think_agent.run(message)
+    #         if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+    #             continue
+    #         serif_agent_response = await human_gpt_manager.serif_agent.run(think_agent_response)
+    #         if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+    #             continue
+    #         serif_list = human_gpt_manager.serif_agent.getSerifList(serif_agent_response)
+    #         for serif_unit in serif_agent_response:
+    #             send_data = human_gpt_manager.createSendData(serif_unit, human)
+    #             await websocket.send_json(send_data)
+    #             # 区分音声の再生が完了したかメッセージを貰う
+    #             end_play = await websocket.receive_json()
+    #             # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
+    #             if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
+    #                 human_gpt_manager.modifyMemory()
+    #                 break
+    #         else:
+    #             # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
+    #             human_gpt_manager.message_memory = []
+
+@app.websocket("/gpt_routine2/{front_name}")
+async def ws_gpt_event_start2(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routine2コネクションします")
     await websocket.accept()
     chara_name = Human.setCharName(front_name)
     if chara_name not in human_dict:
         return
     human = human_dict[chara_name]
-    human_gpt_manager = AgentManager(chara_name, epic)
-    while True:
-        if gpt_mode_dict[chara_name] == "individual_process0501dev":
-            start_time_second = TimeExtend()
-            message_memory = human_gpt_manager.message_memory
-            latest_message_time = human_gpt_manager.latest_message_time
-            message = human_gpt_manager.joinMessageMemory(message_memory)
-            think_agent_response = human_gpt_manager.think_agent.run(message)
-            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
-                continue
-            serif_agent_response = await human_gpt_manager.serif_agent.run(think_agent_response)
-            if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
-                continue
-            serif_list = human_gpt_manager.serif_agent.getSerifList(serif_agent_response)
-            for serif_unit in serif_agent_response:
-                send_data = human_gpt_manager.createSendData(serif_unit, human)
-                await websocket.send_json(send_data)
-                # 区分音声の再生が完了したかメッセージを貰う
-                end_play = await websocket.receive_json()
-                # 区分音声の再生が完了した時点で次の音声を送る前にメモリが変わってるかチェックし、変わっていたら次の音声を送らない。
-                if human_gpt_manager.isThereDiffNumMemory(latest_message_time):
-                    human_gpt_manager.modifyMemory()
-                    break
-            else:
-                # forが正常に終了した場合はelseが実行されて、メモリ解放処理を行う
-                human_gpt_manager.message_memory = []
+    
+    
+    
+    agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
+    gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
+    gpt_agent_dict[chara_name] = gpt_agent
+
+    pipe = asyncio.gather(
+        input_reciever.runObserveEpic(),
+        agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
+    )
+
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
+
 
 @app.websocket("/gpt_routine/{front_name}")
 async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
@@ -887,20 +1038,69 @@ async def ws_gpt_event_start(websocket: WebSocket, front_name: str):
     
     
     agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
-    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
     gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
     gpt_agent_dict[chara_name] = gpt_agent
 
+    # 意思決定のパイプラインを作成
     pipe = asyncio.gather(
         input_reciever.runObserveEpic(),
         agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
         agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
-        agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, agenet_manager.serif_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
+        # agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        # agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
         # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
     )
 
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
 
+@app.websocket("/gpt_routine3/{front_name}")
+async def wsGptGraphEventStart(websocket: WebSocket, front_name: str):
+    # クライアントとのコネクション確立
+    print("gpt_routineコネクションします")
+    await websocket.accept()
+    chara_name = Human.setCharName(front_name)
+    if chara_name not in human_dict:
+        return
+    human = human_dict[chara_name]
+
+    life_process_brain = LifeProcessBrain(chara_name)
+    
+    agenet_event_manager = AgentEventManager(chara_name, gpt_mode_dict)
+    agenet_manager = AgentManager(chara_name, epic, human_dict, websocket, input_reciever)
+    gpt_agent = GPTAgent(agenet_manager, agenet_event_manager)
+    gpt_agent_dict[chara_name] = gpt_agent
+
+    # 意思決定のパイプラインを作成
+    # 目標の生成とタスクグラフの生成を行いたい。入力を受け取ると、目標を生成し、タスクグラフを生成する。これ以外に目標を生成する方法はあるのか？
+    # 入力から目標を生成する過程はどうなっているのか？
+    pipe = asyncio.gather(
+        input_reciever.runObserveEpic(),
+        agenet_event_manager.setEventQueueArrow(input_reciever, agenet_manager.mic_input_check_agent),
+        agenet_event_manager.setEventQueueArrowToCreateTask(input_reciever, life_process_brain),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.mic_input_check_agent, agenet_manager.speaker_distribute_agent),
+        agenet_event_manager.setEventQueueArrow(agenet_manager.speaker_distribute_agent, agenet_manager.non_thinking_serif_agent),
+        # agenet_event_manager.setEventQueueArrowWithTimeOutByHandler(agenet_manager.speaker_distribute_agent, agenet_manager.think_agent),
+        # agenet_event_manager.setEventQueueConfluenceArrow([agenet_manager.non_thinking_serif_agent, agenet_manager.think_agent], agenet_manager.serif_agent)
+        # agenet_event_manager.setEventQueueArrow(agenet_manager.think_agent, )
+    )
+
+    # pipeが完了したら通知
+    await pipe
+    ExtendFunc.ExtendPrint("gpt_routine終了")
+
+
+
+class Item(BaseModel):
+    type: str
+    data: str
+@app.post("/ShortCut")
+async def receive_data(item: Item):
+    print("ShortCut")
+    pprint(item)
 
 
 

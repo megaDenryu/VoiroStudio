@@ -2,10 +2,12 @@ from dataclasses import dataclass
 from pathlib import Path
 import json
 import os
+import random
+import re
 import typing
 import Levenshtein
 from pprint import pprint
-from typing import TypeVar, TypedDict, get_type_hints, Dict, Any, Literal, get_origin
+from typing import TypeVar, get_type_hints, Dict, Any, Literal, get_origin
 import sys
 import unicodedata
 from googletrans import translate
@@ -176,6 +178,26 @@ class ExtendFunc:
         if not isinstance(ret_dict, dict):
             raise ValueError(f"{file_path} は辞書形式ではありません。")
         return ret_dict
+    
+    """
+    json文字列とそうでない文字列が混在した文字列からjson文字列を抽出して辞書にして返します。
+    """
+    @staticmethod
+    def extractjson(input_str):
+        # JSON文字列を抽出する正規表現パターン
+        pattern = r'\{.*?\}'
+        matches = re.findall(pattern, input_str, re.DOTALL)
+        
+        json_dicts = []
+        for match in matches:
+            try:
+                # JSON文字列をPythonの辞書に変換
+                json_dict = json.loads(match)
+                json_dicts.append(json_dict)
+            except json.JSONDecodeError:
+                continue
+        
+        return json_dicts
 
     @staticmethod
     def closestBoolean(target:str, str_list: list) -> str:
@@ -190,6 +212,42 @@ class ExtendFunc:
         str: 最も近い文字列
         """
         return min(str_list, key=lambda x: Levenshtein.distance(target, x))
+    
+    @staticmethod
+    def loadJsonFromSentence(text: str) -> list[dict]:
+        """
+        文章からjsonを全て抽出します。
+
+        Parameters:
+        sentence (str): 抽出対象の文章
+
+        Returns:
+        dict: 抽出したjson
+        """
+        
+        json_objects = []
+        stack = []
+        start_index = None
+
+        for i, char in enumerate(text):
+            if char == '{':
+                if start_index is None:
+                    start_index = i  # JSON開始位置を記録
+                stack.append(char)  # スタックに `{` を追加
+            elif char == '}':
+                stack.pop()  # スタックから `{` を削除
+                if not stack:
+                    # スタックが空になったらバランスが取れている
+                    json_str = text[start_index:i+1]
+                    try:
+                        # 抽出した文字列が有効なJSONかを確認
+                        json_object = json.loads(json_str)
+                        json_objects.append(json_object)
+                    except json.JSONDecodeError:
+                        pass  # 無効なJSONの場合は無視
+                    start_index = None  # 次のJSONに備えてリセット
+
+        return json_objects
     
     
     @staticmethod
@@ -276,31 +334,6 @@ class ExtendFunc:
 
                 print("key",key)
                 corrected_data[key] = correctData(result[key], TypeDict[key])
-                # if TypeDict[key] == str:
-                #     corrected_data[key] = str(result[key])
-                # elif isinstance(TypeDict[key], list) == True:
-                #     if result[key] in TypeDict[key]:
-                #         corrected_data[key] = result[key]
-                #     else:
-                #         corrected_data[key] = TypeDict[key][0]
-                # elif type(TypeDict[key]) == list[list[str]]:
-                #     for type_dict in TypeDict[key]:
-                #         if result[key] in type_dict:
-                #             corrected_data[key] = result[key]
-                #         else:
-                #             corrected_data[key] = type_dict[0]
-                # elif isinstance(TypeDict[key], Interval) == True:
-                #     # 結果をfloatに変換
-                #     result[key] = float(result[key])
-                #     # 変換できたかチェックし、できなかった場合はstartに変換
-                #     if result[key] == float(result[key]):
-                #         if result[key] in TypeDict[key]:
-                #             corrected_data[key] = result[key]
-                #         else:
-                #             corrected_data[key] = TypeDict[key].start
-                
-                # else:
-                #     print("key",type(TypeDict[key]))
 
             else:
                 print("key",key, "がresultに存在しません")
@@ -314,8 +347,119 @@ class ExtendFunc:
                     corrected_data[key] = TypeDict[key][0][0]
                 elif isinstance(TypeDict[key], Interval):
                     corrected_data[key] = TypeDict[key].start
-        ExtendFunc.ExtendPrint("corrected_data",corrected_data)
+        # ExtendFunc.ExtendPrint("corrected_data",corrected_data)
         return corrected_data
+    
+    @staticmethod
+    def correctDictToJsonSchemaTypeDictRecursive(result: Dict[str, Any], TypeDict:dict):
+        TypeDict = {
+            "type": "object",
+            "properties": {
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "id": {"type": "string", "default": ""},
+                            "description": {"type": "string", "default": ""},
+                            "dependencies": {"type": "array", "items": {"type": "string"}, "default": []},
+                            "task_type": {"type": "Enum", "enum": ["task", "subtask"], "default": "task"},
+                            "time": {"type": "Interval", "start": 0, "end": 100, "default": 0}
+                        },
+                        "required": ["id", "description", "dependencies"]
+                    }
+                }
+            },
+            "default": {}
+        }
+
+        result = {
+            "tasks": [
+                {
+                "id": "task1",
+                "description": "タスク1の説明",
+                "dependencies": []
+                },
+                {
+                "id": "task2",
+                "description": "タスク2の説明",
+                "dependencies": "task1"
+                },
+                {
+                "id": "task3",
+                "description": "タスク3の説明",
+                "dependencies": ["task1"]
+                },
+                {
+                "id": "task4",
+                "description": "タスク4の説明",
+                "dependencies": ["task2", "task3"]
+                }
+            ]
+        }
+
+        
+        def correctData(data_want_convert,TypeDict):
+            ret = {}
+            target_type = TypeDict["type"]
+            if data_want_convert is None:
+                return TypeDict["default"]
+
+            if target_type == "object":
+                if isinstance(data_want_convert, dict):
+                    for propertie in TypeDict["properties"].keys():
+                        if propertie in data_want_convert:
+                            ret[propertie] = correctData(data_want_convert[propertie], TypeDict["properties"][propertie])
+                        else:
+                            ret[propertie] = TypeDict["properties"][propertie]["default"]
+                else:
+                    ret = TypeDict["default"]
+            elif target_type == "array":
+                ret = []
+                if isinstance(data_want_convert, list):
+                    for item in data_want_convert:
+                        ret.append(correctData(item, TypeDict["items"]))
+                else:
+                    ret = TypeDict["default"]
+            elif target_type == "string":
+                try:
+                    ret = str(data_want_convert)
+                except:
+                    ret = TypeDict["default"]
+            elif target_type == "int":
+                try:
+                    ret = int(data_want_convert)
+                except:
+                    ret = TypeDict["default"]
+            elif target_type == "float":
+                try:
+                    ret = float(data_want_convert)
+                except:
+                    ret = TypeDict["default"]
+            elif target_type == "Enum":
+                if data_want_convert in TypeDict["enum"]:
+                    ret = data_want_convert
+                else:
+                    ret = TypeDict["default"]
+            elif target_type == "Interval":
+                if isinstance(data_want_convert, int) or isinstance(data_want_convert, float):
+                    I = Interval("[", TypeDict["start"], data_want_convert, "]")
+                    if I.__contains__(data_want_convert):
+                        ret = data_want_convert
+                    else:
+                        ret = TypeDict["default"]
+                else:
+                    ret = TypeDict["default"]
+            return ret
+        corrected_data = {}
+        corrected_data = correctData(result, TypeDict)
+        return corrected_data
+        
+            
+            
+            
+        
+
     
     @staticmethod
     def replaceBulkString(target: str, replace_dict: Dict[str, str]) -> str:
@@ -329,11 +473,16 @@ class ExtendFunc:
         Returns:
         str: 置換後の文字列
         """
-        if replace_dict is None:
+        try:
+            if replace_dict is None:
+                return target
+            for key, value in replace_dict.items():
+                target = target.replace(key, value)
             return target
-        for key, value in replace_dict.items():
-            target = target.replace(key, value)
-        return target
+        except Exception as e:
+            print("target",target)
+            print("replace_dict",replace_dict)
+            raise e
     
     @staticmethod
     def replaceBulkStringRecursiveCollection(target: Any, replace_dict: Dict[str, str]) -> Any:
@@ -367,6 +516,54 @@ class ExtendFunc:
         for key, value in dict.items():
             strnized_value += f"{key}:{value}\n"
         return strnized_value
+    
+    @staticmethod
+    def dictToMarkdownTitleEntry(dic: dict, start_layer:int) -> str:
+        """
+        辞書をmarkdown形式のタイトルエントリに変換します。
+        入れ子になっている場合は再帰的に処理します。
+        入力例:
+        dic = {
+            "A": {
+                "key1": "value1",
+                "key2": "value2"
+            },
+            "B": "valueB"
+        }
+        出力例:
+        # A
+        ## key1
+        value1
+        ## key2
+        value2
+        # B
+        valueB
+        
+        """
+        markdown_title_entry = ""
+        for key, value in dic.items():
+            if isinstance(value, dict):
+                markdown_title_entry += "#"*(start_layer+1) + f" {key}\n"
+                markdown_title_entry += ExtendFunc.dictToMarkdownTitleEntry(value, start_layer+1)
+            else:
+                markdown_title_entry += "#"*(start_layer+1) + f" {key}\n"
+        return markdown_title_entry
+
+    
+    @staticmethod
+    def dictToMarkdownTable(dict: dict) -> str:
+        """
+        辞書をmarkdown形式のテーブルに変換します。
+        例:
+        | key | value |
+        | --- | --- |
+        | key1 | value1 |
+        | key2 | value2 |
+        """
+        markdown_table = "| key | value |\n| --- | --- |\n"
+        for key, value in dict.items():
+            markdown_table += f"| {key} | {value} |\n"
+        return markdown_table
     
 import datetime
 class TimeExtend:
@@ -466,6 +663,16 @@ class TimeExtend:
         }
     
     @staticmethod
+    def nowDate() -> str:
+        """
+        現在の日付を取得します。
+
+        Returns:
+        str: 現在の日付(例：2024-05-04)
+        """
+        return str(datetime.date.today())
+    
+    @staticmethod
     def DateTimeDictToSecond(dateTimeDict: dict) -> int:
         """
         日付と時刻の辞書を秒数に変換します。
@@ -502,6 +709,18 @@ class TimeExtend:
         now = TimeExtend()
         return now.toSecond() - time.toSecond()
 
+    @staticmethod
+    def convertDatetimeToString(date:datetime.datetime) -> str:
+        """
+        日付を文字列に変換します。
+
+        Parameters:
+        date (datetime.datetime): 日付
+
+        Returns:
+        str: 日付の文字列
+        """
+        return date.strftime('%Y-%m-%d %H:%M:%S.%f')
 
 
 class TextConverter:
@@ -628,6 +847,7 @@ class TextConverter:
         char_type_continuous = False
         split_text:list[WordWithType] = []
         contituos_word:list[str] = []
+        char_type = None
         for char in text:
             # 文字の種類を取得
             char_type = TextConverter.checkCharacterType(char)
@@ -644,6 +864,9 @@ class TextConverter:
                 contituos_word = [char]
                 previous_char_type = char_type
         else:
+            if char_type == None:
+                char_type = "日本語"
+                contituos_word = ["あ"]
             word = "".join(contituos_word)
             word_with_type = WordWithType(word, char_type)
             split_text.append(word_with_type)
@@ -653,6 +876,8 @@ class TextConverter:
             if element.word_type == "英字":
                 # 英字を翻訳
                 ret_text_list.append(TextConverter.TranslateEngToJapanese(element.word))
+            elif element.word_type == "日本語" or element.word in ["ー","々","〆","〤","〥","〦","〧","〨","〩","ヶ"]:
+                ret_text_list.append(element.word)
             elif element.word_type == "特別記号":
                 # 記号を読み仮名に変換
                 ret_text_list.append(TextConverter.BulkConvertSpecialCharToYomi(element.word))
@@ -661,8 +886,6 @@ class TextConverter:
             elif element.word_type == "その他":
                 ret_text_list.append(TextConverter.TranslateAutoToJapanese(element.word))
                 ret_text_list.append("まる。")
-            elif element.word_type == "日本語":
-                ret_text_list.append(element.word)
         return "".join(ret_text_list)
     
     @staticmethod
@@ -782,6 +1005,11 @@ class TextConverter:
         # 英語を翻訳
        
         # 翻訳後の文章を結合
+
+class RandomExtend:
+    @staticmethod
+    def random0to1():
+        return random.random()
        
 
 
@@ -839,7 +1067,7 @@ if __name__ == '__main__':
         
         corrected_data = ExtendFunc.correctDictToTypeDict(result, TypeDict)
         pprint(corrected_data, indent=4)
-    elif False:
+    elif True:
         time = TimeExtend("2024-05-04 19:18:17")
         time2 = TimeExtend("2024-05-04 19:18:17")
         print(time)
@@ -891,4 +1119,16 @@ if __name__ == '__main__':
             "huげ":"zunndamo"
         } 
         print(ExtendFunc.dictToStr(dicta))
+    elif False:
+
+        ret = ExtendFunc.correctDictToJsonSchemaTypeDictRecursive({},{})
+        ExtendFunc.ExtendPrint(ret)
     
+    elif True:
+        text = """
+                ここに普通の文章があり、{"key1": "value1", "key2": 2}というJSONがあります。
+                さらに、{"key3": [1, 2, 3], "key4": {"nested_key": "nested_value"}}という別のJSONもあります。
+                その他の文章は無視されます。
+                """
+        jsons = ExtendFunc.loadJsonFromSentence(text)
+        pprint(jsons)

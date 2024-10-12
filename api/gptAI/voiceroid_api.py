@@ -328,6 +328,7 @@ class voicevox_human:
                 print("lab_data取得完了")
                 wav_data = self.wav2base64(self.getVoiceWav(query))
                 print("wav_data取得完了")
+
                 wav_info = {
                     "path":wav_path,
                     "wav_data":wav_data,
@@ -868,7 +869,7 @@ class Coeiroink:
             else:
                 #output_wavフォルダがなければ作成
                 os.makedirs("output_wav", exist_ok=True)
-                print(f"voicevoxでwavを生成します:{index + 1}/{len(sentence_list)}")
+                print(f"coeiroinkでwav出力します:{index + 1}/{len(sentence_list)}")
                 wav_path = f"output_wav/coeiroink_audio_{self.char_name}_{index}.wav"
                 wav_data, phoneme_str, phoneme_time = self.getWavAndLabData(text)
                 print("lab_data取得完了")
@@ -935,11 +936,11 @@ if __name__ == '__main__':
         voicevox_human.createVoiceVoxNameToNumberDict()
         print("終了")
 
-    elif False:
+    elif True:
         print("開始")
         Coeiroink.createCoeiroinkNameToNumberDict()
         print("終了")
-    elif True:
+    elif False:
         wav = Coeiroink.get_wave_data(1315987311, "いまははは")
         # 音声をファイルに保存
         with open("test.wav", "wb") as f:

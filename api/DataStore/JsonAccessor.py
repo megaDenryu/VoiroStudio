@@ -11,6 +11,10 @@ class JsonAccessor:
         pass
 
     @staticmethod
+    def dictToJsonString(input_dict:dict)->str:
+        return json.dumps(input_dict, indent=4, ensure_ascii=False)
+
+    @staticmethod
     def extendJsonLoad(loadString:str):
         """
         json文字列を読み込み、辞書型に変換します。できない場合は何かしらのjsonにして返します
@@ -75,6 +79,17 @@ class JsonAccessor:
         return openai_api_key
     
     @staticmethod
+    def loadTwitchAccessToken():
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/openai_api_key.json"
+        #もしファイルが存在しない場合はファイルを作成
+        if not path.exists():
+            with open(path, mode='w') as f:
+                json.dump({"twitch_access_token":""}, f, indent=4)
+        twitch_access_token = ExtendFunc.loadJsonToDict(path)["twitch_access_token"]
+        # print("twitch_access_token:",twitch_access_token)
+        return twitch_access_token
+
+    @staticmethod
     def loadCharSettingYamlAsString()->str:
         """
         CharSetting.ymlを読み込み、その内容を文字列として返します。
@@ -83,6 +98,14 @@ class JsonAccessor:
         with open(yml_path,encoding="UTF8") as f:
                 content = f.read()
         return content
+    
+    @staticmethod
+    def loadCharSettingYaml():
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/CharSetting.yml"
+        with open(path,encoding="UTF8") as f:
+            content = f.read()
+        dict = yaml.safe_load(content)
+        return dict
     
     @staticmethod
     def loadAppSettingYamlAsString(yml_file_name:str)->str:
@@ -103,6 +126,14 @@ class JsonAccessor:
         replaced_content = ExtendFunc.replaceBulkString(content, replace_dict)
         content_dict = yaml.safe_load(replaced_content)
         return content_dict
+    
+    @staticmethod
+    def loadGptBehaviorYaml(chara_name:str = "一般"):
+        path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "AppSettingJson/GPTBehavior.yml"
+        with open(path,encoding="UTF8") as f:
+            content = f.read()
+        dict = yaml.safe_load(content)
+        return dict[chara_name]
     
     @staticmethod
     def loadCoeiroinkNameToNumberJson():
@@ -132,24 +163,25 @@ class JsonAccessor:
         ExtendFunc.saveDictToJson(path, input_dict)
 
     @staticmethod
-    def insertLogJsonToDict(file_name, input_dict):
+    def insertLogJsonToDict(file_name, input_dict, data_name:str = ""):
         if  isinstance(input_dict, str):
             try:
                 input_dict = json.loads(input_dict)
             except json.JSONDecodeError:
                 input_dict = {"文章":input_dict, "エラー":"json形式でないため、文章のみ保存しました。"}
+        
         now_time = TimeExtend()
         save_dict = {
-            f"{now_time.date}":input_dict
+            f"{now_time.date} : {data_name}":input_dict
         }
-        pprint(save_dict)
+        # ExtendFunc.ExtendPrint("save_dict",save_dict)
         # 拡張子がついてるかチェックし、なければつける
         if not file_name.endswith(".json"):
             file_name += ".json"
         path = ExtendFunc.getTargetDirFromParents(__file__, "api") / "LogJson" / file_name
         dict = ExtendFunc.loadJsonToDict(path)
         dict.update(save_dict)
-        pprint(dict)
+        # ExtendFunc.ExtendPrint("dict",dict)
         ExtendFunc.saveDictToJson(path, dict)
 
 if __name__ == "__main__":

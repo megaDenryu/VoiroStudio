@@ -29,7 +29,11 @@ class Interval:
         else:
             return self.start <= item and item <= self.end
 
-        
+    def create(self, value:float):
+        if self.start <= value and value <= self.end:
+            return value
+        else:
+            raise ValueError(f"エラー:値が範囲外です。{self}")
     
     def __repr__(self):
         return f"{self.start_oc}{self.start},{self.end}{self.end_oc}"
@@ -89,10 +93,11 @@ class Interval:
 
         return Interval(start_oc, start, end, end_oc)
 
-
 class ExtendSet:
     def __init__(self, element_type, range:Interval):
         pass
+
+
 
 def test1():
     print(sys.float_info.epsilon) # 2.220446049250313e-16
