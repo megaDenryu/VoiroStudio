@@ -2459,12 +2459,77 @@ class NormalChatAgent(LifeProcessModule):
     def addInfoToTransportedItem(self,transported_item:NormalChatTransportedItem, result:str)->NormalChatTransportedItem:
         transported_item.result = result
         return transported_item
+    
+class ThoughtsSerifnizeTransportedItem(GeneralTransportedItem):
+    pass
+    
+class ThoughtsSerifnizeAgent(LifeProcessModule):
+    """
+    # エージェントの役割
+    タスクグラフの中で{入力:自分の考え, 出力:口語形式の自分の発言}の形式で自分の考えを口語形式に変換するユニット。
+    """
+    def __init__(self):
+        super().__init__()
+        self.name = "思考を口語で伝えるエージェント"
+        self.request_template_name = "思考を口語で伝えるエージェントリクエストひな形"
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+
+    async def handleEventAsync(self, transported_item:ThoughtsSerifnizeTransportedItem)->ThoughtsSerifnizeTransportedItem:
+        ExtendFunc.ExtendPrint(self.name,transported_item)
+        output = await self.run(transported_item)
+        return output
+
+    async def run(self,transported_item: ThoughtsSerifnizeTransportedItem)->ThoughtsSerifnizeTransportedItem:
+        query = self.prepareQuery(transported_item)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", query, f"{self.name} : リクエスト")
+        result = await self.request(query)
+        # ExtendFunc.ExtendPrint(result)
+        corrected_result = self.correctResult(result)
+        # ExtendFunc.ExtendPrint(corrected_result)
+        JsonAccessor.insertLogJsonToDict(f"test_gpt_routine_result.json", corrected_result, f"{self.name} : レスポンス")
+        self.saveResult(result)
+        self.clearMemory()
+        transported_item = self.addInfoToTransportedItem(transported_item, corrected_result)
+        ExtendFunc.ExtendPrint(transported_item)
+        return transported_item
+    
+    def loadAgentSetting(self)->tuple[list[ChatGptApiUnit.MessageQuery],list[ChatGptApiUnit.MessageQuery]]:
+        all_template_dict: dict[str,list[ChatGptApiUnit.MessageQuery]] = JsonAccessor.loadAppSettingYamlAsReplacedDict("AgentSetting.yml",{})
+        return all_template_dict[self.name], all_template_dict[self.request_template_name]
+    
+    def prepareQuery(self, input: ThoughtsSerifnizeTransportedItem) -> list[ChatGptApiUnit.MessageQuery]:
+        self.replace_dict = self.replaceDictDef(input)
+        self.agent_setting, self.agent_setting_template = self.loadAgentSetting()
+        replaced_template = ExtendFunc.replaceBulkStringRecursiveCollection(self.agent_setting_template, self.replace_dict)
+        query = self.agent_setting + replaced_template
+        return query
+    
+    def replaceDictDef(self, input: ThoughtsSerifnizeTransportedItem)->dict[str,str]:
+        # 未定義
+        pass
+
+    async def request(self, query:list[ChatGptApiUnit.MessageQuery])->str:
+        print(f"{self.name}がリクエストを送信します")
+        result = await self._gpt_api_unit.asyncGenereateResponseGPT3Turbojson(query)
+        if result is None:
+            raise ValueError("リクエストに失敗しました。")
+        return result
+    
+    def correctResult(self,result: str)->str:
+        #何もしない
+        return result
+    
+    def addInfoToTransportedItem(self,transported_item:ThoughtsSerifnizeTransportedItem, result:str)->ThoughtsSerifnizeTransportedItem:
+        # 未定義
+        pass
+
 
 class TaskToolOutput:
     taskGraph:"TaskGraph | None" = None
     thinking: str | None = None
     serif: str | None = None
     task_exec_result: str | None = None # タスクのidや題名、問題、解決過程、結果をまとめたもの。jsonの文字列形式で保持する
+    InterrupteNextTask:Task | None = None
 
     def __init__(self,taskGraph:"TaskGraph | None" = None, taask_exec_result:str|None = None) -> None:
         self.taskGraph = taskGraph
@@ -2473,7 +2538,7 @@ class TaskToolOutput:
     def summarizeOutputs(self)->str:
         """
         タスクグラフの現状までの実行結果をまとめる
-        """
+        """ 
         if self.taskGraph is not None:
             return self.taskGraph.summarizeOutputs()
         
@@ -2482,8 +2547,27 @@ class TaskToolOutput:
     
 
 class TaskTool:
-    def __init__(self, task:Task) -> None:
-        self.task = task
+    _task:Task|None = None
+    _life_process_brain:"LifeProcessBrain|None" = None
+    @property
+    def task(self):
+        if self._task is None:
+            raise ValueError("タスクが設定されていません")
+        return self._task
+    @property
+    def life_process_brain(self):
+        if self._life_process_brain is None:
+            raise ValueError("LifeProcessBrainが設定されていません")
+        return self._life_process_brain
+    def bindLifeProcessBrain(self, life_process_brain:"LifeProcessBrain|None"):
+        """
+        LifeProcessBrainをバインドまたは解除する
+        """
+        self._life_process_brain = life_process_brain
+
+    def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
+        self._task = task
+        self._life_process_brain = life_process_brain
     @abstractmethod
     async def execute(self,previows_output:TaskToolOutput)->TaskToolOutput:
         # TaskToolOutputのresultに結果を格納して返す、結果の書き込み責務はTaskTool側にある
@@ -2493,21 +2577,26 @@ class TaskTool:
         pass
 
 class TaskDecompositionTool(TaskTool):
-    def __init__(self, task:Task, memory:"Memory") -> None:
-        super().__init__(task)
+    @property
+    def memory(self):
+        if self.life_process_brain is None:
+            raise ValueError("LifeProcessBrainが設定されていません")
+        return self.life_process_brain.memory
+    def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
+        super().__init__(task, life_process_brain)
         self.task_decomposition_process_manager = TaskDecompositionProcessManager()
-        self.memory = memory
+        
     async def execute(self, taskToolOutput:TaskToolOutput) -> TaskToolOutput:
         problem = ProblemDecomposedIntoTasks(self.task, taskToolOutput)
         task_breaking_down_ti = TaskBreakingDownTransportedItem.init(problem)
         taskBreakingDown:TaskBreakingDownTransportedItem = await self.task_decomposition_process_manager.taskDecompositionProcess(task_breaking_down_ti)
-        taskGraph = TaskGraph(taskBreakingDown,self.memory)
+        taskGraph = TaskGraph(taskBreakingDown,self.memory.life_process_brain)
         self.memory.task_progress.addTaskGraph(taskGraph)
         return TaskToolOutput(taskGraph)
 
 class TaskExecutionTool(TaskTool):
-    def __init__(self, task:Task) -> None:
-        super().__init__(task)
+    def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
+        super().__init__(task, life_process_brain)
 
     async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
         if previows_output.taskGraph is None:
@@ -2521,8 +2610,8 @@ class TaskExecutionTool(TaskTool):
         return taskGraph.summarizeOutputs()
 
 class NormalChatTool(TaskTool):
-    def __init__(self, task:Task) -> None:
-        super().__init__(task)
+    def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
+        super().__init__(task, life_process_brain)
         self.normalChatAgenet = NormalChatAgent()
     async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
         normalChatTransportedItem = NormalChatTransportedItem.init()
@@ -2539,8 +2628,8 @@ class NormalChatTool(TaskTool):
         
 
 class DestinationTool(TaskTool):
-    def __init__(self, task:Task) -> None:
-        super().__init__(task)
+    def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
+        super().__init__(task, life_process_brain)
         self.destinationAgent = DestinationAgent()
     async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
         destinationTransportedItem = DestinationTransportedItem.init(previows_output)
@@ -2557,8 +2646,21 @@ class DestinationTool(TaskTool):
         
     
 class SpeakTool(TaskTool):
-    def __init__(self, task:Task) -> None:
-        super().__init__(task)
+    def __init__(self, task:Task, life_process_brain:"LifeProcessBrain") -> None:
+        super().__init__(task, life_process_brain)
+        self.speakAgent = ThoughtsSerifnizeAgent()
+
+    async def execute(self, previows_output:TaskToolOutput)->TaskToolOutput:
+        speakTransportedItem = ThoughtsSerifnizeTransportedItem.init(self.task, previows_output)
+        speakTransportedItem = await self.speakAgent.handleEventAsync(speakTransportedItem)
+        message_dict = self.convert(speakTransportedItem)
+        await self.speak(message_dict)
+        return previows_output
+    
+    async def speak(self, send_data:dict[str,str]):
+        await self.life_process_brain.websocket.send_json(json.dumps(send_data))
+
+
 
 
 
@@ -2582,6 +2684,8 @@ class TaskGraphUnit:
     _previous_result:dict["TaskGraphUnit",TaskToolOutput|None] = {}
     _run_state:TaskGraphUnitRunState = TaskGraphUnitRunState()
     _task_graph:"TaskGraph"
+    _life_process_brain:"LifeProcessBrain|None"
+
     task:Task
     tool:TaskTool|None
     _output:TaskToolOutput|None = None
@@ -2623,7 +2727,18 @@ class TaskGraphUnit:
                 raise ValueError(f"前のタスクの結果が設定されていません。{unit.task_title}")
             result_dict[unit] = result
         return result_dict
-        
+    @property
+    def life_process_brain(self):
+        if self._life_process_brain is None:
+            raise ValueError("LifeProcessBrainが設定されていません")
+        return self._life_process_brain
+    
+    def bindLifeProcessBrain(self, life_process_brain:"LifeProcessBrain|None"):
+        """
+        LifeProcessBrainをバインドまたは解除する
+        """
+        self._life_process_brain = life_process_brain
+
     
     
     def __init__(self, task:Task, task_graph: "TaskGraph") -> None:
@@ -2633,6 +2748,7 @@ class TaskGraphUnit:
         self.tool = self.selectTool(task)
         self._task_graph = task_graph
         self._task_graph.addTaskGraphUnitToRunState(self)
+        self._life_process_brain = task_graph.life_process_brain
 
     def registPreviousTask(self, previous_task:"TaskGraphUnit"):
         # 重複登録を防ぐ
@@ -2673,6 +2789,11 @@ class TaskGraphUnit:
         for next_task in self._next_tasks:
             next_task.recievePreviousTaskResolved(self)
     async def notifyProcessCompleteAndNextTaskExcute(self, previows_output:TaskToolOutput):
+        # 場当たり的に追加されたタスクを作ってnext_tasksに追加する
+        if previows_output.InterrupteNextTask is not None:
+            raise NotImplementedError("実装中")
+            self.addNextTaskGraphUnitT(previows_output.InterrupteNextTask)
+
         # 完了したことを次のタスクに通知し、次のタスクを実行
         next_tasks = asyncio.gather(*[next_task.recievePreviousTaskResolvedAndExcuteTask(self,previows_output) for next_task in self._next_tasks])
         await next_tasks
@@ -2726,15 +2847,15 @@ class TaskGraphUnit:
     
     def selectTool(self,task:Task)->TaskTool|None:
         if task["use_tool"] == "タスク分解":
-            return TaskDecompositionTool(task, self._task_graph.memory)
+            return TaskDecompositionTool(task, self.life_process_brain)
         elif task["use_tool"] == "タスク実行":
-            return TaskExecutionTool(task)
+            return TaskExecutionTool(task, self.life_process_brain)
         elif task["use_tool"] == "思考":
-            return NormalChatTool(task)
+            return NormalChatTool(task, self.life_process_brain)
         elif task["use_tool"] == "発言":
-            return SpeakTool(task)
+            return SpeakTool(task, self.life_process_brain)
         elif task["use_tool"] == "目標決定":
-            return DestinationTool(task)
+            return DestinationTool(task, self.life_process_brain)
         else:
             return None
     
@@ -2750,6 +2871,34 @@ class TaskGraphUnit:
             description_dict[unit.task_title] = output.task_exec_result
         description = ExtendFunc.dictToStr(description_dict)
         return description
+    
+    def addNextTaskGraphUnitT(self, task_list:list[Task]):
+        """
+        今のタスクから生えている次のタスクに突発的に新しいタスクを生やして追加する
+        A1 
+        |-> B1 -> ..
+        |-> B2 -> ..
+        という状態の時、
+        A1 
+        |-> B1 -> ..
+        |-> B2 -> ..
+        |-> B3 を追加する
+        """
+        for task in task_list:
+            next_task_unit = TaskGraphUnit(task, self._task_graph)
+            self._next_tasks.append(next_task_unit)
+            self._task_graph.updateGraphWithAddNextTaskGraphUnit(self, next_task_unit)
+    
+    def addInterruptNextTaskGraphUnitT(self, task:Task):
+        """
+        今のタスクから生えている次のタスクに突発的に新しいタスクを割り込ませる。
+        A1 -> B1 -> ..
+        という状態の時、
+        A1 -> newTask -> B1 -> ..
+        という状態にする
+        """
+
+
         
     
 class TaskGraph:
@@ -2760,16 +2909,22 @@ class TaskGraph:
     non_next_tasks: list[TaskGraphUnit] = []
     task_breaking_down_ti: TaskBreakingDownTransportedItem
     run_state:RunState = RunState()
-    memory:"Memory"
+    life_process_brain:"LifeProcessBrain|None"
 
     @property
     def task_num(self):
         return len(self.task_dict)
     
-    def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem, memory:"Memory") -> None:
+    @property
+    def memory(self):
+        if self.life_process_brain is None:
+            raise ValueError("LifeProcessBrainが設定されていません")
+        return self.life_process_brain.memory
+    
+    def __init__(self,task_breaking_down_ti:TaskBreakingDownTransportedItem, life_process_brain:"LifeProcessBrain") -> None:
         self.problem_title = task_breaking_down_ti.problem.problem_title
         self.task_breaking_down_ti = task_breaking_down_ti
-        self.memory = memory
+        self.life_process_brain = life_process_brain
         task_list = task_breaking_down_ti.breaking_downed_task
         # 辞書に登録
         for task in task_list:
@@ -2883,6 +3038,29 @@ class TaskGraph:
     def addTaskGraphUnitToRunState(self, task_graph_unit:TaskGraphUnit):
         self.run_state.addPublisher(task_graph_unit)
 
+    def bindLifeProcessBrain(self, life_process_brain:"LifeProcessBrain|None"):
+        """
+        保存していたグラフを読み込んだあとに、LifeProcessBrainをバインドするためのメソッド。
+        初めてタスクグラフを生成するときは、このメソッドを呼び出す必要がない。
+        """
+        self.life_process_brain = life_process_brain
+
+    def updateGraphWithAddNextTaskGraphUnit(self, task_unitA:TaskGraphUnit, add_task_unitB:TaskGraphUnit):
+        """
+        タスクグラフユニットAに割り込みで次のタスクBを追加する処理に伴い、タスクグラフの状態を更新sる
+        @param task_unit: タスクグラフユニットA
+        @param add_task_unit: 追加するタスクグラフユニットB
+        """
+        self.task_dict[add_task_unitB.task["id"]] = add_task_unitB
+        self.non_next_tasks.append(add_task_unitB)
+        if task_unitA in self.non_dependent_tasks:
+            # Aの後にもともと次のタスクがない場合
+            self.non_dependent_tasks.remove(task_unitA)
+        if len(add_task_unitB.next_tasks) == 0:
+            # Bの後に次のタスクがない場合
+            self.non_next_tasks.append(add_task_unitB)
+        
+
     
 
         
@@ -2912,9 +3090,16 @@ class Memory:
     profit_vector:ProfitVector # 利益ベクトル
     chara_name:str # キャラクター名
     chara_setting:str # キャラクター設定
+    _life_process_brain:"LifeProcessBrain|None" # ライフプロセスの脳
+    @property
+    def life_process_brain(self):
+        if self._life_process_brain is None:
+            raise ValueError("LifeProcessBrainが設定されていません")
+        return self._life_process_brain
 
 
-    def __init__(self, chara_name:str) -> None:
+    def __init__(self, chara_name:str, life_process_brain:"LifeProcessBrain") -> None:
+        self._life_process_brain = life_process_brain
         self.chara_name = chara_name
         self.loadInitialMemory()
         self.loadCharaSetting()
@@ -2949,7 +3134,7 @@ class Memory:
         # モット言うともはや入力するプロセスをちゃんと書く必要がある。
         first_destination = self.loadCharaInitialDestination(chara_name)
         ti = TaskBreakingDownTransportedItem.init(first_destination)
-        task_graph = TaskGraph(ti,self)
+        task_graph = TaskGraph(ti,self.life_process_brain)
         self.task_progress.addTaskGraph(task_graph)
     
     def loadCharaInitialDestination(self, chara_name:str)->str:
@@ -2962,12 +3147,15 @@ class Memory:
 
     def saveSelfPickle(self,chara_name:str):
         """
+        LifeProcessBrainを切断してから
         pickleで保存
         """
+        self.life_process_brain.unbindLifeProcessBrainToGraph()
+        self.bindLifeProcessBrain(None)
         PickleAccessor.saveMemory(self, chara_name)
 
     @staticmethod
-    def loadSelfPickle(chara_name:str)->"Memory | None":
+    def loadSelfPickle(chara_name:str, life_process_brain:"LifeProcessBrain")->"Memory | None":
         """
         pickleで読み込み
         """
@@ -2975,18 +3163,19 @@ class Memory:
         # memoryの型がMemoryであることを確認
         if isinstance(memory, Memory) == False:
             return None
+        memory.bindLifeProcessBrain(life_process_brain)  # type: ignore
         return memory
     
     
 
     @staticmethod
-    def loadLatestMemory(chara_name)->"Memory":
+    def loadLatestMemory(chara_name, life_process_brain:"LifeProcessBrain")->"Memory":
         """
         最新のMemoryをロード
         """
-        memory = Memory.loadSelfPickle(chara_name)
+        memory = Memory.loadSelfPickle(chara_name, life_process_brain)
         if memory is None:
-            memory = Memory(chara_name)
+            memory = Memory(chara_name, life_process_brain)
         return memory
         
         
@@ -2999,6 +3188,9 @@ class Memory:
         使用用途：目標決定エージェントが目標を決定する際に使用
         """
         raise NotImplementedError("目標をロードするメソッドが未実装です")
+    
+    def bindLifeProcessBrain(self, life_process_brain:"LifeProcessBrain|None"):
+        self._life_process_brain = life_process_brain
         
 
 
@@ -3018,19 +3210,30 @@ class LifeProcessBrain:
     task_graph_process:dict[str,TaskGraph]
     memory:Memory
     state:LifeProcessState = LifeProcessState()
+    websocket: WebSocket
 
-    def __init__(self,chara_name) -> None:
+    def __init__(self,chara_name:str ,websocket: WebSocket) -> None:
         """
         メモリーをロードor初期化
         task_graph_processをメモリーから生成
         task_graph_processを実行
         """
-        self.memory = Memory.loadLatestMemory(chara_name)
-
+        self.memory = Memory.loadLatestMemory(chara_name, self)
+        self.websocket = websocket
         self.task_graph_process = self.memory.task_progress.task_graphs
-        #すべてのタスクにmemoryをバインド
+        #すべてのタスクにLifeProcessBrainをバインド
+        self.bindLifeProcessBrainToGraph(self)
+        
+    def bindLifeProcessBrainToGraph(self, lifeprocessbrain:"LifeProcessBrain|None"):
         for task_graph in self.task_graph_process.values():
-            task_graph.memory = self.memory
+            task_graph.bindLifeProcessBrain(lifeprocessbrain)
+            for task_unit in task_graph.task_dict.values():
+                task_unit.bindLifeProcessBrain(lifeprocessbrain)
+                if task_unit.tool is not None:
+                    task_unit.tool.bindLifeProcessBrain(lifeprocessbrain)
+    
+    def unbindLifeProcessBrainToGraph(self):
+        self.bindLifeProcessBrainToGraph(None)
 
     async def continueRun(self):
         """
@@ -3076,7 +3279,7 @@ class LifeProcessBrain:
             "tool_query":"目標を決定する",
             "dependencies":[],
         }
-        destination_tool = DestinationTool(task_destination)
+        destination_tool = DestinationTool(task_destination, self)
         output:TaskToolOutput = TaskToolOutput(None,input)
         destination_output = await destination_tool.execute(output)
         # タスクグラフ分解ツールを使って目標を分解するためのTaskを作成
@@ -3089,7 +3292,7 @@ class LifeProcessBrain:
             "tool_query":"目標を分解する",
             "dependencies":["0"],
         }
-        task_decomposition_tool = TaskDecompositionTool(task_decomposition, self.memory)
+        task_decomposition_tool = TaskDecompositionTool(task_decomposition, self)
         task_graph_output = await task_decomposition_tool.execute(destination_output)
         task_graph_exec:Task = {
             "id":"2",
@@ -3100,7 +3303,7 @@ class LifeProcessBrain:
             "tool_query":"タスクを実行する",
             "dependencies":["1"],
         }
-        task_exec_tool = TaskExecutionTool(task_graph_exec)
+        task_exec_tool = TaskExecutionTool(task_graph_exec, self)
         task_exec_output = await task_exec_tool.execute(task_graph_output)
         
         

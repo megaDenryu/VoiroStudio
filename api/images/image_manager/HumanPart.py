@@ -296,7 +296,7 @@ class HumanPart:
         if is_aivoice_active:
             pass
         else:
-            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CevioNameForVoiceroidAPI.json")
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/AIVOICENameForVoiceroidAPI.json")
             chara_names = ExtendFunc.loadJsonToList(path)
         return chara_names
 
@@ -306,7 +306,7 @@ class HumanPart:
         if is_voicevox_active:
             pass
         else:
-            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/CevioNameForVoiceroidAPI.json")
+            path = ExtendFunc.createTargetFilePathFromCommonRoot(__file__,"api/CharSettingJson/VoiceVoxNameForVoiceroidAPI.json")
             chara_names = ExtendFunc.loadJsonToList(path)
         return chara_names
 
