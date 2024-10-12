@@ -1,34 +1,31 @@
 {
-  "include": ["src/**/*"], // チェックするファイルのパス
+  "include": ["./src/**/*"], // 対象のファイル
+  "exclude": [], // 除外するファイル
   "compilerOptions": {
-    "composite": true,
-    "declaration": true,
-    "skipLibCheck": true, // node_modules 内のタイプチェックをスキップ
-    "target": "es2022", // Compile target
-    "lib": ["es2022", "dom"], // .ts ファイル内で利用可能な機能
+    "target": "es2022",
+    "lib": ["es2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "skipLibCheck": true, // *.d.ts ファイルをチェックしない
 
     /* Directory */
     "rootDir": "./src",
-    "baseUrl": "./src",
-    "outDir": "dist",
-    // "paths": { "@/*": ["src/*"] },
+    "outDir": "dist", // 出力先
 
-    /* Module */
-    "esModuleInterop": true,
-    "module": "ESNext",
-    "moduleResolution": "bundler",
+    /* Bundler mode */
+    "resolveJsonModule": true,
+    "noEmit": true,
     "jsx": "react-jsx",
-
-    /* Import option */
     "allowJs": true, // JavaScriptファイルもTypeScriptコンパイルする
     "checkJs": true, // JavaScriptのファイルも型チェックを行う
-    "resolveJsonModule": true, //Allow import .json
-    "allowSyntheticDefaultImports": true,
 
-    /* strict */
+    /* Linting */
     "strict": true, // 厳格な型チェックを行う
+    "noUnusedLocals": true, // ローカル変数が読み取られない場合のエラー報告を有効にします
+    "noUnusedParameters": true, // 関数パラメータが読み取られない場合にエラーを発生させる
+    "noFallthroughCasesInSwitch": true,
     "strictPropertyInitialization": false, // プロパティの初期化を厳格にチェックしない
-    "noUncheckedIndexedAccess": true,
     "noImplicitAny": false, // anyのエラー報告を無効化
   },
 }

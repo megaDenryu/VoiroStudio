@@ -1,4 +1,5 @@
 {
+    "eslint.workingDirectories": ["./app-ts"],
     "python.analysis.extraPaths": [
         "./api/comment_reciver"
     ]
